@@ -53,6 +53,16 @@ export interface BlogTag {
   updatedAt: string;
 }
 
+export interface Asset {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  assetType: string;
+  publicUrl: string;
+  createdAt: string;
+}
+
 export interface ArticleDraftInput {
   title: string;
   slug: string;

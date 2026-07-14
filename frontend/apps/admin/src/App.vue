@@ -3,6 +3,8 @@ import { createApiClient } from '@mindora/api-client';
 import type { ArticleDraftInput, BlogArticle, BlogCategory, BlogTag } from '@mindora/types';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { MdEditor } from 'md-editor-v3';
+import { uploadCoverAsset } from './asset-upload';
+import { createEditorState, resetEditorState } from './editor-state';
 import 'md-editor-v3/lib/style.css';
 
 type AdminView = 'articles' | 'editor' | 'taxonomy';
@@ -28,6 +30,9 @@ const editorId = ref<string | null>(null);
 const newCategory = ref('');
 const newTag = ref('');
 const taxonomyError = ref('');
+const editorState = createEditorState();
+const coverFile = ref<globalThis.File | null>(editorState.coverFile);
+const coverInput = ref<globalThis.HTMLInputElement | null>(null);
 
 const editor = reactive<ArticleDraftInput>({
   title: '',
@@ -59,6 +64,9 @@ function resetEditor(article?: BlogArticle) {
   editor.categoryId = article?.categoryId ?? '';
   editor.tagIds = article?.tagIds ? [...article.tagIds] : [];
   editor.visibility = article?.visibility ?? 'public';
+  editorState.coverInput = coverInput.value;
+  resetEditorState(editorState);
+  coverFile.value = editorState.coverFile;
   activeView.value = 'editor';
   notice.value = '';
 }
@@ -115,6 +123,34 @@ function startNewArticle() {
 
 function editArticle(article: BlogArticle) {
   resetEditor(article);
+}
+
+function selectCoverFile(event: globalThis.Event) {
+  const input = event.target as globalThis.HTMLInputElement;
+  coverFile.value = input.files?.[0] ?? null;
+  editorState.coverFile = coverFile.value;
+  editorState.coverInput = input;
+}
+
+async function uploadCover() {
+  if (!coverFile.value) {
+    notice.value = 'Choose a cover image first.';
+    return;
+  }
+  busy.value = true;
+  notice.value = '';
+  try {
+    const asset = await uploadCoverAsset(api, coverFile.value);
+    editor.coverAssetId = asset.id;
+    notice.value = 'Cover uploaded.';
+    editorState.coverInput = coverInput.value;
+    resetEditorState(editorState);
+    coverFile.value = editorState.coverFile;
+  } catch (error) {
+    notice.value = getErrorMessage(error);
+  } finally {
+    busy.value = false;
+  }
 }
 
 async function saveArticle() {
@@ -370,6 +406,16 @@ onMounted(loadAdminData);
               Cover asset ID
               <input v-model="editor.coverAssetId" type="text" placeholder="Asset module ID" />
             </label>
+            <div class="cover-upload">
+              <label>
+                Cover image
+                <input ref="coverInput" accept="image/*" type="file" @change="selectCoverFile" />
+              </label>
+              <button :disabled="busy || !coverFile" type="button" @click="uploadCover">
+                {{ busy ? 'Uploading...' : 'Upload cover' }}
+              </button>
+              <span v-if="coverFile" class="muted">{{ coverFile.name }}</span>
+            </div>
             <fieldset>
               <legend>Tags</legend>
               <label v-for="tag in tags" :key="tag.id" class="check-label">

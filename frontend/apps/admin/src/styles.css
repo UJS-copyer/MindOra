@@ -320,6 +320,17 @@ td .muted {
   gap: 16px;
 }
 
+.cover-upload {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.cover-upload .muted {
+  grid-column: 1 / -1;
+}
+
 fieldset {
   display: flex;
   flex-wrap: wrap;
@@ -442,6 +453,10 @@ legend {
 
   .field-grid,
   .taxonomy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cover-upload {
     grid-template-columns: 1fr;
   }
 }

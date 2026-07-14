@@ -3,6 +3,7 @@ import type {
   ApiErrorEnvelope,
   ArticleDraftInput,
   ArticleFilters,
+  Asset,
   AuthData,
   BlogArticle,
   BlogCategory,
@@ -16,7 +17,7 @@ export type ApiFetcher = (
   init: {
     headers: Record<string, string>;
     method: 'GET' | 'POST' | 'PUT';
-    body?: string;
+    body?: string | FormData;
   }
 ) => Promise<{
   ok: boolean;
@@ -59,6 +60,7 @@ export interface ApiClient {
   listTags(): Promise<ApiEnvelope<BlogTag[]>>;
   listPublicCategories(): Promise<ApiEnvelope<BlogCategory[]>>;
   listPublicTags(): Promise<ApiEnvelope<BlogTag[]>>;
+  uploadAsset(file: File, assetType: string): Promise<ApiEnvelope<Asset>>;
   createArticle(input: ArticleDraftInput): Promise<ApiEnvelope<BlogArticle>>;
   updateArticle(id: string, input: ArticleDraftInput): Promise<ApiEnvelope<BlogArticle>>;
   publishArticle(id: string): Promise<ApiEnvelope<BlogArticle>>;
@@ -73,18 +75,18 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
   async function request<T>(
     method: 'GET' | 'POST' | 'PUT',
     path: string,
-    body?: object
+    body?: object | FormData
   ): Promise<ApiEnvelope<T>> {
     const headers: Record<string, string> = { Accept: 'application/json' };
     const token = typeof options.authToken === 'function' ? options.authToken() : options.authToken;
     if (token) {
       headers.Authorization = token;
     }
-    if (body) {
+    if (body && !(body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
     }
     const response = await fetcher(joinUrl(options.baseUrl, path), {
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      ...(body ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {}),
       headers,
       method
     });
@@ -136,6 +138,12 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     },
     listPublicTags() {
       return this.get<BlogTag[]>('/api/v1/public/tags');
+    },
+    uploadAsset(file: File, assetType: string) {
+      const form = new FormData();
+      form.set('file', file);
+      form.set('assetType', assetType);
+      return request<Asset>('POST', '/api/v1/admin/assets', form);
     },
     createArticle(input: ArticleDraftInput) {
       return this.post<BlogArticle, ArticleDraftInput>('/api/v1/admin/articles', input);

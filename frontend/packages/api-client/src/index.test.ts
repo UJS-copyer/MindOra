@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiClientError, createApiClient } from './index';
+import type { ApiFetcher } from './index';
 
 describe('createApiClient', () => {
   afterEach(() => {
@@ -136,5 +137,42 @@ describe('createApiClient', () => {
         method: 'GET'
       }
     );
+  });
+
+  it('uploads a cover asset as multipart form data', async () => {
+    const fetcher = vi.fn<ApiFetcher>(async () => ({
+      ok: true,
+      json: async () => ({
+        code: 'success',
+        message: 'OK',
+        data: {
+          id: 'asset-1',
+          fileName: 'cover.png',
+          mimeType: 'image/png',
+          size: 4,
+          assetType: 'blog_cover',
+          publicUrl: '/api/v1/public/assets/asset-1',
+          createdAt: '2026-07-14T00:00:00Z'
+        },
+        traceId: 'trace-asset'
+      })
+    }));
+    const client = createApiClient({
+      baseUrl: 'http://localhost:8080',
+      fetcher,
+      authToken: 'Bearer admin-token'
+    });
+    const file = new File(['data'], 'cover.png', { type: 'image/png' });
+
+    const result = await client.uploadAsset(file, 'blog_cover');
+    const request = fetcher.mock.calls[0]?.[1];
+
+    expect(request?.method).toBe('POST');
+    expect(request?.headers).toEqual({
+      Accept: 'application/json',
+      Authorization: 'Bearer admin-token'
+    });
+    expect(request?.body).toBeInstanceOf(FormData);
+    expect(result.data.assetType).toBe('blog_cover');
   });
 });
