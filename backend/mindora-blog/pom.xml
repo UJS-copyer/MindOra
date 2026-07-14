@@ -9,4 +9,17 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
     <artifactId>mindora-blog</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.mindora</groupId>
+            <artifactId>mindora-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 </project>
