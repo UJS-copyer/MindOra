@@ -40,7 +40,7 @@ export interface ApiClient {
 }
 
 export function createApiClient(options: ApiClientOptions): ApiClient {
-  const fetcher = options.fetcher ?? window.fetch.bind(window);
+  const fetcher = options.fetcher ?? globalThis.fetch.bind(globalThis);
 
   return {
     async get<T>(path: string): Promise<ApiEnvelope<T>> {

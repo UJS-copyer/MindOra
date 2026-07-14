@@ -2,38 +2,68 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Implementation status, 2026-07-14:** Stage 0 has been implemented on branch
+> `feature/stage-0-foundation` using Maven for the backend. The original Gradle
+> paths below were superseded by the Maven module layout recorded in this file.
+
 **Goal:** Create a runnable engineering foundation for the personal knowledge management platform.
 
 **Architecture:** Build a Spring Boot 3 modular monolith under `backend/` and a Vue 3 + Vite npm workspace under `frontend/`. Keep module boundaries explicit with `api`, `application`, `domain`, `infrastructure`, and `web` packages, and expose only stable API/facade surfaces across modules.
 
-**Tech Stack:** Java 21, Spring Boot 3, Spring Security, JUnit 5, Gradle, Vue 3, Vite, TypeScript, Vitest, ESLint, Prettier, Docker Compose, MySQL, Redis, Qdrant, RocketMQ.
+**Tech Stack:** Java 21, Spring Boot 3, Spring Security, JUnit 5, Maven, Vue 3, Vite, TypeScript, Vitest, ESLint, Prettier, Docker Compose, MySQL, Redis, Qdrant, RocketMQ.
+
+**Current verification commands:**
+
+```powershell
+mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml test
+npm test --workspace @mindora/api-client
+npm run typecheck
+npm run lint
+npm run format:check
+npm run build --workspaces --if-present
+```
+
+**Implemented backend module layout:**
+
+```text
+backend/pom.xml
+backend/mindora-common/pom.xml
+backend/mindora-user/pom.xml
+backend/mindora-blog/pom.xml
+backend/mindora-knowledge/pom.xml
+backend/mindora-asset/pom.xml
+backend/mindora-rag/pom.xml
+backend/mindora-admin/pom.xml
+backend/mindora-task/pom.xml
+backend/mindora-adapter/pom.xml
+backend/mindora-app/pom.xml
+```
 
 ---
 
 ### Task 1: Backend Test and Module Skeleton
 
 **Files:**
-- Create: `backend/settings.gradle.kts`
-- Create: `backend/build.gradle.kts`
-- Create: `backend/app/build.gradle.kts`
-- Create: `backend/common/build.gradle.kts`
-- Create: `backend/user/build.gradle.kts`
-- Create: `backend/blog/build.gradle.kts`
-- Create: `backend/knowledge/build.gradle.kts`
-- Create: `backend/asset/build.gradle.kts`
-- Create: `backend/rag/build.gradle.kts`
-- Create: `backend/admin/build.gradle.kts`
-- Create: `backend/task/build.gradle.kts`
-- Create: `backend/adapter/build.gradle.kts`
-- Test: `backend/common/src/test/java/com/pkm/common/api/ApiResponseTest.java`
-- Test: `backend/user/src/test/java/com/pkm/user/application/AuthServiceTest.java`
-- Test: `backend/app/src/test/java/com/pkm/app/web/HealthControllerTest.java`
+- Create: `backend/pom.xml`
+- Create: `backend/mindora-app/pom.xml`
+- Create: `backend/mindora-common/pom.xml`
+- Create: `backend/mindora-user/pom.xml`
+- Create: `backend/mindora-blog/pom.xml`
+- Create: `backend/mindora-knowledge/pom.xml`
+- Create: `backend/mindora-asset/pom.xml`
+- Create: `backend/mindora-rag/pom.xml`
+- Create: `backend/mindora-admin/pom.xml`
+- Create: `backend/mindora-task/pom.xml`
+- Create: `backend/mindora-adapter/pom.xml`
+- Test: `backend/mindora-common/src/test/java/com/mindora/common/api/ApiResponseTest.java`
+- Test: `backend/mindora-user/src/test/java/com/mindora/user/application/AuthServiceTest.java`
+- Test: `backend/mindora-app/src/test/java/com/mindora/app/web/HealthControllerTest.java`
 
 - [ ] **Step 1: Write failing backend tests**
 
 ```java
-// backend/common/src/test/java/com/pkm/common/api/ApiResponseTest.java
-package com.pkm.common.api;
+// backend/mindora-common/src/test/java/com/mindora/common/api/ApiResponseTest.java
+package com.mindora.common.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -55,19 +85,19 @@ class ApiResponseTest {
 ```
 
 ```java
-// backend/user/src/test/java/com/pkm/user/application/AuthServiceTest.java
-package com.pkm.user.application;
+// backend/mindora-user/src/test/java/com/mindora/user/application/AuthServiceTest.java
+package com.mindora.user.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.pkm.common.exception.BusinessException;
-import com.pkm.user.domain.AuthResult;
-import com.pkm.user.domain.RoleName;
-import com.pkm.user.infrastructure.InMemoryUserRepository;
-import com.pkm.user.infrastructure.Sha256PasswordHasher;
-import com.pkm.user.infrastructure.SimpleJwtTokenService;
+import com.mindora.common.exception.BusinessException;
+import com.mindora.user.domain.AuthResult;
+import com.mindora.user.domain.RoleName;
+import com.mindora.user.infrastructure.InMemoryUserRepository;
+import com.mindora.user.infrastructure.Sha256PasswordHasher;
+import com.mindora.user.infrastructure.SimpleJwtTokenService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -106,22 +136,22 @@ class AuthServiceTest {
 ```
 
 ```java
-// backend/app/src/test/java/com/pkm/app/web/HealthControllerTest.java
-package com.pkm.app.web;
+// backend/mindora-app/src/test/java/com/mindora/app/web/HealthControllerTest.java
+package com.mindora.app.web;
 
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.pkm.app.SecondBrainApplication;
+import com.mindora.app.MindOraApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(classes = SecondBrainApplication.class)
+@SpringBootTest(classes = MindOraApplication.class)
 @AutoConfigureMockMvc
 class HealthControllerTest {
     @Autowired
@@ -139,17 +169,17 @@ class HealthControllerTest {
 
 - [ ] **Step 2: Run backend tests and verify RED**
 
-Run: `cd backend && .\gradlew.bat test`
+Run: `cd backend && mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml test`
 
-Expected: fails because `ApiResponse`, `AuthService`, `SecondBrainApplication`, and controllers do not exist yet.
+Expected: fails because `ApiResponse`, `AuthService`, `MindOraApplication`, and controllers do not exist yet.
 
 - [ ] **Step 3: Implement backend minimal code**
 
-Create the Gradle multi-module project, common response/exception primitives, basic auth application service, signed JWT-like token service, and public health endpoint.
+Create the Maven multi-module project, common response/exception primitives, basic auth application service, signed token service, and public health endpoint.
 
 - [ ] **Step 4: Run backend tests and verify GREEN**
 
-Run: `cd backend && .\gradlew.bat test`
+Run: `cd backend && mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml test`
 
 Expected: all backend tests pass.
 
@@ -205,7 +235,7 @@ describe('createApiClient', () => {
 
 - [ ] **Step 2: Run frontend test and verify RED**
 
-Run: `npm test --workspace @pkm/api-client`
+Run: `npm test --workspace @mindora/api-client`
 
 Expected: fails because `createApiClient` does not exist yet.
 
@@ -218,7 +248,7 @@ Create npm workspaces, Vite apps for `site` and `admin`, shared packages, API cl
 Run:
 
 ```powershell
-npm test --workspace @pkm/api-client
+npm test --workspace @mindora/api-client
 npm run typecheck
 npm run lint
 npm run format:check
@@ -231,7 +261,7 @@ Expected: all commands pass.
 **Files:**
 - Create: `compose.yaml`
 - Create: `.env.example`
-- Create: `backend/app/src/main/resources/application.yml`
+- Create: `backend/mindora-app/src/main/resources/application.yml`
 - Create: `README.md`
 - Create: `.gitignore`
 
@@ -245,7 +275,7 @@ Define non-secret defaults and placeholder secrets in `.env.example`.
 
 - [ ] **Step 3: Add startup guide**
 
-Document local prerequisites, backend commands, frontend commands, and Docker Compose commands. Explicitly note that this machine currently lacks Docker and Gradle/Maven globals, so wrapper/dependency commands may need network access.
+Document local prerequisites, backend commands, frontend commands, and Docker Compose commands. The Windows development machine has Maven and Node.js available, but Docker is hosted on the Ubuntu VM.
 
 - [ ] **Step 4: Verify documentation and config presence**
 
@@ -255,7 +285,7 @@ Run:
 Test-Path README.md
 Test-Path compose.yaml
 Test-Path .env.example
-Test-Path backend/app/src/main/resources/application.yml
+Test-Path backend/mindora-app/src/main/resources/application.yml
 ```
 
 Expected: all commands return `True`.
@@ -288,4 +318,11 @@ README startup guide
 
 - [ ] **Step 2: Run final available verification**
 
-Run all commands that are executable in the local environment. Record any commands that cannot run because the local machine lacks Docker, Maven, Gradle, or network access.
+Run all commands that are executable in the local environment. Record that local Maven/frontend verification passed, Docker is not installed on Windows, and the read-only VM check found MySQL, Redis, Qdrant, and RocketMQ NameServer healthy while the existing RocketMQ broker deployment is restarting with exit code 253.
+
+### Current Stage 0 Verification Record
+
+- Local backend Maven reactor tests: passed, including auth register/login MockMvc coverage.
+- Local frontend API client, typecheck, lint, format, and build checks: passed before the current API-client regression test was added; rerun before the final commit.
+- VM read-only checks on 2026-07-14: MySQL `mysqld is alive`, Redis `PONG`, Qdrant `healthz check passed`, RocketMQ NameServer booted.
+- VM deployment gap: `mindora-rmqbroker` is running `apache/rocketmq:4.9.6` with the legacy `broker.conf` command and is restarting with exit code `253`; local `compose.yaml` defines RocketMQ `5.3.2`, so the deployment must be reconciled before claiming the remote broker is healthy.
