@@ -59,6 +59,23 @@ class ArticleServiceTest {
     }
 
     @Test
+    void editsUnpublishedArticleBeforeRepublishing() {
+        BlogArticle draft = articleService.createDraft(command("First title", "first-title"));
+        articleService.publish(draft.id());
+        articleService.unpublish(draft.id());
+
+        BlogArticle edited = articleService.updateArticle(
+                draft.id(),
+                command("Edited title", "edited-title"));
+        BlogArticle republished = articleService.publish(draft.id());
+
+        assertEquals("Edited title", edited.title());
+        assertEquals(ArticleStatus.UNPUBLISHED, edited.status());
+        assertEquals("edited-title", republished.slug());
+        assertEquals(ArticleStatus.PUBLISHED, republished.status());
+    }
+
+    @Test
     void publishesAndUnpublishesArticle() {
         BlogArticle draft = articleService.createDraft(command("First title", "first-title"));
 
@@ -100,6 +117,18 @@ class ArticleServiceTest {
         assertEquals(
                 List.of(articleService.get(article.id())),
                 articleService.listPublic(category.id(), tag.id()));
+    }
+
+    @Test
+    void listsAdminArticlesRegardlessOfPublicationStatus() {
+        BlogArticle draft = articleService.createDraft(command("Draft", "draft"));
+        BlogArticle published = articleService.publish(
+                articleService.createDraft(command("Published", "published")).id());
+
+        List<BlogArticle> articles = articleService.listAdmin();
+        assertEquals(2, articles.size());
+        assertTrue(articles.contains(draft));
+        assertTrue(articles.contains(published));
     }
 
     @Test

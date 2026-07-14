@@ -23,4 +23,8 @@ public interface BlogRepository {
     Tag saveTag(Tag tag);
 
     Optional<Tag> findTagById(UUID id);
+
+    List<Category> listCategories();
+
+    List<Tag> listTags();
 }

@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -31,11 +32,35 @@ public class BlogAdminController {
         return success(BlogViews.category(articleService.createCategory(request.name())), traceId);
     }
 
+    @GetMapping("/categories")
+    public ApiResponse<java.util.List<BlogViews.CategoryView>> listCategories(
+            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+        return success(articleService.listCategories().stream()
+                .map(BlogViews::category)
+                .toList(), traceId);
+    }
+
     @PostMapping("/tags")
     public ApiResponse<BlogViews.TagView> createTag(
             @Valid @RequestBody NameRequest request,
             @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
         return success(BlogViews.tag(articleService.createTag(request.name())), traceId);
+    }
+
+    @GetMapping("/tags")
+    public ApiResponse<java.util.List<BlogViews.TagView>> listTags(
+            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+        return success(articleService.listTags().stream()
+                .map(BlogViews::tag)
+                .toList(), traceId);
+    }
+
+    @GetMapping("/articles")
+    public ApiResponse<java.util.List<BlogViews.ArticleView>> listArticles(
+            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+        return success(articleService.listAdmin().stream()
+                .map(BlogViews::article)
+                .toList(), traceId);
     }
 
     @PostMapping("/articles")
@@ -50,7 +75,7 @@ public class BlogAdminController {
             @PathVariable UUID id,
             @RequestBody ArticleRequest request,
             @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
-        return success(BlogViews.article(articleService.updateDraft(id, request.command())), traceId);
+        return success(BlogViews.article(articleService.updateArticle(id, request.command())), traceId);
     }
 
     @PostMapping("/articles/{id}/publish")
