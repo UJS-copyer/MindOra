@@ -33,10 +33,42 @@ public class ArticleService {
         return repository.saveCategory(new Category(UUID.randomUUID(), normalizedName, now, now));
     }
 
+    public Category updateCategory(UUID id, String name) {
+        Category category = repository.findCategoryById(id)
+                .orElseThrow(() -> new BusinessException("category_not_found", "Category not found"));
+        String normalizedName = requireText(name, "category_name_required", "Category name is required");
+        return repository.saveCategory(new Category(
+                category.id(),
+                normalizedName,
+                category.createdAt(),
+                Instant.now(clock)));
+    }
+
+    public void deleteCategory(UUID id) {
+        if (repository.findCategoryById(id).isEmpty()) {
+            throw new BusinessException("category_not_found", "Category not found");
+        }
+        repository.deleteCategory(id);
+    }
+
     public Tag createTag(String name) {
         String normalizedName = requireText(name, "tag_name_required", "Tag name is required");
         Instant now = Instant.now(clock);
         return repository.saveTag(new Tag(UUID.randomUUID(), normalizedName, now, now));
+    }
+
+    public Tag updateTag(UUID id, String name) {
+        Tag tag = repository.findTagById(id)
+                .orElseThrow(() -> new BusinessException("tag_not_found", "Tag not found"));
+        String normalizedName = requireText(name, "tag_name_required", "Tag name is required");
+        return repository.saveTag(new Tag(tag.id(), normalizedName, tag.createdAt(), Instant.now(clock)));
+    }
+
+    public void deleteTag(UUID id) {
+        if (repository.findTagById(id).isEmpty()) {
+            throw new BusinessException("tag_not_found", "Tag not found");
+        }
+        repository.deleteTag(id);
     }
 
     public BlogArticle createDraft(ArticleDraftCommand command) {

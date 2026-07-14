@@ -175,4 +175,65 @@ describe('createApiClient', () => {
     expect(request?.body).toBeInstanceOf(FormData);
     expect(result.data.assetType).toBe('blog_cover');
   });
+
+  it('supports taxonomy update and delete endpoints', async () => {
+    const fetcher = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        code: 'success',
+        message: 'OK',
+        data: { id: 'cat-1', name: '产品工程' },
+        traceId: 'trace-taxonomy'
+      })
+    }));
+    const client = createApiClient({
+      baseUrl: 'http://localhost:8080',
+      fetcher,
+      authToken: 'Bearer admin-token'
+    });
+
+    await client.updateCategory('cat-1', '产品工程');
+    await client.deleteTag('tag-1');
+
+    expect(fetcher).toHaveBeenNthCalledWith(
+      1,
+      'http://localhost:8080/api/v1/admin/categories/cat-1',
+      {
+        body: JSON.stringify({ name: '产品工程' }),
+        headers: {
+          Accept: 'application/json',
+          Authorization: 'Bearer admin-token',
+          'Content-Type': 'application/json'
+        },
+        method: 'PUT'
+      }
+    );
+    expect(fetcher).toHaveBeenNthCalledWith(2, 'http://localhost:8080/api/v1/admin/tags/tag-1', {
+      headers: {
+        Accept: 'application/json',
+        Authorization: 'Bearer admin-token'
+      },
+      method: 'DELETE'
+    });
+  });
+
+  it('lists admin assets for reuse', async () => {
+    const fetcher = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        code: 'success',
+        message: 'OK',
+        data: [],
+        traceId: 'trace-assets'
+      })
+    }));
+    const client = createApiClient({ baseUrl: 'http://localhost:8080', fetcher });
+
+    await client.listAssets();
+
+    expect(fetcher).toHaveBeenCalledWith('http://localhost:8080/api/v1/admin/assets', {
+      headers: { Accept: 'application/json' },
+      method: 'GET'
+    });
+  });
 });

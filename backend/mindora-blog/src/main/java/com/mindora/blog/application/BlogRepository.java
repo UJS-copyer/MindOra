@@ -20,9 +20,13 @@ public interface BlogRepository {
 
     Optional<Category> findCategoryById(UUID id);
 
+    void deleteCategory(UUID id);
+
     Tag saveTag(Tag tag);
 
     Optional<Tag> findTagById(UUID id);
+
+    void deleteTag(UUID id);
 
     List<Category> listCategories();
 

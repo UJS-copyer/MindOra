@@ -16,7 +16,7 @@ export type ApiFetcher = (
   input: string,
   init: {
     headers: Record<string, string>;
-    method: 'GET' | 'POST' | 'PUT';
+    method: 'DELETE' | 'GET' | 'POST' | 'PUT';
     body?: string | FormData;
   }
 ) => Promise<{
@@ -49,17 +49,23 @@ export class ApiClientError extends Error {
 
 export interface ApiClient {
   get<T>(path: string): Promise<ApiEnvelope<T>>;
+  delete<T>(path: string): Promise<ApiEnvelope<T>>;
   post<T, B extends object>(path: string, body: B): Promise<ApiEnvelope<T>>;
   put<T, B extends object>(path: string, body: B): Promise<ApiEnvelope<T>>;
   health(): Promise<ApiEnvelope<HealthData>>;
   login(email: string, password: string): Promise<ApiEnvelope<AuthData>>;
   createCategory(name: string): Promise<ApiEnvelope<BlogCategory>>;
+  updateCategory(id: string, name: string): Promise<ApiEnvelope<BlogCategory>>;
+  deleteCategory(id: string): Promise<ApiEnvelope<void>>;
   createTag(name: string): Promise<ApiEnvelope<BlogTag>>;
+  updateTag(id: string, name: string): Promise<ApiEnvelope<BlogTag>>;
+  deleteTag(id: string): Promise<ApiEnvelope<void>>;
   listAdminArticles(): Promise<ApiEnvelope<BlogArticle[]>>;
   listCategories(): Promise<ApiEnvelope<BlogCategory[]>>;
   listTags(): Promise<ApiEnvelope<BlogTag[]>>;
   listPublicCategories(): Promise<ApiEnvelope<BlogCategory[]>>;
   listPublicTags(): Promise<ApiEnvelope<BlogTag[]>>;
+  listAssets(): Promise<ApiEnvelope<Asset[]>>;
   uploadAsset(file: File, assetType: string): Promise<ApiEnvelope<Asset>>;
   createArticle(input: ArticleDraftInput): Promise<ApiEnvelope<BlogArticle>>;
   updateArticle(id: string, input: ArticleDraftInput): Promise<ApiEnvelope<BlogArticle>>;
@@ -73,7 +79,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
   const fetcher = options.fetcher ?? globalThis.fetch.bind(globalThis);
 
   async function request<T>(
-    method: 'GET' | 'POST' | 'PUT',
+    method: 'DELETE' | 'GET' | 'POST' | 'PUT',
     path: string,
     body?: object | FormData
   ): Promise<ApiEnvelope<T>> {
@@ -103,6 +109,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     get<T>(path: string): Promise<ApiEnvelope<T>> {
       return request<T>('GET', path);
     },
+    delete<T>(path: string): Promise<ApiEnvelope<T>> {
+      return request<T>('DELETE', path);
+    },
     post<T, B extends object>(path: string, body: B): Promise<ApiEnvelope<T>> {
       return request<T>('POST', path, body);
     },
@@ -121,8 +130,20 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     createCategory(name: string) {
       return this.post<BlogCategory, { name: string }>('/api/v1/admin/categories', { name });
     },
+    updateCategory(id: string, name: string) {
+      return this.put<BlogCategory, { name: string }>(`/api/v1/admin/categories/${id}`, { name });
+    },
+    deleteCategory(id: string) {
+      return this.delete<void>(`/api/v1/admin/categories/${id}`);
+    },
     createTag(name: string) {
       return this.post<BlogTag, { name: string }>('/api/v1/admin/tags', { name });
+    },
+    updateTag(id: string, name: string) {
+      return this.put<BlogTag, { name: string }>(`/api/v1/admin/tags/${id}`, { name });
+    },
+    deleteTag(id: string) {
+      return this.delete<void>(`/api/v1/admin/tags/${id}`);
     },
     listAdminArticles() {
       return this.get<BlogArticle[]>('/api/v1/admin/articles');
@@ -138,6 +159,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     },
     listPublicTags() {
       return this.get<BlogTag[]>('/api/v1/public/tags');
+    },
+    listAssets() {
+      return this.get<Asset[]>('/api/v1/admin/assets');
     },
     uploadAsset(file: File, assetType: string) {
       const form = new FormData();

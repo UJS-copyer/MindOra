@@ -110,6 +110,11 @@ public class JdbcBlogRepository implements BlogRepository {
     }
 
     @Override
+    public void deleteCategory(UUID id) {
+        jdbcTemplate.update("UPDATE category SET deleted = TRUE WHERE id = ?", PublicIds.toPublicId(id));
+    }
+
+    @Override
     public Tag saveTag(Tag tag) {
         jdbcTemplate.update(
                 """
@@ -132,6 +137,11 @@ public class JdbcBlogRepository implements BlogRepository {
                         PublicIds.toPublicId(id))
                 .stream()
                 .findFirst();
+    }
+
+    @Override
+    public void deleteTag(UUID id) {
+        jdbcTemplate.update("UPDATE tag SET deleted = TRUE WHERE id = ?", PublicIds.toPublicId(id));
     }
 
     @Override

@@ -50,6 +50,11 @@ public class InMemoryBlogRepository implements BlogRepository {
     }
 
     @Override
+    public void deleteCategory(UUID id) {
+        categories.remove(id);
+    }
+
+    @Override
     public Tag saveTag(Tag tag) {
         tags.put(tag.id(), tag);
         return tag;
@@ -58,6 +63,11 @@ public class InMemoryBlogRepository implements BlogRepository {
     @Override
     public Optional<Tag> findTagById(UUID id) {
         return Optional.ofNullable(tags.get(id));
+    }
+
+    @Override
+    public void deleteTag(UUID id) {
+        tags.remove(id);
     }
 
     @Override

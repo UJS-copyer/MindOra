@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { createApiClient } from '@mindora/api-client';
-import type { ArticleDraftInput, BlogArticle, BlogCategory, BlogTag } from '@mindora/types';
+import type { ArticleDraftInput, Asset, BlogArticle, BlogCategory, BlogTag } from '@mindora/types';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { MdEditor } from 'md-editor-v3';
 import { uploadCoverAsset } from './asset-upload';
 import { createEditorState, resetEditorState } from './editor-state';
 import 'md-editor-v3/lib/style.css';
 
-type AdminView = 'articles' | 'editor' | 'taxonomy';
+type AdminView = 'articles' | 'editor' | 'taxonomy' | 'assets';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 const token = ref(localStorage.getItem('mindora_admin_token') ?? '');
@@ -26,11 +26,18 @@ const activeView = ref<AdminView>('articles');
 const articles = ref<BlogArticle[]>([]);
 const categories = ref<BlogCategory[]>([]);
 const tags = ref<BlogTag[]>([]);
+const assets = ref<Asset[]>([]);
 const filterStatus = ref('all');
 const editorId = ref<string | null>(null);
 const newCategory = ref('');
 const newTag = ref('');
 const taxonomyError = ref('');
+const editingCategoryId = ref<string | null>(null);
+const editingCategoryName = ref('');
+const editingTagId = ref<string | null>(null);
+const editingTagName = ref('');
+const assetUploadFile = ref<globalThis.File | null>(null);
+const assetInput = ref<globalThis.HTMLInputElement | null>(null);
 const editorState = createEditorState();
 const coverFile = ref<globalThis.File | null>(editorState.coverFile);
 const coverInput = ref<globalThis.HTMLInputElement | null>(null);
@@ -58,8 +65,15 @@ const viewTitle = computed(() => {
   if (activeView.value === 'editor') {
     return editorTitle.value;
   }
-  return activeView.value === 'taxonomy' ? '分类与标签' : '文章管理';
+  if (activeView.value === 'taxonomy') {
+    return '分类与标签';
+  }
+  return activeView.value === 'assets' ? '资产管理' : '文章管理';
 });
+
+const selectedCoverAsset = computed(() =>
+  editor.coverAssetId ? assets.value.find((asset) => asset.id === editor.coverAssetId) : undefined
+);
 
 function showSuccess(message: string) {
   noticeType.value = 'success';
@@ -99,14 +113,16 @@ async function loadAdminData() {
   }
   busy.value = true;
   try {
-    const [articleResponse, categoryResponse, tagResponse] = await Promise.all([
+    const [articleResponse, categoryResponse, tagResponse, assetResponse] = await Promise.all([
       api.listAdminArticles(),
       api.listCategories(),
-      api.listTags()
+      api.listTags(),
+      api.listAssets()
     ]);
     articles.value = articleResponse.data;
     categories.value = categoryResponse.data;
     tags.value = tagResponse.data;
+    assets.value = assetResponse.data;
   } catch (error) {
     showError(error);
   } finally {
@@ -177,6 +193,7 @@ async function uploadCover() {
   try {
     const asset = await uploadCoverAsset(api, coverFile.value);
     editor.coverAssetId = asset.id;
+    assets.value = [asset, ...assets.value.filter((item) => item.id !== asset.id)];
     showSuccess('封面上传成功。');
     editorState.coverInput = coverInput.value;
     resetEditorState(editorState);
@@ -186,6 +203,16 @@ async function uploadCover() {
   } finally {
     busy.value = false;
   }
+}
+
+function selectExistingCover(asset: Asset) {
+  editor.coverAssetId = asset.id;
+  showSuccess('已选择现有资产作为封面，保存文章后生效。');
+}
+
+function useAssetAsCover(asset: Asset) {
+  selectExistingCover(asset);
+  activeView.value = 'editor';
 }
 
 async function saveArticle() {
@@ -236,6 +263,52 @@ async function addCategory() {
     const response = await api.createCategory(newCategory.value.trim());
     categories.value.push(response.data);
     newCategory.value = '';
+    showSuccess('分类已添加。');
+  } catch (error) {
+    taxonomyError.value = getErrorMessage(error);
+  }
+}
+
+function startEditCategory(category: BlogCategory) {
+  editingCategoryId.value = category.id;
+  editingCategoryName.value = category.name;
+}
+
+function cancelEditCategory() {
+  editingCategoryId.value = null;
+  editingCategoryName.value = '';
+}
+
+async function saveCategory(category: BlogCategory) {
+  if (!editingCategoryName.value.trim()) {
+    taxonomyError.value = '请输入分类名称。';
+    return;
+  }
+  taxonomyError.value = '';
+  try {
+    const response = await api.updateCategory(category.id, editingCategoryName.value.trim());
+    categories.value = categories.value.map((item) =>
+      item.id === category.id ? response.data : item
+    );
+    cancelEditCategory();
+    showSuccess('分类已更新。');
+  } catch (error) {
+    taxonomyError.value = getErrorMessage(error);
+  }
+}
+
+async function removeCategory(category: BlogCategory) {
+  if (!globalThis.confirm(`确定停用分类“${category.name}”？`)) {
+    return;
+  }
+  taxonomyError.value = '';
+  try {
+    await api.deleteCategory(category.id);
+    categories.value = categories.value.filter((item) => item.id !== category.id);
+    if (editor.categoryId === category.id) {
+      editor.categoryId = '';
+    }
+    showSuccess('分类已停用。');
   } catch (error) {
     taxonomyError.value = getErrorMessage(error);
   }
@@ -250,9 +323,98 @@ async function addTag() {
     const response = await api.createTag(newTag.value.trim());
     tags.value.push(response.data);
     newTag.value = '';
+    showSuccess('标签已添加。');
   } catch (error) {
     taxonomyError.value = getErrorMessage(error);
   }
+}
+
+function startEditTag(tag: BlogTag) {
+  editingTagId.value = tag.id;
+  editingTagName.value = tag.name;
+}
+
+function cancelEditTag() {
+  editingTagId.value = null;
+  editingTagName.value = '';
+}
+
+async function saveTag(tag: BlogTag) {
+  if (!editingTagName.value.trim()) {
+    taxonomyError.value = '请输入标签名称。';
+    return;
+  }
+  taxonomyError.value = '';
+  try {
+    const response = await api.updateTag(tag.id, editingTagName.value.trim());
+    tags.value = tags.value.map((item) => (item.id === tag.id ? response.data : item));
+    cancelEditTag();
+    showSuccess('标签已更新。');
+  } catch (error) {
+    taxonomyError.value = getErrorMessage(error);
+  }
+}
+
+async function removeTag(tag: BlogTag) {
+  if (!globalThis.confirm(`确定停用标签“${tag.name}”？`)) {
+    return;
+  }
+  taxonomyError.value = '';
+  try {
+    await api.deleteTag(tag.id);
+    tags.value = tags.value.filter((item) => item.id !== tag.id);
+    editor.tagIds = editor.tagIds.filter((id) => id !== tag.id);
+    showSuccess('标签已停用。');
+  } catch (error) {
+    taxonomyError.value = getErrorMessage(error);
+  }
+}
+
+function selectAssetUploadFile(event: globalThis.Event) {
+  const input = event.target as globalThis.HTMLInputElement;
+  assetUploadFile.value = input.files?.[0] ?? null;
+}
+
+async function uploadAssetFromLibrary() {
+  if (!assetUploadFile.value) {
+    showError('请先选择图片资产。');
+    return;
+  }
+  busy.value = true;
+  clearNotice();
+  try {
+    const response = await api.uploadAsset(assetUploadFile.value, 'blog_asset');
+    assets.value = [
+      response.data,
+      ...assets.value.filter((asset) => asset.id !== response.data.id)
+    ];
+    assetUploadFile.value = null;
+    if (assetInput.value) {
+      assetInput.value.value = '';
+    }
+    showSuccess('资产已上传。');
+  } catch (error) {
+    showError(error);
+  } finally {
+    busy.value = false;
+  }
+}
+
+function assetUrl(asset: Asset) {
+  if (asset.publicUrl.startsWith('http://') || asset.publicUrl.startsWith('https://')) {
+    return asset.publicUrl;
+  }
+  return `${baseUrl}${asset.publicUrl}`;
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function statusLabel(status: string) {
@@ -285,8 +447,10 @@ function getErrorMessage(error: unknown) {
       invalid_credentials: '邮箱或密码不正确。',
       validation_error: '输入内容不完整，请检查后重试。',
       asset_type_unsupported: '仅支持 PNG、JPG、GIF、WebP 图片。',
-      asset_too_large: '封面图片不能超过 5MB。',
-      asset_storage_error: '封面保存失败，请稍后重试。'
+      asset_too_large: '图片不能超过 5MB。',
+      asset_storage_error: '图片保存失败，请稍后重试。',
+      category_name_required: '请输入分类名称。',
+      tag_name_required: '请输入标签名称。'
     };
     if (coded.code && messages[coded.code]) {
       return messages[coded.code];
@@ -354,6 +518,13 @@ onMounted(loadAdminData);
             @click="activeView = 'taxonomy'"
           >
             分类与标签
+          </button>
+          <button
+            :class="{ active: activeView === 'assets' }"
+            type="button"
+            @click="activeView = 'assets'"
+          >
+            资产管理
           </button>
         </nav>
         <button class="quiet-button" type="button" @click="logout">退出登录</button>
@@ -477,18 +648,53 @@ onMounted(loadAdminData);
               </label>
             </div>
             <div v-if="editor.coverAssetId" class="cover-reference">
-              <span>当前封面已上传</span>
+              <img
+                v-if="selectedCoverAsset"
+                :alt="selectedCoverAsset.fileName"
+                :src="assetUrl(selectedCoverAsset)"
+              />
+              <div>
+                <span>{{ selectedCoverAsset?.fileName ?? '当前封面已选择' }}</span>
+                <small v-if="selectedCoverAsset" class="muted">
+                  {{ formatFileSize(selectedCoverAsset.size) }}
+                </small>
+              </div>
               <button class="quiet-button" type="button" @click="clearCover">移除封面</button>
             </div>
             <div class="cover-upload">
               <label>
-                封面图片
+                上传新封面
                 <input ref="coverInput" accept="image/*" type="file" @change="selectCoverFile" />
               </label>
               <button :disabled="busy || !coverFile" type="button" @click="uploadCover">
                 {{ busy ? '上传中...' : '上传封面' }}
               </button>
               <span v-if="coverFile" class="muted">{{ coverFile.name }}</span>
+            </div>
+            <div class="asset-picker">
+              <div class="field-heading">
+                <div>
+                  <h3>选择已有封面</h3>
+                  <p>复用资产库中的图片，保存文章后生效。</p>
+                </div>
+                <button class="quiet-button" type="button" @click="activeView = 'assets'">
+                  打开资产库
+                </button>
+              </div>
+              <div v-if="assets.length" class="asset-strip">
+                <button
+                  v-for="asset in assets.slice(0, 8)"
+                  :key="asset.id"
+                  class="asset-thumb"
+                  :class="{ selected: editor.coverAssetId === asset.id }"
+                  type="button"
+                  @click="selectExistingCover(asset)"
+                >
+                  <img :alt="asset.fileName" :src="assetUrl(asset)" />
+                  <span>{{ asset.fileName }}</span>
+                </button>
+              </div>
+              <p v-else class="muted">资产库暂无图片，可以先上传新封面。</p>
             </div>
             <fieldset>
               <legend>标签</legend>
@@ -506,7 +712,7 @@ onMounted(loadAdminData);
                 <p>支持 Markdown，保存后由前台展示。</p>
               </div>
             </div>
-            <MdEditor v-model="editor.body" language="en-US" :preview="true" />
+            <MdEditor v-model="editor.body" language="zh-CN" :preview="true" />
             <div class="editor-actions">
               <button class="quiet-button" :disabled="busy" type="button" @click="cancelEdit">
                 取消
@@ -518,7 +724,11 @@ onMounted(loadAdminData);
           </div>
         </section>
 
-        <section v-else class="content-section taxonomy-section" aria-labelledby="taxonomy-title">
+        <section
+          v-else-if="activeView === 'taxonomy'"
+          class="content-section taxonomy-section"
+          aria-labelledby="taxonomy-title"
+        >
           <div class="toolbar">
             <div>
               <h3 id="taxonomy-title">分类与标签</h3>
@@ -534,8 +744,32 @@ onMounted(loadAdminData);
                 <input v-model="newCategory" type="text" />
               </label>
               <button type="submit">添加分类</button>
-              <ul>
-                <li v-for="category in categories" :key="category.id">{{ category.name }}</li>
+              <ul class="taxonomy-list">
+                <li v-for="category in categories" :key="category.id">
+                  <template v-if="editingCategoryId === category.id">
+                    <input
+                      v-model="editingCategoryName"
+                      aria-label="分类名称"
+                      class="inline-input"
+                      type="text"
+                    />
+                    <button type="button" @click="saveCategory(category)">保存</button>
+                    <button class="quiet-button" type="button" @click="cancelEditCategory">
+                      取消
+                    </button>
+                  </template>
+                  <template v-else>
+                    <span>{{ category.name }}</span>
+                    <button type="button" @click="startEditCategory(category)">重命名</button>
+                    <button
+                      class="quiet-button danger"
+                      type="button"
+                      @click="removeCategory(category)"
+                    >
+                      停用
+                    </button>
+                  </template>
+                </li>
               </ul>
             </form>
             <form class="taxonomy-panel" @submit.prevent="addTag">
@@ -545,11 +779,67 @@ onMounted(loadAdminData);
                 <input v-model="newTag" type="text" />
               </label>
               <button type="submit">添加标签</button>
-              <ul>
-                <li v-for="tag in tags" :key="tag.id">{{ tag.name }}</li>
+              <ul class="taxonomy-list">
+                <li v-for="tag in tags" :key="tag.id">
+                  <template v-if="editingTagId === tag.id">
+                    <input
+                      v-model="editingTagName"
+                      aria-label="标签名称"
+                      class="inline-input"
+                      type="text"
+                    />
+                    <button type="button" @click="saveTag(tag)">保存</button>
+                    <button class="quiet-button" type="button" @click="cancelEditTag">取消</button>
+                  </template>
+                  <template v-else>
+                    <span>{{ tag.name }}</span>
+                    <button type="button" @click="startEditTag(tag)">重命名</button>
+                    <button class="quiet-button danger" type="button" @click="removeTag(tag)">
+                      停用
+                    </button>
+                  </template>
+                </li>
               </ul>
             </form>
           </div>
+        </section>
+
+        <section v-else class="content-section assets-section" aria-labelledby="assets-title">
+          <div class="toolbar">
+            <div>
+              <h3 id="assets-title">资产库</h3>
+              <p>上传和复用文章封面、正文配图等图片资产。</p>
+            </div>
+          </div>
+          <form class="asset-upload-panel" @submit.prevent="uploadAssetFromLibrary">
+            <label>
+              上传图片
+              <input
+                ref="assetInput"
+                accept="image/*"
+                type="file"
+                @change="selectAssetUploadFile"
+              />
+            </label>
+            <button :disabled="busy || !assetUploadFile" type="submit">
+              {{ busy ? '上传中...' : '上传资产' }}
+            </button>
+            <span v-if="assetUploadFile" class="muted">{{ assetUploadFile.name }}</span>
+          </form>
+          <div v-if="assets.length" class="asset-grid">
+            <article v-for="asset in assets" :key="asset.id" class="asset-card">
+              <img :alt="asset.fileName" :src="assetUrl(asset)" />
+              <div>
+                <strong>{{ asset.fileName }}</strong>
+                <span class="muted">{{ formatFileSize(asset.size) }} · {{ asset.mimeType }}</span>
+              </div>
+              <div class="asset-actions">
+                <a :href="assetUrl(asset)" target="_blank" rel="noreferrer">查看</a>
+                <button type="button" @click="useAssetAsCover(asset)">设为封面</button>
+              </div>
+            </article>
+          </div>
+          <p v-else class="empty-state">资产库暂无图片。</p>
         </section>
       </section>
     </div>

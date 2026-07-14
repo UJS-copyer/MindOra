@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,6 +43,24 @@ public class BlogAdminController {
                 .toList(), traceId);
     }
 
+    @PutMapping("/categories/{id}")
+    public ApiResponse<BlogViews.CategoryView> updateCategory(
+            @PathVariable String id,
+            @Valid @RequestBody NameRequest request,
+            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+        return success(
+                BlogViews.category(articleService.updateCategory(PublicIds.toUuid(id), request.name())),
+                traceId);
+    }
+
+    @DeleteMapping("/categories/{id}")
+    public ApiResponse<Void> deleteCategory(
+            @PathVariable String id,
+            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+        articleService.deleteCategory(PublicIds.toUuid(id));
+        return success(null, traceId);
+    }
+
     @PostMapping("/tags")
     public ApiResponse<BlogViews.TagView> createTag(
             @Valid @RequestBody NameRequest request,
@@ -55,6 +74,24 @@ public class BlogAdminController {
         return success(articleService.listTags().stream()
                 .map(BlogViews::tag)
                 .toList(), traceId);
+    }
+
+    @PutMapping("/tags/{id}")
+    public ApiResponse<BlogViews.TagView> updateTag(
+            @PathVariable String id,
+            @Valid @RequestBody NameRequest request,
+            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+        return success(
+                BlogViews.tag(articleService.updateTag(PublicIds.toUuid(id), request.name())),
+                traceId);
+    }
+
+    @DeleteMapping("/tags/{id}")
+    public ApiResponse<Void> deleteTag(
+            @PathVariable String id,
+            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+        articleService.deleteTag(PublicIds.toUuid(id));
+        return success(null, traceId);
     }
 
     @GetMapping("/articles")

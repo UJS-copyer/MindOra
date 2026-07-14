@@ -3,6 +3,8 @@ package com.mindora.app.web;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -185,6 +187,51 @@ class BlogControllerTest {
         mockMvc.perform(get("/api/v1/public/tags"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[*].name", hasItem("Public Tag")));
+    }
+
+    @Test
+    void adminRenamesAndDeletesTaxonomyItems() throws Exception {
+        String adminToken = tokenFor(RoleName.SUPER_ADMIN);
+        String categoryId = postForId("/api/v1/admin/categories", adminToken, """
+                {"name":"Operations"}
+                """);
+        String tagId = postForId("/api/v1/admin/tags", adminToken, """
+                {"name":"Old Tag"}
+                """);
+
+        mockMvc.perform(put("/api/v1/admin/categories/{id}", categoryId)
+                        .header(HttpHeaders.AUTHORIZATION, adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"产品工程"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name", is("产品工程")));
+
+        mockMvc.perform(put("/api/v1/admin/tags/{id}", tagId)
+                        .header(HttpHeaders.AUTHORIZATION, adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Vue"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name", is("Vue")));
+
+        mockMvc.perform(delete("/api/v1/admin/categories/{id}", categoryId)
+                        .header(HttpHeaders.AUTHORIZATION, adminToken))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/v1/admin/tags/{id}", tagId)
+                        .header(HttpHeaders.AUTHORIZATION, adminToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/admin/categories")
+                        .header(HttpHeaders.AUTHORIZATION, adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].name", not(hasItem("产品工程"))));
+        mockMvc.perform(get("/api/v1/admin/tags")
+                        .header(HttpHeaders.AUTHORIZATION, adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].name", not(hasItem("Vue"))));
     }
 
     private String postForId(String path, String token, String body) throws Exception {
