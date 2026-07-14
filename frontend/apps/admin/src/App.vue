@@ -368,14 +368,6 @@ onMounted(loadAdminData);
           <button v-if="activeView === 'articles'" type="button" @click="startNewArticle">
             新建文章
           </button>
-          <button
-            v-if="activeView === 'editor'"
-            class="quiet-button"
-            type="button"
-            @click="cancelEdit"
-          >
-            取消编辑
-          </button>
         </header>
 
         <p v-if="notice" class="notice" :class="`notice-${noticeType}`" role="alert">
