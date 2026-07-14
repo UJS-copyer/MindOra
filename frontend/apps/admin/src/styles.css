@@ -406,11 +406,48 @@ legend {
 .notice,
 .loading-line {
   margin: 0 0 16px;
+  border-radius: 5px;
+  padding: 11px 14px;
   color: #176249;
+  background: #e5f4eb;
 }
 
 .loading-line {
+  border: 0;
+  padding: 0;
   color: #71838a;
+  background: transparent;
+}
+
+.notice-error {
+  color: #9f3834;
+  background: #fde9e7;
+}
+
+.cover-reference {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #cfe2dc;
+  border-radius: 5px;
+  padding: 10px 12px;
+  color: #176249;
+  background: #f0f8f4;
+}
+
+.cover-reference .quiet-button {
+  min-height: 30px;
+  padding: 0 8px;
+  color: #9f3834;
+}
+
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #d6e0e2;
+  padding-top: 16px;
 }
 
 .sr-only {
