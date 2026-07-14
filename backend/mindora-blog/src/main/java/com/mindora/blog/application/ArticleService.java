@@ -68,9 +68,22 @@ public class ArticleService {
             throw new BusinessException(
                     "article_invalid_transition", "Only draft articles can be edited by this command");
         }
+        return updateArticle(article, command);
+    }
+
+    public BlogArticle updateArticle(UUID id, ArticleDraftCommand command) {
+        BlogArticle article = get(id);
+        if (article.status() == ArticleStatus.PUBLISHED) {
+            throw new BusinessException(
+                    "article_invalid_transition", "Published articles must be unpublished before editing");
+        }
+        return updateArticle(article, command);
+    }
+
+    private BlogArticle updateArticle(BlogArticle article, ArticleDraftCommand command) {
         validateCommand(command);
         ensureReferences(command);
-        ensureSlugAvailable(command.slug(), id);
+        ensureSlugAvailable(command.slug(), article.id());
         BlogArticle updated = article.updateDraft(
                 command.title().trim(),
                 command.slug().trim(),
@@ -114,6 +127,20 @@ public class ArticleService {
                 .filter(article -> tagId == null || article.tagIds().contains(tagId))
                 .sorted(Comparator.comparing(BlogArticle::publishedAt).reversed())
                 .toList();
+    }
+
+    public List<BlogArticle> listAdmin() {
+        return repository.listArticles().stream()
+                .sorted(Comparator.comparing(BlogArticle::updatedAt).reversed())
+                .toList();
+    }
+
+    public List<Category> listCategories() {
+        return repository.listCategories();
+    }
+
+    public List<Tag> listTags() {
+        return repository.listTags();
     }
 
     public BlogArticle getPublicBySlug(String slug) {

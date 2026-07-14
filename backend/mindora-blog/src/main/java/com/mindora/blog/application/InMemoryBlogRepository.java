@@ -59,4 +59,14 @@ public class InMemoryBlogRepository implements BlogRepository {
     public Optional<Tag> findTagById(UUID id) {
         return Optional.ofNullable(tags.get(id));
     }
+
+    @Override
+    public List<Category> listCategories() {
+        return new ArrayList<>(categories.values());
+    }
+
+    @Override
+    public List<Tag> listTags() {
+        return new ArrayList<>(tags.values());
+    }
 }

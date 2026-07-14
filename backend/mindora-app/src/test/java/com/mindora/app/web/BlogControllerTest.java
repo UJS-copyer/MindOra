@@ -131,6 +131,42 @@ class BlogControllerTest {
                 .andExpect(jsonPath("$.data.slug", is("edited-draft")));
     }
 
+    @Test
+    void adminListsArticlesCategoriesAndTags() throws Exception {
+        String adminToken = tokenFor(RoleName.SUPER_ADMIN);
+        postForId("/api/v1/admin/categories", adminToken, """
+                {"name":"Notes"}
+                """);
+        postForId("/api/v1/admin/tags", adminToken, """
+                {"name":"MindOra"}
+                """);
+        postForId("/api/v1/admin/articles", adminToken, """
+                {
+                  "title":"Listed",
+                  "slug":"listed",
+                  "summary":"Listed",
+                  "body":"# Listed",
+                  "visibility":"public"
+                }
+                """);
+
+        mockMvc.perform(get("/api/v1/admin/articles")
+                        .header(HttpHeaders.AUTHORIZATION, adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].slug", is("listed")));
+
+        mockMvc.perform(get("/api/v1/admin/categories")
+                        .header(HttpHeaders.AUTHORIZATION, adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)));
+
+        mockMvc.perform(get("/api/v1/admin/tags")
+                        .header(HttpHeaders.AUTHORIZATION, adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)));
+    }
+
     private String postForId(String path, String token, String body) throws Exception {
         String content = mockMvc.perform(post(path)
                         .header(HttpHeaders.AUTHORIZATION, token)
