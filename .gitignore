@@ -1,0 +1,14 @@
+.worktrees/
+.superpowers/
+.m2/
+.npm-cache/
+backend/**/target/
+backend/*.gradle.kts
+backend/settings.gradle.kts
+backend/*/build.gradle.kts
+
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo

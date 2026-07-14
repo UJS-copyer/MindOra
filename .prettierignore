@@ -1,0 +1,7 @@
+.superpowers/
+docs/superpowers/
+.m2/
+.npm-cache/
+.worktrees/
+backend/**/target/
+node_modules/
