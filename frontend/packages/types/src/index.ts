@@ -15,3 +15,56 @@ export interface ApiErrorEnvelope {
 export interface HealthData {
   status: 'up' | 'down' | string;
 }
+
+export interface AuthData {
+  userId: string;
+  email: string;
+  accessToken: string;
+}
+
+export interface BlogArticle {
+  id: string;
+  title: string;
+  slug: string;
+  summary?: string;
+  body: string;
+  coverAssetId?: string;
+  categoryId?: string;
+  tagIds: string[];
+  status: 'draft' | 'published' | 'unpublished' | string;
+  visibility: 'public' | 'private' | string;
+  readCount: number;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+}
+
+export interface BlogCategory {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlogTag {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ArticleDraftInput {
+  title: string;
+  slug: string;
+  summary?: string;
+  body: string;
+  coverAssetId?: string;
+  categoryId?: string;
+  tagIds: string[];
+  visibility: 'public' | 'private' | string;
+}
+
+export interface ArticleFilters {
+  categoryId?: string;
+  tagId?: string;
+}

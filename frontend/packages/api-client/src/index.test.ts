@@ -70,4 +70,71 @@ describe('createApiClient', () => {
       traceId: 'trace-error'
     } satisfies Partial<ApiClientError>);
   });
+
+  it('sends json mutations with bearer auth', async () => {
+    const fetcher = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        code: 'success',
+        message: 'OK',
+        data: { id: 'article-1', status: 'draft' },
+        traceId: 'trace-article'
+      })
+    }));
+
+    const client = createApiClient({
+      baseUrl: 'http://localhost:8080',
+      fetcher,
+      authToken: () => 'Bearer admin-token'
+    });
+    const result = await client.createArticle({
+      title: 'Spring Notes',
+      slug: 'spring-notes',
+      summary: 'A short summary',
+      body: '# Spring',
+      visibility: 'public',
+      tagIds: []
+    });
+
+    expect(fetcher).toHaveBeenCalledWith('http://localhost:8080/api/v1/admin/articles', {
+      body: JSON.stringify({
+        title: 'Spring Notes',
+        slug: 'spring-notes',
+        summary: 'A short summary',
+        body: '# Spring',
+        visibility: 'public',
+        tagIds: []
+      }),
+      headers: {
+        Accept: 'application/json',
+        Authorization: 'Bearer admin-token',
+        'Content-Type': 'application/json'
+      },
+      method: 'POST'
+    });
+    expect(result.data.status).toBe('draft');
+  });
+
+  it('builds public article filter query parameters', async () => {
+    const fetcher = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        code: 'success',
+        message: 'OK',
+        data: [],
+        traceId: 'trace-list'
+      })
+    }));
+
+    const client = createApiClient({ baseUrl: 'http://localhost:8080', fetcher });
+    await client.listPublicArticles({ categoryId: 'cat-1', tagId: 'tag-1' });
+
+    expect(fetcher).toHaveBeenCalledWith(
+      'http://localhost:8080/api/v1/public/articles?categoryId=cat-1&tagId=tag-1',
+      {
+        headers: { Accept: 'application/json' },
+        method: 'GET'
+      }
+    );
+  });
 });
