@@ -10,6 +10,7 @@
     "typecheck": "vue-tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
+    "md-editor-v3": "^6.5.3",
     "vue": "^3.5.18"
   },
   "devDependencies": {

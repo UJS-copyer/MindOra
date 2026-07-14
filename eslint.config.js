@@ -1,6 +1,8 @@
 import js from '@eslint/js';
+import tsParser from '@typescript-eslint/parser';
 import vue from 'eslint-plugin-vue';
 import tseslint from 'typescript-eslint';
+import vueParser from 'vue-eslint-parser';
 
 export default [
   {
@@ -16,7 +18,19 @@ export default [
         console: 'readonly',
         document: 'readonly',
         fetch: 'readonly',
+        localStorage: 'readonly',
         window: 'readonly'
+      }
+    }
+  },
+  {
+    files: ['**/*.vue'],
+    languageOptions: {
+      parser: vueParser,
+      parserOptions: {
+        parser: tsParser,
+        ecmaVersion: 'latest',
+        sourceType: 'module'
       }
     }
   }
