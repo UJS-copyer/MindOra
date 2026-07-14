@@ -2,6 +2,7 @@ package com.mindora.app.web;
 
 import com.mindora.blog.application.ArticleService;
 import com.mindora.common.api.ApiResponse;
+import com.mindora.common.id.PublicIds;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,11 +22,11 @@ public class BlogPublicController {
 
     @GetMapping
     public ApiResponse<java.util.List<BlogViews.ArticleView>> list(
-            @RequestParam(required = false) UUID categoryId,
-            @RequestParam(required = false) UUID tagId,
+            @RequestParam(required = false) String categoryId,
+            @RequestParam(required = false) String tagId,
             @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
         return success(
-                articleService.listPublic(categoryId, tagId).stream()
+                articleService.listPublic(toUuid(categoryId), toUuid(tagId)).stream()
                         .map(BlogViews::article)
                         .toList(),
                 traceId);
@@ -42,5 +43,9 @@ public class BlogPublicController {
         return ApiResponse.success(
                 data,
                 traceId == null || traceId.isBlank() ? UUID.randomUUID().toString() : traceId);
+    }
+
+    private UUID toUuid(String id) {
+        return id == null || id.isBlank() ? null : PublicIds.toUuid(id);
     }
 }

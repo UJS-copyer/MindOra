@@ -2,6 +2,7 @@ package com.mindora.asset.application;
 
 import com.mindora.asset.domain.Asset;
 import com.mindora.common.exception.BusinessException;
+import com.mindora.common.id.PublicIds;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -84,11 +85,11 @@ public class FileSystemAssetRepository implements AssetRepository {
     }
 
     private Path metadataPath(UUID id) {
-        return metadataDirectory.resolve(id + ".properties");
+        return metadataDirectory.resolve(PublicIds.toPublicId(id) + ".properties");
     }
 
     private Path contentPath(UUID id) {
-        return contentDirectory.resolve(id + ".bin");
+        return contentDirectory.resolve(PublicIds.toPublicId(id) + ".bin");
     }
 
     private Asset readAssetUnchecked(Path path) {

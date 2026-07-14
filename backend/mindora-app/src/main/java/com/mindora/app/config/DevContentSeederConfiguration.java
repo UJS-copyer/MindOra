@@ -13,7 +13,9 @@ public class DevContentSeederConfiguration {
     @Bean
     @ConditionalOnProperty(name = "mindora.seed.enabled", havingValue = "true")
     ApplicationRunner devContentSeeder(DataSource dataSource) {
-        return args -> new ResourceDatabasePopulator(new ClassPathResource("db/seed/dev-content.sql"))
+        return args -> new ResourceDatabasePopulator(
+                        new ClassPathResource("db/seed/dev-content.sql"),
+                        new ClassPathResource("db/seed/dev-admin.sql"))
                 .execute(dataSource);
     }
 }

@@ -3,10 +3,12 @@ package com.mindora.app.web;
 import com.mindora.blog.application.ArticleDraftCommand;
 import com.mindora.blog.application.ArticleService;
 import com.mindora.common.api.ApiResponse;
+import com.mindora.common.id.PublicIds;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -72,24 +74,24 @@ public class BlogAdminController {
 
     @PutMapping("/articles/{id}")
     public ApiResponse<BlogViews.ArticleView> updateArticle(
-            @PathVariable UUID id,
+            @PathVariable String id,
             @RequestBody ArticleRequest request,
             @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
-        return success(BlogViews.article(articleService.updateArticle(id, request.command())), traceId);
+        return success(BlogViews.article(articleService.updateArticle(PublicIds.toUuid(id), request.command())), traceId);
     }
 
     @PostMapping("/articles/{id}/publish")
     public ApiResponse<BlogViews.ArticleView> publish(
-            @PathVariable UUID id,
+            @PathVariable String id,
             @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
-        return success(BlogViews.article(articleService.publish(id)), traceId);
+        return success(BlogViews.article(articleService.publish(PublicIds.toUuid(id))), traceId);
     }
 
     @PostMapping("/articles/{id}/unpublish")
     public ApiResponse<BlogViews.ArticleView> unpublish(
-            @PathVariable UUID id,
+            @PathVariable String id,
             @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
-        return success(BlogViews.article(articleService.unpublish(id)), traceId);
+        return success(BlogViews.article(articleService.unpublish(PublicIds.toUuid(id))), traceId);
     }
 
     private <T> ApiResponse<T> success(T data, String traceId) {
@@ -106,13 +108,26 @@ public class BlogAdminController {
             String slug,
             String summary,
             String body,
-            UUID coverAssetId,
-            UUID categoryId,
-            Set<UUID> tagIds,
+            String coverAssetId,
+            String categoryId,
+            Set<String> tagIds,
             String visibility) {
         ArticleDraftCommand command() {
             return new ArticleDraftCommand(
-                    title, slug, summary, body, coverAssetId, categoryId, tagIds, visibility);
+                    title,
+                    slug,
+                    summary,
+                    body,
+                    toUuid(coverAssetId),
+                    toUuid(categoryId),
+                    tagIds == null
+                            ? Set.of()
+                            : tagIds.stream().map(PublicIds::toUuid).collect(Collectors.toSet()),
+                    visibility);
+        }
+
+        private UUID toUuid(String id) {
+            return id == null || id.isBlank() ? null : PublicIds.toUuid(id);
         }
     }
 }

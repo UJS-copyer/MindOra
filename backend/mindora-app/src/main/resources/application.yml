@@ -35,10 +35,12 @@ mindora:
     enabled: ${MINDORA_SEED_ENABLED:false}
   persistence:
     blog: ${MINDORA_BLOG_PERSISTENCE:jdbc}
+    user: ${MINDORA_USER_PERSISTENCE:jdbc}
+    asset: ${MINDORA_ASSET_PERSISTENCE:jdbc}
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-long-random-stage0-secret}
   cors:
-    allowed-origins: ${MINDORA_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174}
+    allowed-origins: ${MINDORA_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174}
   storage:
     root: ${MINDORA_STORAGE_ROOT:/data/docker-data/mindora/storage}
   qdrant:

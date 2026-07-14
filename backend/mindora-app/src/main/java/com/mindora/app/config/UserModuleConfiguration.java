@@ -2,20 +2,30 @@ package com.mindora.app.config;
 
 import com.mindora.user.application.AuthService;
 import com.mindora.user.infrastructure.InMemoryUserRepository;
+import com.mindora.user.infrastructure.JdbcUserRepository;
 import com.mindora.user.infrastructure.PasswordHasher;
 import com.mindora.user.infrastructure.Sha256PasswordHasher;
 import com.mindora.user.infrastructure.SimpleJwtTokenService;
 import com.mindora.user.infrastructure.TokenService;
 import com.mindora.user.infrastructure.UserRepository;
 import java.time.Clock;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class UserModuleConfiguration {
     @Bean
+    @ConditionalOnProperty(name = "mindora.persistence.user", havingValue = "memory")
     UserRepository userRepository() {
         return new InMemoryUserRepository();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "mindora.persistence.user", havingValue = "jdbc", matchIfMissing = true)
+    UserRepository jdbcUserRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcUserRepository(jdbcTemplate);
     }
 
     @Bean

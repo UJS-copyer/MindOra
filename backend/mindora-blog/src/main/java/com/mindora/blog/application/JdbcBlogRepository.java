@@ -4,6 +4,7 @@ import com.mindora.blog.domain.ArticleStatus;
 import com.mindora.blog.domain.BlogArticle;
 import com.mindora.blog.domain.Category;
 import com.mindora.blog.domain.Tag;
+import com.mindora.common.id.PublicIds;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -45,32 +46,32 @@ public class JdbcBlogRepository implements BlogRepository {
                     updated_at = VALUES(updated_at),
                     published_at = VALUES(published_at)
                 """,
-                article.id().toString(),
+                PublicIds.toPublicId(article.id()),
                 article.title(),
                 article.slug(),
                 article.summary(),
                 article.body(),
-                uuidValue(article.coverAssetId()),
-                uuidValue(article.categoryId()),
+                PublicIds.toPublicId(article.coverAssetId()),
+                PublicIds.toPublicId(article.categoryId()),
                 article.status().value(),
                 article.visibility(),
                 article.readCount(),
                 timestamp(article.createdAt()),
                 timestamp(article.updatedAt()),
                 timestamp(article.publishedAt()));
-        jdbcTemplate.update("DELETE FROM blog_article_tag WHERE article_id = ?", article.id().toString());
+        jdbcTemplate.update("DELETE FROM blog_article_tag WHERE article_id = ?", PublicIds.toPublicId(article.id()));
         for (UUID tagId : article.tagIds()) {
             jdbcTemplate.update(
                     "INSERT INTO blog_article_tag (article_id, tag_id) VALUES (?, ?)",
-                    article.id().toString(),
-                    tagId.toString());
+                    PublicIds.toPublicId(article.id()),
+                    PublicIds.toPublicId(tagId));
         }
         return article;
     }
 
     @Override
     public Optional<BlogArticle> findArticleById(UUID id) {
-        return queryArticles("WHERE a.id = ? AND a.deleted = FALSE", id.toString()).stream().findFirst();
+        return queryArticles("WHERE a.id = ? AND a.deleted = FALSE", PublicIds.toPublicId(id)).stream().findFirst();
     }
 
     @Override
@@ -91,7 +92,7 @@ public class JdbcBlogRepository implements BlogRepository {
                 VALUES (?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE name = VALUES(name), updated_at = VALUES(updated_at)
                 """,
-                category.id().toString(),
+                PublicIds.toPublicId(category.id()),
                 category.name(),
                 timestamp(category.createdAt()),
                 timestamp(category.updatedAt()));
@@ -103,7 +104,7 @@ public class JdbcBlogRepository implements BlogRepository {
         return jdbcTemplate.query(
                         "SELECT id, name, created_at, updated_at FROM category WHERE id = ? AND deleted = FALSE",
                         (rs, rowNum) -> mapCategory(rs),
-                        id.toString())
+                        PublicIds.toPublicId(id))
                 .stream()
                 .findFirst();
     }
@@ -116,7 +117,7 @@ public class JdbcBlogRepository implements BlogRepository {
                 VALUES (?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE name = VALUES(name), updated_at = VALUES(updated_at)
                 """,
-                tag.id().toString(),
+                PublicIds.toPublicId(tag.id()),
                 tag.name(),
                 timestamp(tag.createdAt()),
                 timestamp(tag.updatedAt()));
@@ -128,7 +129,7 @@ public class JdbcBlogRepository implements BlogRepository {
         return jdbcTemplate.query(
                         "SELECT id, name, created_at, updated_at FROM tag WHERE id = ? AND deleted = FALSE",
                         (rs, rowNum) -> mapTag(rs),
-                        id.toString())
+                        PublicIds.toPublicId(id))
                 .stream()
                 .findFirst();
     }
@@ -165,8 +166,8 @@ public class JdbcBlogRepository implements BlogRepository {
     private BlogArticle attachTags(BlogArticle article) {
         Set<UUID> tagIds = jdbcTemplate.query(
                         "SELECT tag_id FROM blog_article_tag WHERE article_id = ?",
-                        (rs, rowNum) -> UUID.fromString(rs.getString("tag_id")),
-                        article.id().toString())
+                        (rs, rowNum) -> PublicIds.toUuid(rs.getString("tag_id")),
+                        PublicIds.toPublicId(article.id()))
                 .stream()
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         return new BlogArticle(
@@ -188,13 +189,13 @@ public class JdbcBlogRepository implements BlogRepository {
 
     private BlogArticle mapArticle(ResultSet rs) throws SQLException {
         return new BlogArticle(
-                UUID.fromString(rs.getString("id")),
+                PublicIds.toUuid(rs.getString("id")),
                 rs.getString("title"),
                 rs.getString("slug"),
                 rs.getString("summary"),
                 rs.getString("body"),
-                uuidValue(rs.getString("cover_asset_id")),
-                uuidValue(rs.getString("category_id")),
+                toUuid(rs.getString("cover_asset_id")),
+                toUuid(rs.getString("category_id")),
                 Set.of(),
                 ArticleStatus.valueOf(rs.getString("status").toUpperCase()),
                 rs.getString("visibility"),
@@ -206,7 +207,7 @@ public class JdbcBlogRepository implements BlogRepository {
 
     private Category mapCategory(ResultSet rs) throws SQLException {
         return new Category(
-                UUID.fromString(rs.getString("id")),
+                PublicIds.toUuid(rs.getString("id")),
                 rs.getString("name"),
                 instant(rs.getTimestamp("created_at")),
                 instant(rs.getTimestamp("updated_at")));
@@ -214,7 +215,7 @@ public class JdbcBlogRepository implements BlogRepository {
 
     private Tag mapTag(ResultSet rs) throws SQLException {
         return new Tag(
-                UUID.fromString(rs.getString("id")),
+                PublicIds.toUuid(rs.getString("id")),
                 rs.getString("name"),
                 instant(rs.getTimestamp("created_at")),
                 instant(rs.getTimestamp("updated_at")));
@@ -228,11 +229,7 @@ public class JdbcBlogRepository implements BlogRepository {
         return value == null ? null : value.toInstant();
     }
 
-    private String uuidValue(UUID value) {
-        return value == null ? null : value.toString();
-    }
-
-    private UUID uuidValue(String value) {
-        return value == null ? null : UUID.fromString(value);
+    private UUID toUuid(String value) {
+        return value == null ? null : PublicIds.toUuid(value);
     }
 }

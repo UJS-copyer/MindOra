@@ -3,9 +3,10 @@ package com.mindora.app.web;
 import com.mindora.blog.domain.BlogArticle;
 import com.mindora.blog.domain.Category;
 import com.mindora.blog.domain.Tag;
+import com.mindora.common.id.PublicIds;
 import java.time.Instant;
 import java.util.Set;
-import java.util.UUID;
+import java.util.stream.Collectors;
 
 final class BlogViews {
     private BlogViews() {
@@ -13,14 +14,16 @@ final class BlogViews {
 
     static ArticleView article(BlogArticle article) {
         return new ArticleView(
-                article.id(),
+                PublicIds.toPublicId(article.id()),
                 article.title(),
                 article.slug(),
                 article.summary(),
                 article.body(),
-                article.coverAssetId(),
-                article.categoryId(),
-                article.tagIds(),
+                PublicIds.toPublicId(article.coverAssetId()),
+                PublicIds.toPublicId(article.categoryId()),
+                article.tagIds().stream()
+                        .map(PublicIds::toPublicId)
+                        .collect(Collectors.toUnmodifiableSet()),
                 article.status().value(),
                 article.visibility(),
                 article.readCount(),
@@ -30,22 +33,26 @@ final class BlogViews {
     }
 
     static CategoryView category(Category category) {
-        return new CategoryView(category.id(), category.name(), category.createdAt(), category.updatedAt());
+        return new CategoryView(
+                PublicIds.toPublicId(category.id()),
+                category.name(),
+                category.createdAt(),
+                category.updatedAt());
     }
 
     static TagView tag(Tag tag) {
-        return new TagView(tag.id(), tag.name(), tag.createdAt(), tag.updatedAt());
+        return new TagView(PublicIds.toPublicId(tag.id()), tag.name(), tag.createdAt(), tag.updatedAt());
     }
 
     record ArticleView(
-            UUID id,
+            String id,
             String title,
             String slug,
             String summary,
             String body,
-            UUID coverAssetId,
-            UUID categoryId,
-            Set<UUID> tagIds,
+            String coverAssetId,
+            String categoryId,
+            Set<String> tagIds,
             String status,
             String visibility,
             long readCount,
@@ -54,9 +61,9 @@ final class BlogViews {
             Instant publishedAt) {
     }
 
-    record CategoryView(UUID id, String name, Instant createdAt, Instant updatedAt) {
+    record CategoryView(String id, String name, Instant createdAt, Instant updatedAt) {
     }
 
-    record TagView(UUID id, String name, Instant createdAt, Instant updatedAt) {
+    record TagView(String id, String name, Instant createdAt, Instant updatedAt) {
     }
 }

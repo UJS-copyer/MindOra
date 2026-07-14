@@ -9,5 +9,7 @@ spring:
 mindora:
   persistence:
     blog: memory
+    user: memory
+    asset: filesystem
   seed:
     enabled: false

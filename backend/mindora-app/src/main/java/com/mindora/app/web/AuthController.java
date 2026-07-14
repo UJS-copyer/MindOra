@@ -1,12 +1,12 @@
 package com.mindora.app.web;
 
 import com.mindora.common.api.ApiResponse;
+import com.mindora.common.id.PublicIds;
 import com.mindora.user.application.AuthService;
 import com.mindora.user.domain.AuthResult;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,7 +39,7 @@ public class AuthController {
 
     private ApiResponse<AuthView> response(AuthResult result, String traceId) {
         return ApiResponse.success(
-                new AuthView(result.user().id(), result.user().email(), result.accessToken()),
+                new AuthView(PublicIds.toPublicId(result.user().id()), result.user().email(), result.accessToken()),
                 traceId == null || traceId.isBlank() ? UUID.randomUUID().toString() : traceId);
     }
 
@@ -49,7 +49,7 @@ public class AuthController {
     }
 
     public record AuthView(
-            UUID userId,
+            String userId,
             String email,
             String accessToken) {
     }

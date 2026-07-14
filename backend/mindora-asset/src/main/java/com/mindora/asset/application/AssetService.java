@@ -2,6 +2,7 @@ package com.mindora.asset.application;
 
 import com.mindora.asset.domain.Asset;
 import com.mindora.common.exception.BusinessException;
+import com.mindora.common.id.PublicIds;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -58,7 +59,7 @@ public class AssetService {
                 normalizedMime,
                 size,
                 normalizedType,
-                "/api/v1/public/assets/" + id,
+                "/api/v1/public/assets/" + PublicIds.toPublicId(id),
                 Instant.now(clock));
         try {
             BufferedInputStream bufferedContent = new BufferedInputStream(content);

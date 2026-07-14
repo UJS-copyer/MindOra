@@ -3,6 +3,7 @@ package com.mindora.app.web;
 import com.mindora.asset.application.AssetService;
 import com.mindora.asset.domain.Asset;
 import com.mindora.common.api.ApiResponse;
+import com.mindora.common.id.PublicIds;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.http.MediaType;
@@ -43,19 +44,20 @@ public class AssetController {
     }
 
     @GetMapping("/api/v1/public/assets/{id}")
-    public ResponseEntity<byte[]> content(@PathVariable UUID id) {
-        Asset asset = assetService.find(id)
+    public ResponseEntity<byte[]> content(@PathVariable String id) {
+        UUID assetId = PublicIds.toUuid(id);
+        Asset asset = assetService.find(assetId)
                 .orElseThrow(() -> new com.mindora.common.exception.BusinessException(
                         "asset_not_found", "Asset not found"));
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(asset.mimeType()))
                 .header("X-Content-Type-Options", "nosniff")
-                .body(assetService.content(id));
+                .body(assetService.content(assetId));
     }
 
     private AssetView view(Asset asset) {
         return new AssetView(
-                asset.id(),
+                PublicIds.toPublicId(asset.id()),
                 asset.fileName(),
                 asset.mimeType(),
                 asset.size(),
@@ -71,7 +73,7 @@ public class AssetController {
     }
 
     public record AssetView(
-            UUID id,
+            String id,
             String fileName,
             String mimeType,
             long size,
