@@ -1,6 +1,7 @@
 package com.mindora.app.web;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -165,6 +166,25 @@ class BlogControllerTest {
                         .header(HttpHeaders.AUTHORIZATION, adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)));
+    }
+
+    @Test
+    void publicListsCategoriesAndTagsForFilters() throws Exception {
+        String adminToken = tokenFor(RoleName.SUPER_ADMIN);
+        postForId("/api/v1/admin/categories", adminToken, """
+                {"name":"Public Category"}
+                """);
+        postForId("/api/v1/admin/tags", adminToken, """
+                {"name":"Public Tag"}
+                """);
+
+        mockMvc.perform(get("/api/v1/public/categories"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].name", hasItem("Public Category")));
+
+        mockMvc.perform(get("/api/v1/public/tags"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].name", hasItem("Public Tag")));
     }
 
     private String postForId(String path, String token, String body) throws Exception {
