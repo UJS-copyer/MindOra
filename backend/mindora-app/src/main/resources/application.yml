@@ -15,6 +15,9 @@ spring:
     username: ${MYSQL_USER:mindora}
     password: ${MYSQL_PASSWORD:mindora_password}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    locations: classpath:db/migration
   data:
     redis:
       host: ${REDIS_HOST:192.168.222.128}
@@ -28,6 +31,10 @@ rocketmq:
     group: ${ROCKETMQ_PRODUCER_GROUP:mindora-stage0-producer}
 
 mindora:
+  seed:
+    enabled: ${MINDORA_SEED_ENABLED:false}
+  persistence:
+    blog: ${MINDORA_BLOG_PERSISTENCE:jdbc}
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-long-random-stage0-secret}
   cors:

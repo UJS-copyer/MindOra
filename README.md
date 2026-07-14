@@ -32,12 +32,46 @@ Run backend commands from the Maven root:
 ```powershell
 cd backend
 mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml test
-mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml -pl mindora-app spring-boot:run
+mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml -pl mindora-app -am spring-boot:run
 ```
 
 The local Maven settings keep dependency cache inside the workspace at
 `.m2/repository` so the build does not depend on user-level repository
 permissions.
+
+The Spring Boot entry point is
+`backend/mindora-app/src/main/java/com/mindora/app/MindOraApplication.java`.
+Use this class as the IDEA run configuration main class.
+
+Stage 1 uses Flyway to create the content tables in MySQL:
+
+- `category`
+- `tag`
+- `blog_article`
+- `blog_article_tag`
+
+Development seed data is disabled by default. Enable it only for local
+debugging:
+
+```powershell
+cd backend
+$env:MINDORA_SEED_ENABLED='true'
+mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml -pl mindora-app -am spring-boot:run
+```
+
+Build and run the backend container image from `backend/`:
+
+```powershell
+docker build -t mindora-app:local .
+docker run --rm -p 8080:8080 `
+  -e MYSQL_HOST=192.168.222.128 `
+  -e MYSQL_PORT=3306 `
+  -e MYSQL_DATABASE=mindora `
+  -e MYSQL_USER=mindora `
+  -e MYSQL_PASSWORD=mindora_password `
+  -e MINDORA_SEED_ENABLED=true `
+  mindora-app:local
+```
 
 ## Frontend
 

@@ -3,9 +3,11 @@
 .m2/
 .npm-cache/
 backend/**/target/
+backend/.idea/
 backend/*.gradle.kts
 backend/settings.gradle.kts
 backend/*/build.gradle.kts
+*.log
 
 node_modules/
 dist/
