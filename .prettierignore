@@ -5,3 +5,4 @@ docs/superpowers/
 .worktrees/
 backend/**/target/
 node_modules/
+frontend/packages/types/src/generated/

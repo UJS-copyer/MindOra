@@ -78,3 +78,5 @@ export interface ArticleFilters {
   categoryId?: string;
   tagId?: string;
 }
+
+export type * from './generated/openapi';

@@ -13,13 +13,17 @@
     "format:check": "prettier --check \"frontend/**/*.{ts,vue,json,md,css,html}\" \"package.json\" \"eslint.config.js\" \".prettierrc\"",
     "dev:site": "npm run dev --workspace @mindora/site",
     "dev:admin": "npm run dev --workspace @mindora/admin",
-    "build": "npm run build --workspaces --if-present"
+    "build": "npm run build --workspaces --if-present",
+    "api:sync": "node scripts/api/openapi.mjs --sync",
+    "api:generate": "node scripts/api/openapi.mjs --generate",
+    "api:check": "node scripts/api/openapi.mjs --check"
   },
   "devDependencies": {
     "@eslint/js": "^9.31.0",
     "@vitejs/plugin-vue": "^6.0.1",
     "eslint": "^9.31.0",
     "eslint-plugin-vue": "^10.3.0",
+    "openapi-typescript": "^7.13.0",
     "prettier": "^3.6.2",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",

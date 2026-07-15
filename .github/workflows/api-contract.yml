@@ -1,0 +1,47 @@
+name: API Contract
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  api-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Export OpenAPI document
+        working-directory: backend
+        run: >
+          mvn -s .mvn/mindora-settings.xml
+          -gs .mvn/mindora-settings.xml
+          -pl mindora-app -am
+          -Dtest=OpenApiContractTest
+          -Dsurefire.failIfNoSpecifiedTests=false
+          -Dopenapi.output=${{ github.workspace }}/docs/openapi/openapi.json
+          test
+
+      - name: Check committed OpenAPI document
+        run: git diff --exit-code -- docs/openapi/openapi.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Check generated TypeScript declarations
+        run: npm run api:check
+
+      - name: Typecheck frontend workspaces
+        run: npm run typecheck
