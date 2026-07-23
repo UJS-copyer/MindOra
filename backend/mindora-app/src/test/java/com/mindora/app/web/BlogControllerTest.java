@@ -251,8 +251,8 @@ class BlogControllerTest {
     private String tokenFor(RoleName role) {
         return tokenService.issue(new UserAccount(
                 UUID.randomUUID(),
-                role.name().toLowerCase() + "@example.com",
+                role.value() + "@example.com",
                 "hash",
-                Set.of(role)));
+                Set.of(role.value())));
     }
 }

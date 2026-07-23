@@ -6,5 +6,5 @@ import java.util.UUID;
 public record TokenPrincipal(
         UUID userId,
         String email,
-        Set<RoleName> roles) {
+        Set<String> roles) {
 }

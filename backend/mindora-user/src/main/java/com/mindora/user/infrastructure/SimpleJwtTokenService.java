@@ -1,7 +1,6 @@
 package com.mindora.user.infrastructure;
 
 import com.mindora.user.domain.UserAccount;
-import com.mindora.user.domain.RoleName;
 import com.mindora.user.domain.TokenPrincipal;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
@@ -12,7 +11,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Arrays;
-import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -33,7 +32,7 @@ public class SimpleJwtTokenService implements TokenService {
         String header = encode("{\"alg\":\"HS256\",\"typ\":\"JWT\"}");
         String payload = encode("{\"sub\":\"" + user.id() + "\",\"email\":\""
                 + user.email() + "\",\"roles\":\"" + user.roles().stream()
-                .map(Enum::name)
+                .map(SimpleJwtTokenService::normalizeRoleName)
                 .sorted()
                 .reduce((left, right) -> left + "," + right)
                 .orElse("") + "\",\"iat\":\"" + Instant.now(clock) + "\"}");
@@ -61,11 +60,12 @@ public class SimpleJwtTokenService implements TokenService {
             String payload = new String(
                     Base64.getUrlDecoder().decode(segments[1]),
                     StandardCharsets.UTF_8);
-            EnumSet<RoleName> roles = EnumSet.noneOf(RoleName.class);
+            Set<String> roles = new LinkedHashSet<>();
             String rolesValue = field(payload, "roles");
             if (!rolesValue.isBlank()) {
                 Arrays.stream(rolesValue.split(","))
-                        .map(RoleName::valueOf)
+                        .map(SimpleJwtTokenService::normalizeRoleName)
+                        .filter(role -> !role.isBlank())
                         .forEach(roles::add);
             }
             return Optional.of(new TokenPrincipal(
@@ -75,6 +75,13 @@ public class SimpleJwtTokenService implements TokenService {
         } catch (IllegalArgumentException exception) {
             return Optional.empty();
         }
+    }
+
+    private static String normalizeRoleName(String role) {
+        if (role == null) {
+            return "";
+        }
+        return role.trim().toLowerCase().replace('-', '_');
     }
 
     private String encode(String value) {

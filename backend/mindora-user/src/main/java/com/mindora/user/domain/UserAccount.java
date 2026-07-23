@@ -7,5 +7,5 @@ public record UserAccount(
         UUID id,
         String email,
         String passwordHash,
-        Set<RoleName> roles) {
+        Set<String> roles) {
 }

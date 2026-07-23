@@ -2,6 +2,7 @@
 .superpowers/
 .m2/
 .npm-cache/
+.pnpm-store/
 backend/**/target/
 backend/.idea/
 backend/*.gradle.kts
@@ -14,3 +15,5 @@ dist/
 coverage/
 .vite/
 *.tsbuildinfo
+
+reference/

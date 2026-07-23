@@ -15,9 +15,9 @@ class RbacPermissionTest {
         RbacPermissionService permissionService = new RbacPermissionService();
 
         UserAccount user = new UserAccount(
-                UUID.randomUUID(), "user@example.com", "hash", Set.of(RoleName.USER));
+                UUID.randomUUID(), "user@example.com", "hash", Set.of(RoleName.USER.value()));
         UserAccount admin = new UserAccount(
-                UUID.randomUUID(), "admin@example.com", "hash", Set.of(RoleName.SUPER_ADMIN));
+                UUID.randomUUID(), "admin@example.com", "hash", Set.of(RoleName.SUPER_ADMIN.value()));
 
         assertFalse(permissionService.canAccessAdmin(user));
         assertTrue(permissionService.canAccessAdmin(admin));

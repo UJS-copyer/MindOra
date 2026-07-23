@@ -33,7 +33,7 @@ public class AuthService {
                 UUID.randomUUID(),
                 normalizedEmail,
                 passwordHasher.hash(rawPassword),
-                Set.of(RoleName.USER));
+                Set.of(RoleName.USER.value()));
         return new AuthResult(userRepository.save(user), tokenService.issue(user));
     }
 

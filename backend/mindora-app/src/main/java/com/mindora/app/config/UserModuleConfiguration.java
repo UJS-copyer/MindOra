@@ -1,6 +1,8 @@
 package com.mindora.app.config;
 
 import com.mindora.user.application.AuthService;
+import com.mindora.user.application.AdminIdentityService;
+import com.mindora.user.application.RbacPermissionService;
 import com.mindora.user.infrastructure.InMemoryUserRepository;
 import com.mindora.user.infrastructure.JdbcUserRepository;
 import com.mindora.user.infrastructure.PasswordHasher;
@@ -13,6 +15,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.ObjectProvider;
 
 @Configuration
 public class UserModuleConfiguration {
@@ -46,5 +49,17 @@ public class UserModuleConfiguration {
             PasswordHasher passwordHasher,
             TokenService tokenService) {
         return new AuthService(userRepository, passwordHasher, tokenService);
+    }
+
+    @Bean
+    RbacPermissionService rbacPermissionService(ObjectProvider<JdbcTemplate> jdbcTemplate) {
+        return new RbacPermissionService(jdbcTemplate.getIfAvailable());
+    }
+
+    @Bean
+    AdminIdentityService adminIdentityService(
+            ObjectProvider<JdbcTemplate> jdbcTemplate,
+            PasswordHasher passwordHasher) {
+        return new AdminIdentityService(jdbcTemplate.getIfAvailable(), passwordHasher);
     }
 }

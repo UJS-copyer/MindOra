@@ -13,6 +13,7 @@
     "format:check": "prettier --check \"frontend/**/*.{ts,vue,json,md,css,html}\" \"package.json\" \"eslint.config.js\" \".prettierrc\"",
     "dev:site": "npm run dev --workspace @mindora/site",
     "dev:admin": "npm run dev --workspace @mindora/admin",
+    "dev:admin-art": "npm run dev --workspace @mindora/admin-art",
     "build": "npm run build --workspaces --if-present",
     "api:sync": "node scripts/api/openapi.mjs --sync",
     "api:generate": "node scripts/api/openapi.mjs --generate",

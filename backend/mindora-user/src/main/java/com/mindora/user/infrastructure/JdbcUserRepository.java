@@ -1,12 +1,12 @@
 package com.mindora.user.infrastructure;
 
-import com.mindora.user.domain.RoleName;
 import com.mindora.user.domain.UserAccount;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
-import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,11 +52,11 @@ public class JdbcUserRepository implements UserRepository {
                 now,
                 now);
 
-        for (RoleName role : user.roles()) {
+        for (String role : user.roles()) {
             String roleId = jdbcTemplate.query(
                             "SELECT id FROM role WHERE name = ? AND deleted = FALSE",
                             (rs, rowNum) -> rs.getString("id"),
-                            role.name().toLowerCase())
+                            normalizeRoleName(role))
                     .stream()
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException("Missing role: " + role));
@@ -75,7 +75,7 @@ public class JdbcUserRepository implements UserRepository {
 
     private UserAccount mapUser(ResultSet rs, int rowNum) throws SQLException {
         String userId = rs.getString("id");
-        EnumSet<RoleName> roles = EnumSet.noneOf(RoleName.class);
+        Set<String> roles = new LinkedHashSet<>();
         jdbcTemplate.query(
                         """
                         SELECT r.name
@@ -84,7 +84,7 @@ public class JdbcUserRepository implements UserRepository {
                         WHERE ur.user_id = ? AND ur.deleted = FALSE AND r.deleted = FALSE
                         """,
                         (roleRs, ignored) -> {
-                            roles.add(RoleName.valueOf(roleRs.getString("name").toUpperCase()));
+                            roles.add(normalizeRoleName(roleRs.getString("name")));
                             return null;
                         },
                         userId);
@@ -93,6 +93,10 @@ public class JdbcUserRepository implements UserRepository {
                 rs.getString("email"),
                 rs.getString("password_hash"),
                 roles);
+    }
+
+    private String normalizeRoleName(String role) {
+        return role == null ? "" : role.trim().toLowerCase();
     }
 
     private String publicId(UUID id) {

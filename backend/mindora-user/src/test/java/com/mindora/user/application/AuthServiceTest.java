@@ -28,7 +28,7 @@ class AuthServiceTest {
         AuthResult loggedIn = authService.login("reader@example.com", "Password123!");
 
         assertEquals("reader@example.com", registered.user().email());
-        assertTrue(registered.user().roles().contains(RoleName.USER));
+        assertTrue(registered.user().roles().contains(RoleName.USER.value()));
         assertTrue(loggedIn.accessToken().startsWith("Bearer "));
     }
 

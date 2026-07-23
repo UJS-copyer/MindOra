@@ -7,6 +7,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Locale;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -36,7 +37,8 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
                 principal,
                 null,
                 principal.roles().stream()
-                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
+                        .map(role -> new SimpleGrantedAuthority(
+                                "ROLE_" + role.toUpperCase(Locale.ROOT).replace('-', '_')))
                         .toList());
     }
 }
