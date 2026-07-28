@@ -253,6 +253,14 @@
       "taxonomy": "Taxonomy",
       "assets": "Assets"
     },
+    "knowledge": {
+      "title": "Knowledge Base",
+      "sources": "Data sources",
+      "syncTasks": "Sync tasks",
+      "documents": "Knowledge documents",
+      "indexes": "Index status",
+      "ragConfig": "RAG configuration"
+    },
     "result": {
       "title": "Result Page",
       "success": "Success",

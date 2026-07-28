@@ -253,6 +253,14 @@
       "taxonomy": "分类与标签",
       "assets": "资产库"
     },
+    "knowledge": {
+      "title": "知识库",
+      "sources": "数据源配置",
+      "syncTasks": "同步任务",
+      "documents": "知识文档",
+      "indexes": "索引状态",
+      "ragConfig": "RAG 配置"
+    },
     "result": {
       "title": "结果页面",
       "success": "成功页",
