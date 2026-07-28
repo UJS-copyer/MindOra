@@ -27,11 +27,15 @@ Docker runs on the Ubuntu VM, not on the Windows development machine.
 
 ## Backend
 
+Backend structure, module boundaries, local startup rules, and log conventions
+are documented in `docs/backend-development-rules-cn.md`.
+
 Run backend commands from the Maven root:
 
 ```powershell
 cd backend
 mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml test
+$env:LOG_FILE='..\logs\backend-dev.log'
 mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml -pl mindora-app -am spring-boot:run
 ```
 
@@ -88,9 +92,13 @@ npm run format:check
 Run the public site and admin shell:
 
 ```powershell
-npm run dev --workspace @mindora/site
-npm run dev --workspace @mindora/admin
+npm run dev:site
+npm run dev --workspace @mindora/admin-art
 ```
+
+Local development logs should be written under `logs/`. Run long-lived dev
+servers in IDEA or separate terminals; do not combine backend, site, and admin
+startup commands into one long PowerShell command.
 
 ## Ubuntu VM Compose
 

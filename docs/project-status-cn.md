@@ -2,7 +2,7 @@
 
 本文用于记录当前项目迁移结果、启动方式、启动地址，以及前后端各阶段的开发状态，便于后续继续开发和回滚检查。
 
-最近维护：2026-07-26
+最近维护：2026-07-28
 
 ## 迁移结果确认
 
@@ -24,6 +24,8 @@
 
 ## 启动方式
 
+后端结构、模块边界、日志和常驻进程规则见 `docs/backend-development-rules-cn.md`。启动服务前先确认端口未被占用，常驻进程请在 IDEA 或独立终端中运行。
+
 ### 前台站点前端
 
 仓库根目录执行：
@@ -42,12 +44,15 @@ npm run dev --workspace @mindora/admin-art
 
 ### 后端
 
-进入 `backend/` 后执行：
+推荐在 IDEA 中运行 `com.mindora.app.MindOraApplication`。命令行启动时进入 `backend/` 后执行：
 
 ```powershell
 cd backend
+$env:LOG_FILE='..\logs\backend-dev.log'
 mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml -pl mindora-app -am spring-boot:run
 ```
+
+本地运行日志统一写入仓库根目录 `logs/`，例如 `logs/backend-dev.log`、`logs/site-dev.log`、`logs/admin-art-dev.log`。不要把后端、前台、后台三个常驻服务拼到一个 PowerShell 复合命令中启动。
 
 ## 启动地址
 
@@ -120,64 +125,3 @@ mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml -pl mindora-app -
 4. 再接入 embedding 适配器、Milvus 写入和 Lucene 索引，所有外部服务调用必须可替换、可测试、可重试。
 5. 后端契约稳定后，在 `frontend/apps/admin-art` 增加数据源、同步任务、知识文档、索引状态和失败重试页面。
 6. 最后补充“已发布博客文章 -> 知识文档 -> 切片 -> 向量索引”的异步流程，并继续推进后续完整 RAG 阶段能力。
-
-### 下一阶段提示词
-
-```text
-继续 MindOra 项目的 Stage 2：Knowledge Base Loop。
-
-当前基线：
-- 当前集成分支是 feature/stage-1-content-admin
-- Stage 1 已完成并已合并 backend-content 和 frontend-content 分支
-- 当前后台主应用是 frontend/apps/admin-art，旧 frontend/apps/admin 只作为回退版本
-- reference/ 已排除 Git 管理
-- 不使用 superpower、brainstorm 或复杂 red-green 流程，按正常开发、测试、提交方式执行
-- 禁止使用批量删除命令：del /s、rd /s、rmdir /s、Remove-Item -Recurse、rm -rf
-
-请先检查当前 Git 状态和分支历史，然后从当前 Stage 1 集成提交创建独立的 Stage 2 分支，不能修改 Stage 1 回滚点。
-
-请先阅读并遵循：
-- docs/design-03-data-and-sync-flow.md
-- docs/design-06-data-model-and-api-boundaries.md
-- docs/design-07-implementation-roadmap.md
-- docs/project-status-cn.md
-
-Stage 2 第一目标是实现可运行的知识库闭环，优先完成 Gitee Markdown 同步：
-1. Gitee 数据源配置
-2. 手动同步入口
-3. 增量同步和全量同步的基础模型
-4. Markdown 解析，忽略 frontmatter 作为正文内容
-5. 图片引用解析和资源关联
-6. Knowledge Document、Knowledge Document Version 及同步状态
-7. 可配置的基础切片策略
-8. embedding provider 适配器，默认预留 Alibaba Cloud Bailian text-embedding-v4
-9. Milvus 向量写入适配器
-10. Lucene 关键词索引适配器
-11. 索引状态、失败原因、重试次数和单文档/批量重建索引
-
-实现要求：
-- 优先复用现有 mindora-knowledge、mindora-rag、adapter 模块和数据库迁移风格
-- 外部 Gitee、embedding、Milvus、Lucene 调用必须放在清晰的 adapter 边界后
-- 先实现服务层和持久化测试，再接 HTTP API
-- 使用当前 OpenAPI 生成链路更新契约和 frontend/packages/types/src/generated/openapi.d.ts
-- 后台页面只写入 frontend/apps/admin-art，使用现有 api-client、Element Plus、Pinia 和 Art Design Pro 约定
-- 前端页面至少覆盖数据源、手动同步、同步任务、知识文档、索引状态、失败重试
-- Stage 2 第一轮不实现 RAG 对话页面，但要为后续完整 RAG 链路保留接口与状态模型
-- 不引入模板自己的 pnpm-lock.yaml，不破坏当前 npm workspace
-- 每完成一个可运行的小闭环就运行相关测试、类型检查和构建
-- 维护 docs/project-status-cn.md，记录新分支、接口、启动方式、测试结果和当前完成度
-
-完成标准：
-- 可以配置一个 Gitee 数据源并触发手动同步
-- Markdown 可以形成文档和版本记录
-- 文档可以切片并写入 Milvus，状态可查询
-- Lucene 关键词索引可建立并可查询状态
-- 失败任务有明确错误信息和重试入口
-- 后台 Art Design Pro 页面可以查看同步、文档和索引状态
-- 后端单元测试、集成测试、前端 typecheck 和 build 均通过
-```
-
-## 备注
-
-- 当前项目仍保留旧后台与阶段性实现，便于回滚和对照开发。
-- 后续如新增阶段，只需在本文件对应表格中继续补充状态即可。
