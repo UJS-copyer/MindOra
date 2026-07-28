@@ -5,10 +5,10 @@
 .pnpm-store/
 backend/**/target/
 backend/.idea/
-backend/*.gradle.kts
-backend/settings.gradle.kts
-backend/*/build.gradle.kts
+backend/**/*.gradle.kts
+backend/**/settings.gradle.kts
 *.log
+logs/
 
 node_modules/
 dist/

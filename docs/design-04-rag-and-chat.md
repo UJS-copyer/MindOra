@@ -14,7 +14,9 @@ Core flow:
 User question
 -> Permission filtering
 -> Retrieval
+-> Fusion
 -> Reranking
+-> Context refinement
 -> Context assembly
 -> Model answer
 -> Source citation
@@ -34,6 +36,7 @@ Planned retrieval interfaces:
 - `Reranker`
 - `RetrievalFusionService`
 - `RetrievalFallbackPolicy`
+- `ContextRefinementService`
 
 First-version implementation:
 
@@ -45,8 +48,24 @@ Future expansion:
 
 - keyword or BM25 retrieval
 - hybrid retrieval result fusion
+- RRF fusion
 - query rewriting
 - more advanced reranking strategies
+- context refinement before answer generation
+
+Expanded target retrieval route:
+
+```text
+Embedding retrieval + keyword retrieval + hybrid search + RRF fusion + reranking + context refinement
+```
+
+Recommended backend mapping:
+
+- vector retrieval: Milvus
+- keyword retrieval: Lucene
+- fusion strategy: Reciprocal Rank Fusion (RRF)
+- rerank strategy: provider-backed rerank model
+- context refinement: trim, deduplicate, and reorder chunks before prompt assembly
 
 ## Metadata Design
 
@@ -168,8 +187,24 @@ First-version retrieval flow:
 ```text
 User question
 -> query embedding
--> Qdrant topN vector recall
+-> Milvus topN vector recall
 -> BAAI/bge-reranker-v2-m3 reranking
+-> select topK chunks
+-> assemble context
+-> generate answer
+```
+
+Expanded target retrieval flow:
+
+```text
+User question
+-> query embedding
+-> vector recall
+-> Lucene keyword recall
+-> hybrid merge
+-> RRF fusion
+-> reranking
+-> context refinement
 -> select topK chunks
 -> assemble context
 -> generate answer
@@ -182,7 +217,7 @@ Recommended defaults:
 - `rerank_timeout_ms = 3000`
 - `fallback_enabled = true`
 
-If reranking fails and fallback is enabled, the system should use Qdrant vector
+If reranking fails and fallback is enabled, the system should use Milvus vector
 similarity ordering.
 
 ## Fallback Strategy
@@ -197,7 +232,7 @@ KeywordRetriever unavailable
 -> use vector retrieval
 
 Reranker unavailable
--> use Qdrant vector score ordering
+-> use Milvus vector score ordering
 -> record fallback log
 
 Embedding service unavailable
@@ -386,11 +421,37 @@ log.chunk_detail.enabled = true
 log.full_prompt.enabled = false
 ```
 
+## Resource-Aware Module Enablement
+
+The AI and retrieval stack should support selective enablement based on machine
+resources and deployment goals.
+
+Suggested toggles:
+
+- `retrieval.vector.enabled`
+- `retrieval.keyword.enabled`
+- `retrieval.hybrid.enabled`
+- `retrieval.rrf.enabled`
+- `retrieval.rerank.enabled`
+- `retrieval.context_refinement.enabled`
+- `chat.public.enabled`
+
+Examples:
+
+- low-resource deployment: keyword retrieval only, no rerank, no public chat
+- balanced deployment: vector + keyword + rerank, no public chat
+- full deployment: vector + keyword + hybrid + RRF + rerank + public chat
+
+This allows the public site to remain lightweight while the admin and knowledge
+capabilities stay available in richer deployments.
+
 ## Confirmed Decisions
 
 - Long-term retrieval design includes vector, keyword, hybrid, reranking, fusion,
-  and fallback interfaces.
-- First version implements vector retrieval, metadata filtering, and reranking.
+  context refinement, and fallback interfaces.
+- First version implements vector retrieval, metadata filtering, and reranking, while preserving phased rollout toward full hybrid retrieval.
+- Lucene is the planned keyword retrieval engine.
+- Milvus is the planned vector backend.
 - Metadata is intentionally minimal and avoids redundant display fields.
 - Chat Model uses API key based configuration.
 - Embedding Model uses Alibaba Cloud Bailian `text-embedding-v4`.
@@ -402,3 +463,22 @@ log.full_prompt.enabled = false
 - First version keeps 4 recent conversation turns by default.
 - First version supports streaming output through SSE.
 - Full prompt and full context are not stored by default.
+
+## Trade-Offs And Drawbacks
+
+The richer RAG route improves answer quality, but it also introduces important
+trade-offs:
+
+- Hybrid retrieval plus RRF plus reranking plus context refinement can
+  materially increase latency compared with pure vector retrieval.
+- Running Lucene and a vector store together creates consistency and reindex
+  coordination work whenever documents change.
+- Milvus improves vector retrieval capacity and future scale, but raises
+  deployment and operational complexity compared with lighter vector setups.
+- Context refinement can improve prompt efficiency, but if tuned poorly it may
+  drop evidence that was useful for grounding.
+- More toggles make low-resource deployment safer, but increase operational
+  testing combinations and the risk of misconfiguration.
+- Public chat and richer retrieval pipelines consume CPU, memory, model quota,
+  and storage faster; without guardrails they can affect the main site's
+  responsiveness.

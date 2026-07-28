@@ -2,16 +2,44 @@ default_model = "inherit"
 frontend_model = "inherit"
 backend_model = "inherit"
 reviewer_model = "inherit"
+spec_reviewer_model = "inherit"
+quality_reviewer_model = "inherit"
 worktree_required = true
 worktree_must_be_clean = true
 allow_controller_intervention = true
 allow_dependency_install = true
 allow_permission_escalation = true
 long_running_check_enabled = true
+integration_branch_pattern = "feature/stage-<n>-integration"
 frontend_branch_pattern = "feature/stage-<n>-frontend"
 backend_branch_pattern = "feature/stage-<n>-backend"
 integration_method = "cherry-pick"
 review_order = "spec-then-quality"
+require_task_level_reviews = true
+allow_contract_fixtures = true
+no_new_technology_without_approval = true
+max_recovery_attempts = 2
+task_commit_pattern = "stage-<n>-<task-id>"
+task_report_path_pattern = "docs/superpowers/reports/stage-<n>/<task-id>.md"
+architecture_documents = [
+  "README.md",
+  "docs/design-02-system-architecture.md",
+  "docs/design-03-data-and-sync-flow.md",
+  "docs/design-06-data-model-and-api-boundaries.md",
+  "docs/design-07-implementation-roadmap.md",
+  "docs/project-status-cn.md"
+]
+verification_commands = [
+  "cd backend; mvn -s .mvn\\mindora-settings.xml -gs .mvn\\mindora-settings.xml test",
+  "npm run api:check",
+  "npm test --workspace @mindora/api-client",
+  "npm run typecheck",
+  "npm run lint",
+  "npm run format:check",
+  "npm run build --workspaces --if-present",
+  "npm run typecheck --workspace @mindora/admin-art",
+  "npm run build --workspace @mindora/admin-art"
+]
 backend_language = "Java 21"
 backend_framework = "Spring Boot 3.4.x"
 backend_build = "Maven"

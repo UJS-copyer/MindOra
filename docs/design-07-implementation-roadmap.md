@@ -41,7 +41,7 @@ Scope:
 - Docker Compose
 - MySQL
 - Redis
-- Qdrant
+- Milvus
 - RocketMQ
 - Spring Security + JWT
 - basic RBAC
@@ -149,7 +149,7 @@ Implementation order:
 6. Knowledge Document and Version creation
 7. Chunking configuration
 8. Embedding call
-9. Qdrant write
+9. Milvus write
 10. Index status management
 11. Blog publish-to-knowledge ingestion
 
@@ -163,7 +163,7 @@ Scope:
 - document version records
 - global chunking strategy
 - Alibaba Cloud Bailian `text-embedding-v4`
-- Qdrant vector write
+- Milvus vector write
 - index status tracking
 - failure retry
 - single document re-index
@@ -178,7 +178,7 @@ Gitee Markdown
 -> Knowledge Document Version
 -> chunks
 -> embedding
--> Qdrant
+-> Milvus
 -> indexed state
 ```
 
@@ -189,21 +189,21 @@ Blog Article published
 -> Knowledge Document
 -> chunks
 -> embedding
--> Qdrant
+-> Milvus
 ```
 
 Stage 2 deliverable:
 
 ```text
 Markdown from the Gitee repository can be synchronized, parsed, chunked,
-embedded, written to Qdrant, and inspected from the admin console.
+embedded, written to Milvus, and inspected from the admin console.
 ```
 
 ## Stage 3: RAG Chat
 
 Goal:
 
-Build the RAG question-answering loop and release it progressively.
+Build the complete RAG question-answering loop and release it progressively.
 
 Release sequence:
 
@@ -212,6 +212,20 @@ admin-side testing page
 -> hidden public chat page
 -> officially exposed public chat
 ```
+
+The implementation is phased for risk control, but the final Stage 3 scope is
+the complete retrieval and generation chain rather than vector-only chat.
+
+Recommended implementation phases:
+
+1. Retrieval foundation: Milvus vector retrieval, Lucene keyword retrieval,
+   metadata permission filtering, and index status.
+2. Retrieval quality: Hybrid Search, RRF fusion, reranking, and context
+   refinement.
+3. Conversation foundation: admin chat testing, conversation persistence,
+   citations, logs, fallback handling, and SSE streaming.
+4. Public release: public chat, visitor limits, logged-in history, strict
+   grounding, and progressive rollout.
 
 ### RAG Backend Stack
 
@@ -226,7 +240,7 @@ Recommended stack:
 - MyBatis-Plus
 - Redis
 - RocketMQ
-- Qdrant Java Client or HTTP client wrapper
+- Milvus Java SDK or HTTP wrapper
 - Alibaba Cloud Bailian `text-embedding-v4`
 - SiliconFlow `BAAI/bge-reranker-v2-m3`
 - OpenAI-compatible Chat API
@@ -235,10 +249,14 @@ Recommended stack:
 RAG backend responsibilities:
 
 - retrieval orchestration
+- Milvus vector retrieval
+- Lucene keyword retrieval
+- Hybrid Search and RRF fusion
 - prompt assembly
 - chat model calls
 - embedding calls
 - rerank calls
+- context refinement
 - multi-turn context handling
 - streaming output
 - conversation persistence
@@ -254,8 +272,24 @@ implementation planning.
 First-version retrieval:
 
 ```text
-vector retrieval + metadata filtering + reranking
+Milvus vector retrieval + Lucene keyword retrieval + metadata filtering
 ```
+
+The final Stage 3 retrieval chain:
+
+```text
+Milvus vector retrieval
+-> Lucene keyword retrieval
+-> Hybrid Search
+-> RRF fusion
+-> reranking
+-> context refinement
+-> prompt assembly
+-> grounded answer
+```
+
+The implementation should still be delivered in phases, but all of the above
+capabilities are part of the final target.
 
 Long-term interfaces should still reserve:
 
@@ -282,7 +316,7 @@ Rerank Model:
 
 Vector Store:
 
-- Qdrant
+- Milvus
 
 ### RAG Runtime Features
 
@@ -293,8 +327,12 @@ Scope:
 - visitor trial
 - login user history
 - vector retrieval
+- keyword retrieval
+- Hybrid Search
+- RRF fusion
 - metadata permission filtering
 - reranking
+- context refinement
 - article-level citations
 - citation links to `/blog/{slug}`
 - SSE streaming output
@@ -304,7 +342,7 @@ Scope:
 
 Fallback:
 
-- rerank failure falls back to Qdrant vector score ordering
+- rerank failure falls back to Milvus vector score ordering
 - keyword retrieval failure falls back to vector retrieval
 - permission filtering failure must fail closed
 - embedding/vector/chat service failures return explicit temporary-unavailable
@@ -332,7 +370,7 @@ Required before first public release:
 - latest Gitee sync result
 - chunking status
 - vectorization status
-- Qdrant write status
+- Milvus write status
 - model service status
 - rerank fallback logs
 - RAG error logs
@@ -374,9 +412,9 @@ The first release should satisfy:
 - Stage 1 builds admin article management and public blog display in parallel.
 - Stage 2 implements both Gitee sync and blog publish ingestion, with Gitee sync
   first.
-- Stage 3 releases RAG as admin test page, hidden public page, then public
-  entry.
+- Stage 3 implements complete RAG capabilities in phases: admin test page,
+  retrieval quality chain, hidden public page, then public entry.
 - Stage 4 is risk-based: synchronization and RAG operations are required,
   content operation analytics can be postponed.
-- RAG backend uses Spring Boot 3, Spring AI, Qdrant, Bailian embedding,
+- RAG backend uses Spring Boot 3, Spring AI, Milvus, Lucene, Bailian embedding,
   SiliconFlow rerank, OpenAI-compatible chat, RocketMQ, Redis, and SSE.

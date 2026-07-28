@@ -122,7 +122,7 @@ Blog Article published
 -> Knowledge Document created or updated
 -> Content chunked
 -> Embedding generated
--> Qdrant updated
+-> Milvus updated
 -> RAG can retrieve the content
 ```
 
@@ -177,7 +177,7 @@ Fields include:
 
 ### Vector Index
 
-Qdrant should only contain chunks for the latest valid version.
+Milvus should only contain chunks for the latest valid version.
 
 When a document changes:
 
@@ -351,7 +351,7 @@ When a source file disappears:
 source missing
 -> mark document as archived or deleted
 -> remove from public display
--> remove or disable vector chunks in Qdrant
+-> remove or disable vector chunks in Milvus
 -> keep history and sync logs
 ```
 

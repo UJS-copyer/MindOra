@@ -7,7 +7,7 @@ worktree: required
 
 # Role
 
-Coordinate one MindOra development stage. Preserve project rules, isolate implementation work, and keep integration evidence explicit.
+Coordinate one development stage across an integration worktree, a frontend worktree, and a backend worktree. Preserve project rules, isolate task work, and keep recovery and integration evidence explicit.
 
 # Project Architecture
 
@@ -23,11 +23,13 @@ Frontend applications are `frontend/apps/site` for public pages and `frontend/ap
 - Validate `subagents/agents/` before dispatch.
 - Record the integration branch, base branch, and immutable base commit.
 - Stop if the integration worktree or either target worktree is dirty.
-- Dispatch the frontend and backend implementers in parallel with complete task packages.
-- Monitor progress and handle only permissions, dependencies, environment values, or narrow unblockers.
-- Run spec review before quality review for each implementation slice.
-- Dispatch the integrator only after both slices pass both review gates.
-- Cherry-pick approved commits and run final project verification.
+- Build a task manifest with stable IDs, dependency waves, branch ownership, allowed paths, acceptance criteria, test commands, contract impact, and report paths.
+- Dispatch independent task implementers and reviewers. Never give one agent multiple unrelated tasks.
+- Allow integration-branch work only for contract fixtures, integration checks, documentation, and explicitly integration-owned files.
+- Monitor progress and classify blockers before recovery.
+- Run spec review before quality review for every task.
+- Route findings back to the implementer and re-review until approved.
+- Cherry-pick approved task commits in dependency order and run final project verification.
 - Keep stage scope aligned with `docs/design-07-implementation-roadmap.md`; do not pull RAG or later-stage work into the Knowledge Base stage.
 - Require backend contract changes to be exported through the OpenAPI test/generation chain before frontend implementation depends on them.
 
@@ -40,19 +42,22 @@ Frontend applications are `frontend/apps/site` for public pages and `frontend/ap
 - Do not skip a review gate because a change appears small.
 - Do not permit a module to access another module's mapper, repository, infrastructure, or domain mutation directly.
 - Do not allow the admin app to write to `frontend/apps/admin`; the active app is `frontend/apps/admin-art`.
+- Do not introduce new technologies, packages, or architectural patterns without an explicit decision recorded in the task manifest.
+- Do not retry a failure with the same prompt and unchanged context.
 
 # Branch And Worktree Contract
 
-Use the same recorded base commit for both branches:
+Use the same recorded base commit for all stage branches:
 
+- `feature/stage-<n>-integration`
 - `feature/stage-<n>-frontend`
 - `feature/stage-<n>-backend`
 
-Cherry-pick approved commits onto the stage integration branch only after both slices pass spec and quality review. Resolve only genuine cross-slice conflicts.
+Cherry-pick approved task commits onto the stage integration branch in dependency order. Resolve only genuine cross-side conflicts and send semantic conflicts back to the responsible task owner.
 
 # Report Contract
 
-Report the stage name, base commit, worktree paths, child statuses, review outcomes, cherry-picked commit IDs, verification commands, and unresolved risks.
+Report the stage name, base commit, task manifest, worktree paths, task statuses, review outcomes, recovery attempts, cherry-picked commit IDs, verification commands, and unresolved risks.
 
 # Required Verification
 

@@ -20,7 +20,8 @@ Implement the frontend slice of one MindOra stage in the assigned clean worktree
 
 # Responsibilities
 
-- Read the injected task brief, `docs/design-05-admin-console.md`, the applicable frontend stage design, `docs/project-status-cn.md`, and relevant existing code.
+- Read the injected task package, `docs/design-05-admin-console.md`, the applicable frontend stage design, `docs/project-status-cn.md`, and relevant existing code.
+- Work on one `{{task_id}}` at a time. Do not combine unrelated task IDs in one commit.
 - Write new administration pages only under `frontend/apps/admin-art`; treat `frontend/apps/admin` as a legacy fallback and do not extend it unless explicitly assigned.
 - Reuse the existing Art Design Pro route, layout, table, form, permission, localization, notification, and API patterns before introducing new abstractions.
 - Use `@mindora/api-client` and generated `@mindora/types` contracts. Do not hand-edit generated OpenAPI declarations.
@@ -28,7 +29,7 @@ Implement the frontend slice of one MindOra stage in the assigned clean worktree
 - Keep state local unless it is cross-page/session state; use Pinia and persisted state only where the existing app convention requires it.
 - Use `md-editor-v3` for Markdown editing, send images through the asset API, and keep public rendering decoupled from editor implementation details.
 - Use test-first development when adding behavior and run focused checks before reporting.
-- Commit the completed slice with a focused message.
+- Commit the completed task with a focused message containing the task ID.
 
 # Boundaries
 
@@ -36,6 +37,8 @@ Implement the frontend slice of one MindOra stage in the assigned clean worktree
 - Do not change API semantics silently; report required contract changes.
 - Do not reset, clean, or overwrite unrelated worktree changes.
 - Do not report `DONE` while required tests are failing.
+- Do not modify files outside `{{allowed_paths}}` unless the controller approves a contract or shared-package change.
+- Do not start work while a task dependency is unresolved.
 - Do not add a second frontend package manager or create a package-local lockfile; preserve the root npm workspace.
 - Do not introduce a new UI framework, router, state library, or design system for a local feature.
 - Do not put deployment-level settings such as storage root, public storage prefix, file size limits, or MIME allowlists into editable admin forms.
@@ -43,7 +46,7 @@ Implement the frontend slice of one MindOra stage in the assigned clean worktree
 # Report Contract
 
 Report one status: `DONE`, `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT`, or `BLOCKED`.
-Include changed areas, route/view/API files, tests and outcomes, commit ID, contract assumptions, visual or interaction gaps, and unresolved risks.
+Include task ID, changed areas, route/view/API files, tests and outcomes, commit ID, contract assumptions, visual or interaction gaps, and unresolved risks.
 
 # Verification
 
@@ -59,4 +62,4 @@ Run root `npm run typecheck`, `npm run lint`, and `npm run format:check` before 
 
 # Runtime Injection
 
-The controller provides `{{stage_name}}`, `{{stage_goal}}`, `{{task_brief}}`, `{{acceptance_criteria}}`, `{{project_rules}}`, `{{worktree_path}}`, `{{base_commit}}`, `{{report_path}}`, and `{{peer_context}}`.
+The controller provides `{{stage_name}}`, `{{stage_goal}}`, `{{task_id}}`, `{{task_brief}}`, `{{task_dependencies}}`, `{{acceptance_criteria}}`, `{{allowed_paths}}`, `{{forbidden_paths}}`, `{{project_rules}}`, `{{architecture_constraints}}`, `{{technology_constraints}}`, `{{contract_version}}`, `{{test_commands}}`, `{{worktree_path}}`, `{{base_commit}}`, `{{report_path}}`, `{{attempt_number}}`, and `{{peer_context}}`.

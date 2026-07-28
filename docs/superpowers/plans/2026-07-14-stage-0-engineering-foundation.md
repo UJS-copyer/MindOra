@@ -10,7 +10,7 @@
 
 **Architecture:** Build a Spring Boot 3 modular monolith under `backend/` and a Vue 3 + Vite npm workspace under `frontend/`. Keep module boundaries explicit with `api`, `application`, `domain`, `infrastructure`, and `web` packages, and expose only stable API/facade surfaces across modules.
 
-**Tech Stack:** Java 21, Spring Boot 3, Spring Security, JUnit 5, Maven, Vue 3, Vite, TypeScript, Vitest, ESLint, Prettier, Docker Compose, MySQL, Redis, Qdrant, RocketMQ.
+**Tech Stack:** Java 21, Spring Boot 3, Spring Security, JUnit 5, Maven, Vue 3, Vite, TypeScript, Vitest, ESLint, Prettier, Docker Compose, MySQL, Redis, Milvus, Lucene, RocketMQ.
 
 **Current verification commands:**
 
@@ -267,7 +267,7 @@ Expected: all commands pass.
 
 - [ ] **Step 1: Add local infrastructure definitions**
 
-Create Compose services for MySQL, Redis, Qdrant, RocketMQ name server, RocketMQ broker, backend, site, and admin. Add health checks for MySQL, Redis, Qdrant, and RocketMQ.
+Create Compose services for MySQL, Redis, Milvus, Lucene index storage, RocketMQ name server, RocketMQ broker, backend, site, and admin. Add health checks for MySQL, Redis, Milvus, and RocketMQ.
 
 - [ ] **Step 2: Add environment template**
 
@@ -303,7 +303,7 @@ Check that the implementation covers:
 Spring Boot modular monolith
 Vue 3 + Vite monorepo
 Docker Compose infrastructure
-MySQL/Redis/Qdrant/RocketMQ definitions
+MySQL/Redis/Milvus/Lucene/RocketMQ definitions
 Spring Security + signed token baseline
 basic RBAC roles
 unified response model
@@ -318,11 +318,11 @@ README startup guide
 
 - [ ] **Step 2: Run final available verification**
 
-Run all commands that are executable in the local environment. Record that local Maven/frontend verification passed, Docker is not installed on Windows, and the read-only VM check found MySQL, Redis, Qdrant, and RocketMQ NameServer healthy while the existing RocketMQ broker deployment is restarting with exit code 253.
+Run all commands that are executable in the local environment. Record that local Maven/frontend verification passed, Docker is not installed on Windows, and record Milvus, Lucene index storage, and RocketMQ deployment health separately.
 
 ### Current Stage 0 Verification Record
 
 - Local backend Maven reactor tests: passed, including auth register/login MockMvc coverage.
 - Local frontend API client, typecheck, lint, format, and build checks: passed before the current API-client regression test was added; rerun before the final commit.
-- VM read-only checks on 2026-07-14: MySQL `mysqld is alive`, Redis `PONG`, Qdrant `healthz check passed`, RocketMQ NameServer booted.
+- VM read-only checks on 2026-07-14: MySQL `mysqld is alive`, Redis `PONG`, Milvus and Lucene index storage health must be checked before claiming the deployment is healthy.
 - VM deployment gap: `mindora-rmqbroker` is running `apache/rocketmq:4.9.6` with the legacy `broker.conf` command and is restarting with exit code `253`; local `compose.yaml` defines RocketMQ `5.3.2`, so the deployment must be reconciled before claiming the remote broker is healthy.

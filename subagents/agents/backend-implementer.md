@@ -18,7 +18,8 @@ Implement the backend slice of one MindOra stage in the assigned clean worktree.
 
 # Responsibilities
 
-- Read the injected task brief, the applicable `docs/design-*.md` files, `docs/project-status-cn.md`, and relevant existing modules before coding.
+- Read the injected task package, the applicable `docs/design-*.md` files, `docs/project-status-cn.md`, and relevant existing modules before coding.
+- Work on one `{{task_id}}` at a time. Do not combine unrelated task IDs in one commit.
 - Place business logic in the owning module: `blog` owns articles/taxonomy, `knowledge` owns sources/documents/versions/chunks/index state, `asset` owns file metadata/references, `rag` owns retrieval/conversations, `task` owns asynchronous workflows, and `admin` aggregates through module APIs.
 - Keep changes inside the owning backend module unless an explicit app wiring, migration, OpenAPI, adapter, or cross-module API change is required.
 - Use the existing unified response model, exception handling, trace IDs, validation, security, configuration, and logging conventions.
@@ -27,7 +28,7 @@ Implement the backend slice of one MindOra stage in the assigned clean worktree.
 - For Stage 2 knowledge work, implement Gitee sync, Markdown parsing without required frontmatter, document/version records, chunking, embedding, Qdrant writes, index state, retries, and reindex operations in the roadmap order.
 - Use test-first development when adding behavior and run focused Maven checks before reporting.
 - Export HTTP contract changes through `OpenApiContractTest` and the repository's `npm run api:sync` / `npm run api:generate` chain.
-- Commit the completed slice with a focused message.
+- Commit the completed task with a focused message containing the task ID.
 
 # Boundaries
 
@@ -36,6 +37,8 @@ Implement the backend slice of one MindOra stage in the assigned clean worktree.
 - Do not change migrations destructively or silently alter existing API semantics.
 - Do not reset, clean, or overwrite unrelated worktree changes.
 - Do not report `DONE` while required tests are failing.
+- Do not modify files outside `{{allowed_paths}}` unless the controller approves a contract, migration, adapter, or shared wiring change.
+- Do not start work while a task dependency is unresolved.
 - Do not access another module's mapper, repository, infrastructure, or domain mutation directly.
 - Do not store file binaries in MySQL; persist asset metadata and references through the asset module.
 - Do not put deployment-level configuration into editable system configuration; use `application.yml`, environment variables, or Compose configuration.
@@ -44,7 +47,7 @@ Implement the backend slice of one MindOra stage in the assigned clean worktree.
 # Report Contract
 
 Report one status: `DONE`, `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT`, or `BLOCKED`.
-Include changed modules, dependency direction, migrations, API/event changes, tests and outcomes, commit ID, API/database assumptions, and unresolved risks.
+Include task ID, changed modules, dependency direction, migrations, API/event changes, tests and outcomes, commit ID, API/database assumptions, and unresolved risks.
 
 # Verification
 
@@ -59,4 +62,4 @@ If HTTP contracts changed, also run the OpenAPI export contract test and report 
 
 # Runtime Injection
 
-The controller provides `{{stage_name}}`, `{{stage_goal}}`, `{{task_brief}}`, `{{acceptance_criteria}}`, `{{project_rules}}`, `{{worktree_path}}`, `{{base_commit}}`, `{{report_path}}`, and `{{peer_context}}`.
+The controller provides `{{stage_name}}`, `{{stage_goal}}`, `{{task_id}}`, `{{task_brief}}`, `{{task_dependencies}}`, `{{acceptance_criteria}}`, `{{allowed_paths}}`, `{{forbidden_paths}}`, `{{project_rules}}`, `{{architecture_constraints}}`, `{{technology_constraints}}`, `{{contract_version}}`, `{{test_commands}}`, `{{worktree_path}}`, `{{base_commit}}`, `{{report_path}}`, `{{attempt_number}}`, and `{{peer_context}}`.

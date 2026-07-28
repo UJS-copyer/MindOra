@@ -38,7 +38,8 @@ Recommended stack:
 - Redis
 - RocketMQ
 - MySQL
-- Qdrant
+- Lucene
+- Milvus
 - local file storage
 
 ### Infrastructure
@@ -50,7 +51,8 @@ Core infrastructure components:
 
 - MySQL for business data
 - Redis for cache and authentication support
-- Qdrant for vector storage
+- Milvus for vector storage
+- Lucene for keyword and inverted-index retrieval
 - RocketMQ for asynchronous workflows and domain events
 - local file storage for first-version managed assets
 
@@ -173,9 +175,9 @@ Use Redis for:
 - rate limiting
 - short-lived session helpers
 
-### Qdrant
+### Milvus
 
-Use Qdrant for:
+Use Milvus for:
 
 - chunk embeddings
 - minimal chunk metadata
@@ -199,7 +201,7 @@ The first version should implement one default provider in each adapter area.
 Planned defaults:
 
 - data source: Gitee
-- vector store: Qdrant
+- vector store: Milvus
 - file storage: local file storage
 - model provider: OpenAI-compatible API
 - login provider: email + GitHub
@@ -216,6 +218,31 @@ Redis as supporting infrastructure.
 This works well for separate `site` and `admin` frontend applications while
 keeping server-side control for token support, rate limiting, and short-lived
 state.
+
+Recommended first-version and near-term auth capabilities:
+
+- access token + refresh token
+- email verification code
+- email/password login
+- GitHub OAuth
+- Redis-backed short-lived verification and refresh support
+
+## Optional Module Strategy
+
+Some AI and retrieval capabilities should be deployable as optional modules.
+
+Examples:
+
+- vector embedding pipeline
+- rerank pipeline
+- hybrid search
+- public RAG chat
+- vector retrieval infrastructure
+
+This keeps the public site light while allowing the admin and knowledge
+pipeline to scale up when resources are available. The system should support
+feature flags, conditional bean wiring, or profile-based enablement for these
+modules.
 
 ## Operational Strategy
 
@@ -236,12 +263,36 @@ Recommended delivery order:
 - Backend architecture: modular monolith
 - Backend stack: Spring Boot 3, Spring AI, MyBatis-Plus, Redis, RocketMQ
 - Database: MySQL
-- Vector database: Qdrant
+- Vector database: Milvus
+- Keyword retrieval engine: Lucene
 - Data source: Gitee first
 - File storage: local file storage first
 - Frontend architecture: Vue 3 + Vite monorepo
 - Frontend apps: `site` and `admin`
-- Auth: Spring Security + JWT + Redis support
+- Auth: Spring Security + JWT + refresh token + email verification + GitHub OAuth + Redis support
 - Boundary rule: modules must not directly call each other's internals
 - Future expansion: adapters for more data sources, vector stores, storage
   providers, and model providers
+
+## Trade-Offs And Drawbacks
+
+This architecture improves retrieval richness and operational flexibility, but
+it also adds clear costs:
+
+- Running both vector retrieval and keyword retrieval increases architecture,
+  testing, and observability complexity compared with a single-retriever stack.
+- Milvus provides stronger long-term vector scalability, but its deployment,
+  operations, and tuning cost are higher than a lighter vector setup.
+- Lucene improves keyword retrieval and fallback behavior, but it introduces an
+  extra indexing lifecycle, consistency checks, and storage overhead.
+- Hybrid search, RRF fusion, reranking, and context refinement improve answer
+  quality, but each stage adds latency and more failure modes.
+- JWT plus refresh token plus email verification plus GitHub OAuth gives a more
+  complete auth system, but significantly increases token lifecycle, security,
+  audit, and abuse-control complexity.
+- Optional module enablement protects low-resource deployments, but it requires
+  stricter configuration management, clearer degraded-mode UX, and more test
+  permutations.
+- Spring AI, vector stores, rerankers, and embedding providers deepen external
+  dependency risk; provider instability can affect retrieval quality even when
+  the main site is otherwise healthy.

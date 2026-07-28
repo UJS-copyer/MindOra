@@ -110,16 +110,16 @@ mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml -pl mindora-app -
 
 ## 下一阶段：Stage 2 知识库闭环
 
-下一阶段按照 `docs/design-03-data-and-sync-flow.md`、`docs/design-06-data-model-and-api-boundaries.md` 和 `docs/design-07-implementation-roadmap.md` 执行，目标是先完成一条可运行的 Gitee Markdown 同步、解析、切片、向量化和 Qdrant 入库闭环，再补充博客发布到知识库的同步。
+下一阶段按照 `docs/design-03-data-and-sync-flow.md`、`docs/design-06-data-model-and-api-boundaries.md` 和 `docs/design-07-implementation-roadmap.md` 执行，目标是先完成一条可运行的 Gitee Markdown 同步、解析、切片、向量化和 Milvus 入库闭环，再按阶段补充完整 RAG 能力。
 
 建议执行顺序：
 
 1. 从 `feature/stage-1-content-admin` 当前提交创建新的 Stage 2 分支，保留 Stage 1 回滚点。
 2. 先检查 `backend/mindora-knowledge`、`backend/mindora-rag`、适配器模块和现有数据库迁移，避免重复设计。
 3. 先完成 Gitee 数据源配置、手动同步、Markdown 解析、文档/版本记录和切片状态。
-4. 再接入 embedding 适配器和 Qdrant 写入，所有外部服务调用必须可替换、可测试、可重试。
+4. 再接入 embedding 适配器、Milvus 写入和 Lucene 索引，所有外部服务调用必须可替换、可测试、可重试。
 5. 后端契约稳定后，在 `frontend/apps/admin-art` 增加数据源、同步任务、知识文档、索引状态和失败重试页面。
-6. 最后补充“已发布博客文章 -> 知识文档 -> 切片 -> 向量索引”的异步流程。
+6. 最后补充“已发布博客文章 -> 知识文档 -> 切片 -> 向量索引”的异步流程，并继续推进后续完整 RAG 阶段能力。
 
 ### 下一阶段提示词
 
@@ -151,17 +151,18 @@ Stage 2 第一目标是实现可运行的知识库闭环，优先完成 Gitee Ma
 6. Knowledge Document、Knowledge Document Version 及同步状态
 7. 可配置的基础切片策略
 8. embedding provider 适配器，默认预留 Alibaba Cloud Bailian text-embedding-v4
-9. Qdrant 向量写入适配器
-10. 索引状态、失败原因、重试次数和单文档/批量重建索引
+9. Milvus 向量写入适配器
+10. Lucene 关键词索引适配器
+11. 索引状态、失败原因、重试次数和单文档/批量重建索引
 
 实现要求：
 - 优先复用现有 mindora-knowledge、mindora-rag、adapter 模块和数据库迁移风格
-- 外部 Gitee、embedding、Qdrant 调用必须放在清晰的 adapter 边界后
+- 外部 Gitee、embedding、Milvus、Lucene 调用必须放在清晰的 adapter 边界后
 - 先实现服务层和持久化测试，再接 HTTP API
 - 使用当前 OpenAPI 生成链路更新契约和 frontend/packages/types/src/generated/openapi.d.ts
 - 后台页面只写入 frontend/apps/admin-art，使用现有 api-client、Element Plus、Pinia 和 Art Design Pro 约定
 - 前端页面至少覆盖数据源、手动同步、同步任务、知识文档、索引状态、失败重试
-- Stage 2 第一轮不实现 RAG 对话页面，不提前扩展 Stage 3
+- Stage 2 第一轮不实现 RAG 对话页面，但要为后续完整 RAG 链路保留接口与状态模型
 - 不引入模板自己的 pnpm-lock.yaml，不破坏当前 npm workspace
 - 每完成一个可运行的小闭环就运行相关测试、类型检查和构建
 - 维护 docs/project-status-cn.md，记录新分支、接口、启动方式、测试结果和当前完成度
@@ -169,7 +170,8 @@ Stage 2 第一目标是实现可运行的知识库闭环，优先完成 Gitee Ma
 完成标准：
 - 可以配置一个 Gitee 数据源并触发手动同步
 - Markdown 可以形成文档和版本记录
-- 文档可以切片并写入 Qdrant，状态可查询
+- 文档可以切片并写入 Milvus，状态可查询
+- Lucene 关键词索引可建立并可查询状态
 - 失败任务有明确错误信息和重试入口
 - 后台 Art Design Pro 页面可以查看同步、文档和索引状态
 - 后端单元测试、集成测试、前端 typecheck 和 build 均通过

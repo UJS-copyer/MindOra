@@ -42,7 +42,7 @@ Show status for:
 
 - MySQL
 - Redis
-- Qdrant
+- Milvus
 - RocketMQ
 - Chat Model
 - Embedding Model
@@ -261,7 +261,7 @@ Show:
 - heading path
 - chunk length
 - embedding status
-- Qdrant write status
+- Milvus write status
 - index update time
 - failure reason
 
@@ -444,7 +444,7 @@ Show:
 
 - MySQL
 - Redis
-- Qdrant
+- Milvus
 - RocketMQ
 - Chat Model
 - Embedding Model

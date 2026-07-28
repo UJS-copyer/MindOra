@@ -483,7 +483,7 @@ Reason:
 
 - source documents, versions, and chunks are required for RAG traceability
 - file delete and move handling requires history
-- Qdrant vectors may be deleted or marked inactive, while MySQL records remain
+- Milvus vectors may be deleted or marked inactive, while MySQL records remain
 
 Suggested semantics:
 
@@ -727,7 +727,7 @@ Stores:
 - logs
 - soft delete and archive state
 
-### Qdrant
+### Milvus
 
 Stores:
 
@@ -735,7 +735,7 @@ Stores:
 - minimal chunk metadata
 - minimal retrieval payloads required for lookup
 
-Qdrant metadata must stay minimal and should not duplicate full business
+Milvus metadata must stay minimal and should not duplicate full business
 records.
 
 ### Local File Storage
