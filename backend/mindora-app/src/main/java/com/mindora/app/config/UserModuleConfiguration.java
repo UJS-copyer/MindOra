@@ -3,14 +3,20 @@ package com.mindora.app.config;
 import com.mindora.user.application.AuthService;
 import com.mindora.user.application.AdminIdentityService;
 import com.mindora.user.application.RbacPermissionService;
-import com.mindora.user.infrastructure.InMemoryUserRepository;
-import com.mindora.user.infrastructure.JdbcUserRepository;
-import com.mindora.user.infrastructure.PasswordHasher;
-import com.mindora.user.infrastructure.Sha256PasswordHasher;
-import com.mindora.user.infrastructure.SimpleJwtTokenService;
-import com.mindora.user.infrastructure.TokenService;
-import com.mindora.user.infrastructure.UserRepository;
+import com.mindora.user.application.UnavailableAdminIdentityGateway;
+import com.mindora.user.application.port.AdminIdentityGateway;
+import com.mindora.user.application.port.PasswordHasher;
+import com.mindora.user.application.port.RbacPermissionGateway;
+import com.mindora.user.application.port.TokenService;
+import com.mindora.user.domain.UserRepository;
+import com.mindora.user.infrastructure.persistence.memory.InMemoryUserRepository;
+import com.mindora.user.infrastructure.persistence.jdbc.JdbcAdminIdentityGateway;
+import com.mindora.user.infrastructure.persistence.jdbc.JdbcRbacPermissionGateway;
+import com.mindora.user.infrastructure.persistence.jdbc.JdbcUserRepository;
+import com.mindora.user.infrastructure.security.Sha256PasswordHasher;
+import com.mindora.user.infrastructure.security.SimpleJwtTokenService;
 import java.time.Clock;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.context.annotation.Bean;
@@ -52,14 +58,30 @@ public class UserModuleConfiguration {
     }
 
     @Bean
-    RbacPermissionService rbacPermissionService(ObjectProvider<JdbcTemplate> jdbcTemplate) {
-        return new RbacPermissionService(jdbcTemplate.getIfAvailable());
+    @ConditionalOnProperty(name = "mindora.persistence.user", havingValue = "jdbc", matchIfMissing = true)
+    RbacPermissionGateway rbacPermissionGateway(JdbcTemplate jdbcTemplate) {
+        return new JdbcRbacPermissionGateway(jdbcTemplate);
     }
 
     @Bean
-    AdminIdentityService adminIdentityService(
-            ObjectProvider<JdbcTemplate> jdbcTemplate,
-            PasswordHasher passwordHasher) {
-        return new AdminIdentityService(jdbcTemplate.getIfAvailable(), passwordHasher);
+    RbacPermissionService rbacPermissionService(ObjectProvider<RbacPermissionGateway> gateway) {
+        return new RbacPermissionService(gateway.getIfAvailable());
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "mindora.persistence.user", havingValue = "jdbc", matchIfMissing = true)
+    AdminIdentityGateway adminIdentityGateway(JdbcTemplate jdbcTemplate, PasswordHasher passwordHasher) {
+        return new JdbcAdminIdentityGateway(jdbcTemplate, passwordHasher);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(AdminIdentityGateway.class)
+    AdminIdentityGateway unavailableAdminIdentityGateway() {
+        return new UnavailableAdminIdentityGateway();
+    }
+
+    @Bean
+    AdminIdentityService adminIdentityService(AdminIdentityGateway gateway) {
+        return new AdminIdentityService(gateway);
     }
 }

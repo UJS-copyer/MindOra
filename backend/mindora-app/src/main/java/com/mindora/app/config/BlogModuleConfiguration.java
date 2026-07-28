@@ -1,9 +1,9 @@
 package com.mindora.app.config;
 
 import com.mindora.blog.application.ArticleService;
-import com.mindora.blog.application.BlogRepository;
-import com.mindora.blog.application.InMemoryBlogRepository;
-import com.mindora.blog.application.JdbcBlogRepository;
+import com.mindora.blog.domain.BlogRepository;
+import com.mindora.blog.infrastructure.persistence.memory.InMemoryBlogRepository;
+import com.mindora.blog.infrastructure.persistence.jdbc.JdbcBlogRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.context.annotation.Bean;

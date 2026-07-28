@@ -1,6 +1,7 @@
 package com.mindora.asset.application;
 
 import com.mindora.asset.domain.Asset;
+import com.mindora.asset.domain.AssetRepository;
 import com.mindora.common.exception.BusinessException;
 import com.mindora.common.id.PublicIds;
 import java.io.BufferedInputStream;

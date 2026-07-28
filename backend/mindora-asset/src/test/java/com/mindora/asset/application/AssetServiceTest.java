@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.mindora.asset.domain.Asset;
+import com.mindora.asset.infrastructure.persistence.filesystem.FileSystemAssetRepository;
+import com.mindora.asset.infrastructure.persistence.memory.InMemoryAssetRepository;
 import com.mindora.common.exception.BusinessException;
 import java.io.ByteArrayInputStream;
 import java.nio.file.Path;

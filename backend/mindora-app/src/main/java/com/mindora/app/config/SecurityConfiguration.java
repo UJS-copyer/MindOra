@@ -66,7 +66,7 @@ public class SecurityConfiguration {
 
     @Bean
     BearerTokenAuthenticationFilter bearerTokenAuthenticationFilter(
-            com.mindora.user.infrastructure.TokenService tokenService) {
+            com.mindora.user.application.port.TokenService tokenService) {
         return new BearerTokenAuthenticationFilter(tokenService);
     }
 }

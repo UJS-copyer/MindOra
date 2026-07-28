@@ -8,6 +8,7 @@ import com.mindora.blog.domain.ArticleStatus;
 import com.mindora.blog.domain.BlogArticle;
 import com.mindora.blog.domain.Category;
 import com.mindora.blog.domain.Tag;
+import com.mindora.blog.infrastructure.persistence.memory.InMemoryBlogRepository;
 import com.mindora.common.exception.BusinessException;
 import java.util.List;
 import java.util.Set;
