@@ -1,5 +1,6 @@
 package com.mindora.user.application;
 
+import com.mindora.user.application.port.RbacPermissionGateway;
 import com.mindora.user.domain.TokenPrincipal;
 import com.mindora.user.domain.RoleName;
 import com.mindora.user.domain.UserAccount;
@@ -8,8 +9,6 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 public class RbacPermissionService {
     private static final Map<String, Set<String>> DEFAULT_PERMISSIONS = Map.of(
@@ -25,14 +24,14 @@ public class RbacPermissionService {
             RoleName.USER.value(),
             Set.of("blog:read"));
 
-    private final JdbcTemplate jdbcTemplate;
+    private final RbacPermissionGateway gateway;
 
     public RbacPermissionService() {
         this(null);
     }
 
-    public RbacPermissionService(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public RbacPermissionService(RbacPermissionGateway gateway) {
+        this.gateway = gateway;
     }
 
     public boolean canAccessAdmin(UserAccount user) {
@@ -56,28 +55,10 @@ public class RbacPermissionService {
             return Set.of();
         }
 
-        if (jdbcTemplate != null) {
-            try {
-                String placeholders = roles.stream().map(role -> "?").collect(Collectors.joining(", "));
-                Object[] args = roles.stream().map(this::normalizeRoleName).toArray();
-                Set<String> permissions = new LinkedHashSet<>(jdbcTemplate.query(
-                        """
-                        SELECT DISTINCT p.code
-                        FROM role_permission rp
-                        JOIN role r ON r.id = rp.role_id
-                        JOIN permission p ON p.id = rp.permission_id
-                        WHERE r.name IN (%s)
-                          AND r.deleted = FALSE
-                          AND rp.deleted = FALSE
-                          AND p.deleted = FALSE
-                        """.formatted(placeholders),
-                        (rs, rowNum) -> rs.getString("code"),
-                        args));
-                if (!permissions.isEmpty()) {
-                    return permissions;
-                }
-            } catch (DataAccessException ignored) {
-                // Keep local development usable before the RBAC tables are initialized.
+        if (gateway != null) {
+            Set<String> permissions = gateway.permissionsForRoles(roles);
+            if (!permissions.isEmpty()) {
+                return permissions;
             }
         }
 

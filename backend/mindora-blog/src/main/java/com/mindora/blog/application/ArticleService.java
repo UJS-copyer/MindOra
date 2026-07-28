@@ -2,6 +2,7 @@ package com.mindora.blog.application;
 
 import com.mindora.blog.domain.ArticleStatus;
 import com.mindora.blog.domain.BlogArticle;
+import com.mindora.blog.domain.BlogRepository;
 import com.mindora.blog.domain.Category;
 import com.mindora.blog.domain.Tag;
 import com.mindora.common.exception.BusinessException;

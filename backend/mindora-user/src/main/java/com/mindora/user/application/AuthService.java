@@ -1,12 +1,12 @@
 package com.mindora.user.application;
 
 import com.mindora.common.exception.BusinessException;
+import com.mindora.user.application.port.PasswordHasher;
+import com.mindora.user.application.port.TokenService;
 import com.mindora.user.domain.AuthResult;
 import com.mindora.user.domain.RoleName;
 import com.mindora.user.domain.UserAccount;
-import com.mindora.user.infrastructure.PasswordHasher;
-import com.mindora.user.infrastructure.TokenService;
-import com.mindora.user.infrastructure.UserRepository;
+import com.mindora.user.domain.UserRepository;
 import java.util.Set;
 import java.util.UUID;
 

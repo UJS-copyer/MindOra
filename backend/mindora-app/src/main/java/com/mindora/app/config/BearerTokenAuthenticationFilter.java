@@ -1,7 +1,7 @@
 package com.mindora.app.config;
 
 import com.mindora.user.domain.TokenPrincipal;
-import com.mindora.user.infrastructure.TokenService;
+import com.mindora.user.application.port.TokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

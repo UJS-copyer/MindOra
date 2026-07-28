@@ -15,7 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mindora.app.MindOraApplication;
 import com.mindora.user.domain.RoleName;
 import com.mindora.user.domain.UserAccount;
-import com.mindora.user.infrastructure.TokenService;
+import com.mindora.user.application.port.TokenService;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.UUID;

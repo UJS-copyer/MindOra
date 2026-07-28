@@ -1,9 +1,9 @@
 package com.mindora.app.config;
 
-import com.mindora.asset.application.AssetRepository;
 import com.mindora.asset.application.AssetService;
-import com.mindora.asset.application.FileSystemAssetRepository;
-import com.mindora.asset.application.JdbcAssetRepository;
+import com.mindora.asset.domain.AssetRepository;
+import com.mindora.asset.infrastructure.persistence.filesystem.FileSystemAssetRepository;
+import com.mindora.asset.infrastructure.persistence.jdbc.JdbcAssetRepository;
 import java.nio.file.Path;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
