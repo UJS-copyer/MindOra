@@ -1,10 +1,13 @@
 .worktrees/
 .superpowers/
+.codex-chrome-stage2-profile/
 .m2/
 .npm-cache/
 .pnpm-store/
 backend/**/target/
 backend/.idea/
+backend/data/
+backend/mindora-app/config/mindora-local.yml
 backend/**/*.gradle.kts
 backend/**/settings.gradle.kts
 *.log
