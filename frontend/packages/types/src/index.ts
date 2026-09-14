@@ -33,6 +33,9 @@ export interface BlogArticle {
   tagIds: string[];
   status: 'draft' | 'published' | 'unpublished' | string;
   visibility: 'public' | 'private' | string;
+  knowledgeEnabled: boolean;
+  knowledgeDocumentId?: string;
+  knowledgeIndexStatus?: string;
   readCount: number;
   createdAt: string;
   updatedAt: string;
@@ -72,6 +75,7 @@ export interface ArticleDraftInput {
   categoryId?: string;
   tagIds: string[];
   visibility: 'public' | 'private' | string;
+  knowledgeEnabled?: boolean;
 }
 
 export interface ArticleFilters {

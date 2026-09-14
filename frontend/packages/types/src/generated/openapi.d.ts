@@ -65,6 +65,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/knowledge/sources/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["updateSource"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/documents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["updateDocument"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/config/chunking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getChunking"];
+        put: operations["updateChunking"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/categories/{id}": {
         parameters: {
             query?: never;
@@ -177,6 +225,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/knowledge/tasks/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["retryTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listSources"];
+        put?: never;
+        post: operations["createSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/sources/{id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/rerank/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rerankPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/documents/{id}/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reindexDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/documents/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["publishDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/documents/{id}/article-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createArticleDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/documents/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reindexDocuments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/categories": {
         parameters: {
             query?: never;
@@ -251,6 +427,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/articles/{id}/knowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateKnowledgeEnabled"];
         delete?: never;
         options?: never;
         head?: never;
@@ -401,6 +593,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/knowledge/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listDocuments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/documents/{id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/documents/{id}/chunks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listChunks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/knowledge/config/runtime": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRuntimeConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -487,6 +759,106 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
         };
+        DataSourceRequest: {
+            name: string;
+            repositoryUrl: string;
+            branch?: string;
+            accessToken?: string;
+            rootPath?: string;
+            defaultVisibility?: string;
+            enabled?: boolean;
+        };
+        ApiResponseDataSourceView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["DataSourceView"];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        DataSourceView: {
+            id?: string;
+            name?: string;
+            sourceType?: string;
+            repositoryUrl?: string;
+            branch?: string;
+            tokenConfigured?: boolean;
+            rootPath?: string;
+            defaultVisibility?: string;
+            enabled?: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        DocumentSettingsRequest: {
+            enabled?: boolean;
+            visibility?: string;
+        };
+        ApiResponseDocumentView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["DocumentView"];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        DocumentView: {
+            id?: string;
+            sourceType?: string;
+            sourceId?: string;
+            sourcePath?: string;
+            title?: string;
+            currentVersionId?: string;
+            sourceHash?: string;
+            visibility?: string;
+            knowledgeEnabled?: boolean;
+            publicArticleId?: string;
+            status?: string;
+            parseStatus?: string;
+            indexStatus?: string;
+            indexFailureReason?: string;
+            /** Format: int32 */
+            indexRetryCount?: number;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        ChunkingConfigRequest: {
+            strategy?: string;
+            /** Format: int32 */
+            chunkSize?: number;
+            /** Format: int32 */
+            overlap?: number;
+            /** Format: int32 */
+            minimumSize?: number;
+            /** Format: int32 */
+            maximumSize?: number;
+            preserveHeadingHierarchy?: boolean;
+            includeMetadata?: boolean;
+        };
+        ApiResponseChunkingConfigView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["ChunkingConfigView"];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ChunkingConfigView: {
+            strategy?: string;
+            /** Format: int32 */
+            chunkSize?: number;
+            /** Format: int32 */
+            overlap?: number;
+            /** Format: int32 */
+            minimumSize?: number;
+            /** Format: int32 */
+            maximumSize?: number;
+            preserveHeadingHierarchy?: boolean;
+            includeMetadata?: boolean;
+        };
         ApiResponseCategoryView: {
             code?: string;
             message?: string;
@@ -512,6 +884,7 @@ export interface components {
             categoryId?: string;
             tagIds?: string[];
             visibility?: string;
+            knowledgeEnabled?: boolean;
         };
         ApiResponseArticleView: {
             code?: string;
@@ -532,6 +905,9 @@ export interface components {
             tagIds?: string[];
             status?: string;
             visibility?: string;
+            knowledgeEnabled?: boolean;
+            knowledgeDocumentId?: string;
+            knowledgeIndexStatus?: string;
             /** Format: int64 */
             readCount?: number;
             /** Format: date-time */
@@ -559,6 +935,85 @@ export interface components {
             email?: string;
             accessToken?: string;
         };
+        ApiResponseSyncTaskView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["SyncTaskView"];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        SyncTaskView: {
+            /** Format: int64 */
+            id?: number;
+            sourceId?: string;
+            mode?: string;
+            status?: string;
+            /** Format: int32 */
+            totalFiles?: number;
+            /** Format: int32 */
+            processedFiles?: number;
+            /** Format: int32 */
+            createdDocuments?: number;
+            /** Format: int32 */
+            updatedDocuments?: number;
+            /** Format: int32 */
+            archivedDocuments?: number;
+            /** Format: int32 */
+            retryCount?: number;
+            errorMessage?: string;
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+        };
+        SyncRequest: {
+            mode?: string;
+        };
+        RerankPreviewRequest: {
+            query?: string;
+            documents?: string[];
+            /** Format: int32 */
+            topN?: number;
+        };
+        ApiResponseListRerankResultView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["RerankResultView"][];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        RerankResultView: {
+            /** Format: int32 */
+            index?: number;
+            /** Format: double */
+            score?: number;
+            document?: string;
+        };
+        ApiResponseVoid: {
+            code?: string;
+            message?: string;
+            data?: unknown;
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        BatchReindexRequest: {
+            documentIds?: string[];
+        };
+        ApiResponseInteger: {
+            code?: string;
+            message?: string;
+            /** Format: int32 */
+            data?: number;
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
         ApiResponseAssetView: {
             code?: string;
             message?: string;
@@ -577,6 +1032,9 @@ export interface components {
             publicUrl?: string;
             /** Format: date-time */
             createdAt?: string;
+        };
+        ArticleKnowledgeRequest: {
+            enabled?: boolean;
         };
         ApiResponseListTagView: {
             code?: string;
@@ -706,18 +1164,93 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
         };
-        ApiResponseListAssetView: {
+        ApiResponseListSyncTaskView: {
             code?: string;
             message?: string;
-            data?: components["schemas"]["AssetView"][];
+            data?: components["schemas"]["SyncTaskView"][];
             traceId?: string;
             /** Format: date-time */
             createdAt?: string;
         };
-        ApiResponseVoid: {
+        ApiResponseListDataSourceView: {
             code?: string;
             message?: string;
-            data?: unknown;
+            data?: components["schemas"]["DataSourceView"][];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ApiResponseListDocumentView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["DocumentView"][];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ApiResponseListVersionView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["VersionView"][];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        VersionView: {
+            id?: string;
+            documentId?: string;
+            sourceType?: string;
+            sourcePath?: string;
+            contentHash?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ApiResponseListChunkView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["ChunkView"][];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ChunkView: {
+            id?: string;
+            documentVersionId?: string;
+            /** Format: int32 */
+            sequence?: number;
+            content?: string;
+            /** Format: int32 */
+            characterCount?: number;
+            indexStatus?: string;
+            embeddingModel?: string;
+            vectorPointId?: string;
+            failureReason?: string;
+            /** Format: int32 */
+            retryCount?: number;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ApiResponseRuntimeConfigView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["RuntimeConfigView"];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        RuntimeConfigView: {
+            embeddingProvider?: string;
+            embeddingModel?: string;
+            /** Format: int32 */
+            embeddingDimensions?: number;
+            rerankProvider?: string;
+            rerankModel?: string;
+            qdrantCollection?: string;
+        };
+        ApiResponseListAssetView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["AssetView"][];
             traceId?: string;
             /** Format: date-time */
             createdAt?: string;
@@ -935,6 +1468,110 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSetString"];
+                };
+            };
+        };
+    };
+    updateSource: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataSourceRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseDataSourceView"];
+                };
+            };
+        };
+    };
+    updateDocument: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseDocumentView"];
+                };
+            };
+        };
+    };
+    getChunking: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseChunkingConfigView"];
+                };
+            };
+        };
+    };
+    updateChunking: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChunkingConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseChunkingConfigView"];
                 };
             };
         };
@@ -1232,6 +1869,230 @@ export interface operations {
             };
         };
     };
+    retryTask: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSyncTaskView"];
+                };
+            };
+        };
+    };
+    listSources: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListDataSourceView"];
+                };
+            };
+        };
+    };
+    createSource: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataSourceRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseDataSourceView"];
+                };
+            };
+        };
+    };
+    sync: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSyncTaskView"];
+                };
+            };
+        };
+    };
+    rerankPreview: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RerankPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListRerankResultView"];
+                };
+            };
+        };
+    };
+    reindexDocument: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    publishDocument: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseDocumentView"];
+                };
+            };
+        };
+    };
+    createArticleDraft: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseDocumentView"];
+                };
+            };
+        };
+    };
+    reindexDocuments: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchReindexRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInteger"];
+                };
+            };
+        };
+    };
     listCategories: {
         parameters: {
             query?: never;
@@ -1417,6 +2278,34 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseArticleView"];
+                };
+            };
+        };
+    };
+    updateKnowledgeEnabled: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleKnowledgeRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -1628,6 +2517,120 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseAdminUserView"];
+                };
+            };
+        };
+    };
+    listTasks: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListSyncTaskView"];
+                };
+            };
+        };
+    };
+    listDocuments: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListDocumentView"];
+                };
+            };
+        };
+    };
+    listVersions: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListVersionView"];
+                };
+            };
+        };
+    };
+    listChunks: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListChunkView"];
+                };
+            };
+        };
+    };
+    getRuntimeConfig: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRuntimeConfigView"];
                 };
             };
         };
