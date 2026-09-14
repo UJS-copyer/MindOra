@@ -21,6 +21,10 @@ export function unpublishArticle(id: string) {
   return request.post<BlogArticle>({ url: `/api/v1/admin/articles/${id}/unpublish` })
 }
 
+export function updateArticleKnowledge(id: string, enabled: boolean) {
+  return request.post<BlogArticle>({ url: `/api/v1/admin/articles/${id}/knowledge`, data: { enabled } })
+}
+
 export function listCategories() {
   return request.get<BlogCategory[]>({ url: '/api/v1/admin/categories' })
 }

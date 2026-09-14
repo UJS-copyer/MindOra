@@ -47,12 +47,14 @@ export interface KnowledgeSyncTask {
 export interface KnowledgeDocument {
   id: string
   sourceId: string
+  sourceType: 'gitee' | 'blog'
   sourcePath: string
   title: string
   version: number
   status: KnowledgeDocumentStatus
   visibility: 'public' | 'private'
   enabledForKnowledge: boolean
+  publicArticleId: string | null
   imageReferences: number
   updatedAt: string
 }
@@ -74,9 +76,11 @@ export interface KnowledgeRagConfig {
   chunkSize: number
   chunkOverlap: number
   strategy: 'markdown-heading' | 'fixed-size' | 'paragraph'
-  embeddingProvider: 'alibaba-bailian'
+  embeddingProvider: string
   embeddingModel: string
   embeddingDimensions: number
+  rerankProvider: string
+  rerankModel: string
   qdrantCollection: string
 }
 

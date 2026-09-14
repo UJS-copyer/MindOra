@@ -5,7 +5,9 @@
         <h2>知识库数据源</h2>
         <p>配置 Gitee Markdown 仓库，并从这里发起增量或全量同步。</p>
       </div>
-      <ElTag type="info">Mock API</ElTag>
+      <ElTag :type="useMock ? 'warning' : 'success'">
+        {{ useMock ? 'Mock API' : '真实 API' }}
+      </ElTag>
     </div>
 
     <ElRow :gutter="16">
@@ -125,12 +127,14 @@
   import { computed, onMounted, reactive, ref } from 'vue'
   import { useRouter } from 'vue-router'
   import { ElMessage, ElMessageBox } from 'element-plus'
+  import { knowledgeApiUsesMock } from '@/api/knowledge-base'
   import { useKnowledgeBaseStore } from '@/store/modules/knowledge-base'
   import type { KnowledgeDataSourceInput, KnowledgeSyncMode } from '@/types/knowledge-base'
 
   defineOptions({ name: 'KnowledgeSources' })
 
   const store = useKnowledgeBaseStore()
+  const useMock = knowledgeApiUsesMock
   const router = useRouter()
   const source = computed(() => store.dataSources[0])
   const syncMode = ref<KnowledgeSyncMode>('incremental')
@@ -138,11 +142,11 @@
     id: '',
     name: '',
     provider: 'gitee',
-    repositoryUrl: '',
-    branch: 'main',
+    repositoryUrl: 'https://gitee.com/fjw08/obsidian',
+    branch: 'master',
     token: '',
-    rootPath: 'docs',
-    defaultVisibility: 'public',
+    rootPath: '',
+    defaultVisibility: 'private',
     enabled: true
   })
 

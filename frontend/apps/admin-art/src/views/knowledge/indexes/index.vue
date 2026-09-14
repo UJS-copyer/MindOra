@@ -6,7 +6,7 @@
         <p>跟踪切片、embedding 和 Qdrant 索引写入状态。</p>
       </div>
       <ElSpace wrap>
-        <ElButton @click="store.refresh">刷新</ElButton>
+        <ElButton @click="() => store.refresh()">刷新</ElButton>
         <ElButton type="primary" :disabled="selectedIds.length === 0" @click="rebuildSelected">
           批量重建
         </ElButton>

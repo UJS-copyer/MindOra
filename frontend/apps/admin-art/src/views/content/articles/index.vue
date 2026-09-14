@@ -34,6 +34,20 @@
           </template>
         </ElTableColumn>
         <ElTableColumn prop="readCount" label="阅读" width="90" />
+        <ElTableColumn label="知识库" width="150">
+          <template #default="{ row }">
+            <ElSpace>
+              <ElSwitch
+                :model-value="row.knowledgeEnabled"
+                :loading="knowledgeTogglingId === row.id"
+                @change="toggleKnowledge(row, Boolean($event))"
+              />
+              <ElTag v-if="row.knowledgeDocumentId" :type="knowledgeTag(row.knowledgeIndexStatus)">
+                {{ knowledgeLabel(row.knowledgeIndexStatus) }}
+              </ElTag>
+            </ElSpace>
+          </template>
+        </ElTableColumn>
         <ElTableColumn label="更新时间" width="180">
           <template #default="{ row }">{{ formatDate(row.updatedAt) }}</template>
         </ElTableColumn>
@@ -69,13 +83,19 @@
   import { useRouter } from 'vue-router'
   import { ElMessage } from 'element-plus'
   import type { BlogArticle } from '@mindora/types'
-  import { listAdminArticles, publishArticle, unpublishArticle } from '@/api/content'
+  import {
+    listAdminArticles,
+    publishArticle,
+    unpublishArticle,
+    updateArticleKnowledge
+  } from '@/api/content'
 
   defineOptions({ name: 'ContentArticles' })
 
   const router = useRouter()
   const loading = ref(false)
   const statusFilter = ref('all')
+  const knowledgeTogglingId = ref('')
   const articles = ref<BlogArticle[]>([])
 
   const filteredArticles = computed(() => {
@@ -96,7 +116,8 @@
     router.push({ name: 'ContentEditor', query: id ? { id } : undefined })
   }
 
-  const togglePublish = async (article: BlogArticle | any) => {
+  const togglePublish = async (value: unknown) => {
+    const article = value as BlogArticle
     loading.value = true
     try {
       if (article.status === 'published') {
@@ -112,6 +133,18 @@
     }
   }
 
+  const toggleKnowledge = async (value: unknown, enabled: boolean) => {
+    const article = value as BlogArticle
+    knowledgeTogglingId.value = article.id
+    try {
+      await updateArticleKnowledge(article.id, enabled)
+      ElMessage.success(enabled ? '文章发布后会进入知识库' : '文章已关闭知识库索引')
+      await loadArticles()
+    } finally {
+      knowledgeTogglingId.value = ''
+    }
+  }
+
   const statusLabel = (status: string) => {
     const labels: Record<string, string> = {
       draft: '草稿',
@@ -124,6 +157,24 @@
   const statusTag = (status: string) => {
     if (status === 'published') return 'success'
     if (status === 'unpublished') return 'warning'
+    return 'info'
+  }
+
+  const knowledgeLabel = (status?: string) => {
+    const labels: Record<string, string> = {
+      pending: '待索引',
+      chunked: '已切片',
+      vectorizing: '向量化',
+      indexed: '已索引',
+      failed: '失败'
+    }
+    return labels[status || 'pending'] || status || '待索引'
+  }
+
+  const knowledgeTag = (status?: string) => {
+    if (status === 'indexed') return 'success'
+    if (status === 'failed') return 'danger'
+    if (status === 'vectorizing') return 'warning'
     return 'info'
   }
 

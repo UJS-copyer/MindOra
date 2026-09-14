@@ -52,6 +52,11 @@
             </ElFormItem>
           </ElCol>
           <ElCol :xs="24" :md="8">
+            <ElFormItem label="进入知识库">
+              <ElSwitch v-model="form.knowledgeEnabled" active-text="开启" inactive-text="关闭" />
+            </ElFormItem>
+          </ElCol>
+          <ElCol :xs="24" :md="8">
             <ElFormItem label="上传封面">
               <ElUpload
                 :auto-upload="false"
@@ -92,8 +97,13 @@
         </ElRow>
 
         <ElFormItem label="正文">
-          <MdEditor v-model="form.body" language="zh-CN" :preview="true" />
+          <MdEditor v-model="form.body" class="body-editor" language="zh-CN" :preview="true" />
         </ElFormItem>
+
+        <div class="bottom-actions">
+          <ElButton @click="router.push({ name: 'ContentArticles' })">返回列表</ElButton>
+          <ElButton type="primary" :loading="saving" @click="save">保存草稿</ElButton>
+        </div>
       </ElForm>
     </ElCard>
   </div>
@@ -136,7 +146,8 @@
     coverAssetId: '',
     categoryId: '',
     tagIds: [],
-    visibility: 'public'
+    visibility: 'public',
+    knowledgeEnabled: true
   })
 
   const fillForm = (article: BlogArticle) => {
@@ -148,6 +159,7 @@
     form.categoryId = article.categoryId || ''
     form.tagIds = [...(article.tagIds || [])]
     form.visibility = article.visibility || 'public'
+    form.knowledgeEnabled = article.knowledgeEnabled ?? true
   }
 
   const loadData = async () => {
@@ -160,9 +172,13 @@
     categories.value = categoryList
     tags.value = tagList
     assets.value = assetList
-    const article = (articleList as BlogArticle[]).find((item) => item.id === articleId.value)
+    const article = (articleList as BlogArticle[]).find(
+      (item) => normalizeId(item.id) === normalizeId(articleId.value)
+    )
     if (article) fillForm(article)
   }
+
+  const normalizeId = (id: string) => id.replace(/-/g, '').toLowerCase()
 
   const uploadCover = async (uploadFile: UploadFile) => {
     if (!uploadFile.raw) return
@@ -192,7 +208,7 @@
         : await createArticle(payload)
       articleId.value = article.id
       ElMessage.success('草稿已保存')
-      router.replace({ name: 'ContentEditor', query: { id: article.id } })
+      router.push({ name: 'ContentArticles' })
     } finally {
       saving.value = false
     }
@@ -203,7 +219,7 @@
 
 <style scoped>
   .content-page {
-    padding: 20px;
+    padding: 16px;
   }
 
   .content-card {
@@ -228,7 +244,7 @@
   }
 
   .editor-form {
-    max-width: 1200px;
+    width: 100%;
   }
 
   .asset-strip {
@@ -270,8 +286,24 @@
     white-space: nowrap;
   }
 
-  :deep(.md-editor) {
-    min-height: 520px;
+  .bottom-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid var(--art-card-border);
+    padding-top: 16px;
+  }
+
+  :deep(.body-editor) {
+    height: min(78vh, 920px);
+    min-height: 680px;
     border-radius: 8px;
+  }
+
+  @media (max-width: 768px) {
+    :deep(.body-editor) {
+      height: 72vh;
+      min-height: 560px;
+    }
   }
 </style>

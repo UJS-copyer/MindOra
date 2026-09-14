@@ -5,7 +5,7 @@
         <h2>同步任务</h2>
         <p>查看增量/全量同步的异步进度、结果和失败原因。</p>
       </div>
-      <ElButton @click="store.refresh">刷新任务</ElButton>
+      <ElButton @click="() => store.refresh()">刷新任务</ElButton>
     </div>
 
     <div class="summary-grid">
@@ -80,6 +80,9 @@
   const store = useKnowledgeBaseStore()
   const retryingId = ref('')
   let refreshTimer: number | undefined
+  const hasActiveTask = computed(() =>
+    store.syncTasks.some((item) => item.status === 'queued' || item.status === 'running')
+  )
 
   const summary = computed(() => [
     { label: '全部任务', value: store.syncTasks.length },
@@ -117,7 +120,9 @@
 
   onMounted(async () => {
     await store.ensureLoaded()
-    refreshTimer = window.setInterval(() => store.refresh(), 1500)
+    refreshTimer = window.setInterval(async () => {
+      if (hasActiveTask.value) await store.refresh({ silent: true })
+    }, 5000)
   })
 
   onUnmounted(() => {

@@ -49,8 +49,44 @@
               <ElInput v-model="form.embeddingModel" />
             </ElFormItem>
             <ElFormItem label="维度">
-              <ElInputNumber v-model="form.embeddingDimensions" :min="1" :max="4096" />
+              <ElInputNumber v-model="form.embeddingDimensions" :min="1" :max="4096" disabled />
             </ElFormItem>
+          </ElForm>
+        </ElCard>
+      </ElCol>
+
+      <ElCol :xs="24" :lg="12">
+        <ElCard class="knowledge-card">
+          <template #header>
+            <div class="card-heading">
+              <span>Rerank</span>
+              <ElTag type="success">运行时配置</ElTag>
+            </div>
+          </template>
+          <ElForm label-position="top">
+            <ElFormItem label="Provider">
+              <ElInput v-model="form.rerankProvider" disabled />
+            </ElFormItem>
+            <ElFormItem label="模型">
+              <ElInput v-model="form.rerankModel" disabled />
+            </ElFormItem>
+            <ElFormItem label="连通性探测">
+              <ElInput v-model="rerankQuery" placeholder="输入一个检索问题" />
+              <ElInput
+                v-model="rerankDocumentsText"
+                class="rerank-documents"
+                type="textarea"
+                :rows="4"
+                placeholder="每行一个候选文档"
+              />
+              <ElButton :loading="rerankTesting" @click="testRerank">测试 Rerank</ElButton>
+            </ElFormItem>
+            <ElAlert
+              v-if="rerankResult"
+              :title="`返回 ${rerankResult.length} 条结果`"
+              type="success"
+              :closable="false"
+            />
           </ElForm>
         </ElCard>
       </ElCol>
@@ -82,6 +118,7 @@
 <script setup lang="ts">
   import { onMounted, reactive, ref } from 'vue'
   import { ElMessage } from 'element-plus'
+  import { previewKnowledgeRerank } from '@/api/knowledge-base'
   import { useKnowledgeBaseStore } from '@/store/modules/knowledge-base'
   import type { KnowledgeRagConfig } from '@/types/knowledge-base'
 
@@ -89,6 +126,10 @@
 
   const store = useKnowledgeBaseStore()
   const saving = ref(false)
+  const rerankTesting = ref(false)
+  const rerankQuery = ref('')
+  const rerankDocumentsText = ref('')
+  const rerankResult = ref<Array<{ index: number; score: number; document: string }> | null>(null)
   const strategyOptions = [
     { label: 'Markdown 标题', value: 'markdown-heading' },
     { label: '固定长度', value: 'fixed-size' },
@@ -102,6 +143,8 @@
     embeddingProvider: 'alibaba-bailian',
     embeddingModel: 'text-embedding-v4',
     embeddingDimensions: 1024,
+    rerankProvider: 'siliconflow',
+    rerankModel: 'BAAI/bge-reranker-v2-m3',
     qdrantCollection: 'mindora-knowledge'
   })
 
@@ -117,6 +160,24 @@
       ElMessage.success('RAG 配置已保存')
     } finally {
       saving.value = false
+    }
+  }
+
+  const testRerank = async () => {
+    const documents = rerankDocumentsText.value
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+    if (!rerankQuery.value.trim() || documents.length === 0) {
+      ElMessage.warning('请输入问题和至少一个候选文档')
+      return
+    }
+    rerankTesting.value = true
+    try {
+      rerankResult.value = await previewKnowledgeRerank(rerankQuery.value.trim(), documents)
+      ElMessage.success('Rerank 调用成功')
+    } finally {
+      rerankTesting.value = false
     }
   }
 
@@ -160,5 +221,9 @@
 
   .full-width {
     width: 100%;
+  }
+
+  .rerank-documents {
+    margin: 8px 0;
   }
 </style>

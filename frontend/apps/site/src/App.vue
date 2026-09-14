@@ -67,21 +67,98 @@ function resetFilters() {
   void loadSite();
 }
 
-function renderMarkdown(markdown: string) {
-  const escaped = markdown
+function escapeHtml(value: string) {
+  return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
-  return escaped
-    .replace(/^### (.*)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.*)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.*)$/gm, '<h1>$1</h1>')
+}
+
+function renderInlineMarkdown(value: string) {
+  return escapeHtml(value)
+    .replace(/!\[([^\]]*)]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
+    .replace(/\[([^\]]+)]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n{2,}/g, '</p><p>')
-    .replace(/\n/g, '<br />')
-    .replace(/^/, '<p>')
-    .replace(/$/, '</p>');
+    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+}
+
+function renderMarkdown(markdown: string) {
+  const lines = markdown.replace(/\r\n/g, '\n').split('\n');
+  const blocks: string[] = [];
+  let paragraph: string[] = [];
+  let listType: 'ul' | 'ol' | null = null;
+  let codeLines: string[] = [];
+  let inCode = false;
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push(`<p>${renderInlineMarkdown(paragraph.join(' '))}</p>`);
+    paragraph = [];
+  };
+  const closeList = () => {
+    if (!listType) return;
+    blocks.push(`</${listType}>`);
+    listType = null;
+  };
+
+  for (const line of lines) {
+    if (/^\s*```/.test(line)) {
+      if (inCode) {
+        blocks.push(`<pre><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`);
+        codeLines = [];
+        inCode = false;
+      } else {
+        flushParagraph();
+        closeList();
+        inCode = true;
+      }
+      continue;
+    }
+    if (inCode) {
+      codeLines.push(line);
+      continue;
+    }
+    if (!line.trim()) {
+      flushParagraph();
+      closeList();
+      continue;
+    }
+    const heading = line.match(/^\s{0,3}(#{1,6})\s+(.+)$/);
+    if (heading) {
+      flushParagraph();
+      closeList();
+      const level = heading[1].length;
+      blocks.push(`<h${level}>${renderInlineMarkdown(heading[2].trim())}</h${level}>`);
+      continue;
+    }
+    const unordered = line.match(/^\s{0,3}[-*+]\s+(.+)$/);
+    const ordered = line.match(/^\s{0,3}\d+[.)]\s+(.+)$/);
+    if (unordered || ordered) {
+      flushParagraph();
+      const nextType = unordered ? 'ul' : 'ol';
+      if (listType !== nextType) {
+        closeList();
+        listType = nextType;
+        blocks.push(`<${listType}>`);
+      }
+      blocks.push(`<li>${renderInlineMarkdown((unordered || ordered)?.[1] || '')}</li>`);
+      continue;
+    }
+    const quote = line.match(/^\s{0,3}>\s?(.+)$/);
+    if (quote) {
+      flushParagraph();
+      closeList();
+      blocks.push(`<blockquote>${renderInlineMarkdown(quote[1])}</blockquote>`);
+      continue;
+    }
+    paragraph.push(line.trim());
+  }
+  if (inCode) blocks.push(`<pre><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`);
+  flushParagraph();
+  closeList();
+  return blocks.join('\n');
 }
 
 function formatDate(value?: string) {

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
   getKnowledgeBaseState,
+  publishKnowledgeDocument,
   rebuildKnowledgeIndexes,
   retryKnowledgeSync,
   saveKnowledgeDataSource,
@@ -28,8 +29,8 @@ export const useKnowledgeBaseStore = defineStore('knowledgeBaseStore', () => {
   const loading = ref(false)
   const initialized = ref(false)
 
-  async function refresh() {
-    loading.value = true
+  async function refresh(options: { silent?: boolean } = {}) {
+    if (!options.silent) loading.value = true
     try {
       const state = await getKnowledgeBaseState()
       dataSources.value = state.dataSources
@@ -39,7 +40,7 @@ export const useKnowledgeBaseStore = defineStore('knowledgeBaseStore', () => {
       ragConfig.value = state.ragConfig
       initialized.value = true
     } finally {
-      loading.value = false
+      if (!options.silent) loading.value = false
     }
   }
 
@@ -69,6 +70,12 @@ export const useKnowledgeBaseStore = defineStore('knowledgeBaseStore', () => {
     await refresh()
   }
 
+  async function publishDocument(documentId: string) {
+    const document = await publishKnowledgeDocument(documentId)
+    await refresh()
+    return document
+  }
+
   async function rebuildIndexes(indexIds: string[]) {
     await rebuildKnowledgeIndexes(indexIds)
     await refresh()
@@ -93,6 +100,7 @@ export const useKnowledgeBaseStore = defineStore('knowledgeBaseStore', () => {
     triggerSync,
     retrySync,
     setDocumentEnabled,
+    publishDocument,
     rebuildIndexes,
     saveRag
   }

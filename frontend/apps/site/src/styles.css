@@ -254,16 +254,74 @@ p {
   line-height: 1.8;
 }
 
-.markdown-body :deep(h1),
-.markdown-body :deep(h2),
-.markdown-body :deep(h3) {
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
   margin-top: 2em;
+  margin-bottom: 0.75em;
   color: #183a37;
   line-height: 1.2;
 }
 
-.markdown-body :deep(p) {
+.markdown-body p {
   margin-bottom: 1.2em;
+}
+
+.markdown-body h4 {
+  font-size: 1.25rem;
+}
+
+.markdown-body h5,
+.markdown-body h6 {
+  font-size: 1.05rem;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0 0 1.25em;
+  padding-left: 1.4em;
+}
+
+.markdown-body li {
+  margin: 0.35em 0;
+}
+
+.markdown-body blockquote {
+  margin: 1.5em 0;
+  border-left: 3px solid #177367;
+  padding-left: 1em;
+  color: #60726e;
+}
+
+.markdown-body pre {
+  overflow-x: auto;
+  border-radius: 6px;
+  padding: 16px;
+  background: #e9efec;
+}
+
+.markdown-body code {
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  background: #e9efec;
+  font-size: 0.92em;
+}
+
+.markdown-body pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.markdown-body a {
+  color: #177367;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  border-radius: 6px;
 }
 
 .empty-state,
