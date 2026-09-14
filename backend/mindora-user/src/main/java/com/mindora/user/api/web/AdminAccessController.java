@@ -43,6 +43,7 @@ public class AdminAccessController {
             @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
         return success(List.of(
                 contentMenu(),
+                knowledgeMenu(),
                 systemMenu()), traceId);
     }
 
@@ -99,6 +100,45 @@ public class AdminAccessController {
                                         null,
                                         Set.of("R_SUPER", "R_ADMIN"),
                                         List.of(new AuthItem("上传", "upload"))),
+                                List.of())));
+    }
+
+    private MenuView knowledgeMenu() {
+        return new MenuView(
+                "/knowledge",
+                "Knowledge",
+                "/index/index",
+                new MenuMeta("menus.knowledge.title", "ri:book-open-line", Set.of("R_SUPER", "R_ADMIN")),
+                List.of(
+                        new MenuChildView(
+                                "sources",
+                                "KnowledgeSources",
+                                "/knowledge/sources",
+                                new MenuMeta("menus.knowledge.sources", null, Set.of("R_SUPER", "R_ADMIN")),
+                                List.of()),
+                        new MenuChildView(
+                                "sync-tasks",
+                                "KnowledgeSyncTasks",
+                                "/knowledge/sync-tasks",
+                                new MenuMeta("menus.knowledge.syncTasks", null, Set.of("R_SUPER", "R_ADMIN")),
+                                List.of()),
+                        new MenuChildView(
+                                "documents",
+                                "KnowledgeDocuments",
+                                "/knowledge/documents",
+                                new MenuMeta("menus.knowledge.documents", null, Set.of("R_SUPER", "R_ADMIN")),
+                                List.of()),
+                        new MenuChildView(
+                                "indexes",
+                                "KnowledgeIndexes",
+                                "/knowledge/indexes",
+                                new MenuMeta("menus.knowledge.indexes", null, Set.of("R_SUPER", "R_ADMIN")),
+                                List.of()),
+                        new MenuChildView(
+                                "rag-config",
+                                "KnowledgeRagConfig",
+                                "/knowledge/rag-config",
+                                new MenuMeta("menus.knowledge.ragConfig", null, Set.of("R_SUPER", "R_ADMIN")),
                                 List.of())));
     }
 

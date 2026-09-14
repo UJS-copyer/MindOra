@@ -1,9 +1,11 @@
 package com.mindora.app.config;
 
+import com.mindora.blog.application.ArticleKnowledgePort;
 import com.mindora.blog.application.ArticleService;
 import com.mindora.blog.domain.BlogRepository;
 import com.mindora.blog.infrastructure.persistence.memory.InMemoryBlogRepository;
 import com.mindora.blog.infrastructure.persistence.jdbc.JdbcBlogRepository;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.context.annotation.Bean;
@@ -24,7 +26,7 @@ public class BlogModuleConfiguration {
     }
 
     @Bean
-    ArticleService articleService(BlogRepository blogRepository) {
-        return new ArticleService(blogRepository);
+    ArticleService articleService(BlogRepository blogRepository, ObjectProvider<ArticleKnowledgePort> knowledgePort) {
+        return new ArticleService(blogRepository, knowledgePort.getIfAvailable(ArticleKnowledgePort::noop));
     }
 }

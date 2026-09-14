@@ -133,6 +133,15 @@ public class BlogAdminController {
         return success(BlogViews.article(articleService.unpublish(PublicIds.toUuid(id))), traceId);
     }
 
+    @PostMapping("/articles/{id}/knowledge")
+    public ApiResponse<BlogViews.ArticleView> updateKnowledgeEnabled(
+            @PathVariable String id,
+            @RequestBody ArticleKnowledgeRequest request,
+            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+        boolean enabled = request == null || request.enabled() == null || request.enabled();
+        return success(BlogViews.article(articleService.updateKnowledgeEnabled(PublicIds.toUuid(id), enabled)), traceId);
+    }
+
     private <T> ApiResponse<T> success(T data, String traceId) {
         return ApiResponse.success(
                 data,
@@ -140,6 +149,9 @@ public class BlogAdminController {
     }
 
     public record NameRequest(@NotBlank String name) {
+    }
+
+    public record ArticleKnowledgeRequest(Boolean enabled) {
     }
 
     public record ArticleRequest(
@@ -150,7 +162,8 @@ public class BlogAdminController {
             String coverAssetId,
             String categoryId,
             Set<String> tagIds,
-            String visibility) {
+            String visibility,
+            Boolean knowledgeEnabled) {
         ArticleDraftCommand command() {
             return new ArticleDraftCommand(
                     title,
@@ -162,7 +175,8 @@ public class BlogAdminController {
                     tagIds == null
                             ? Set.of()
                             : tagIds.stream().map(PublicIds::toUuid).collect(Collectors.toSet()),
-                    visibility);
+                    visibility,
+                    knowledgeEnabled);
         }
 
         private UUID toUuid(String id) {

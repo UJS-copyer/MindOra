@@ -5,6 +5,11 @@ server:
 spring:
   application:
     name: mindora-app
+  config:
+    import:
+      - optional:file:./config/mindora-local.yml
+      - optional:file:mindora-app/config/mindora-local.yml
+      - optional:file:backend/mindora-app/config/mindora-local.yml
   autoconfigure:
     exclude:
       - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
@@ -45,6 +50,31 @@ mindora:
     blog: ${MINDORA_BLOG_PERSISTENCE:jdbc}
     user: ${MINDORA_USER_PERSISTENCE:jdbc}
     asset: ${MINDORA_ASSET_PERSISTENCE:jdbc}
+    knowledge: ${MINDORA_KNOWLEDGE_PERSISTENCE:jdbc}
+  knowledge:
+    async: ${MINDORA_KNOWLEDGE_ASYNC:true}
+    dispatcher: ${MINDORA_KNOWLEDGE_DISPATCHER:rocketmq}
+    sync-topic: ${MINDORA_KNOWLEDGE_SYNC_TOPIC:mindora-knowledge-sync}
+    sync-consumer-group: ${MINDORA_KNOWLEDGE_SYNC_CONSUMER_GROUP:mindora-knowledge-sync-consumer}
+    gitee:
+      enabled: ${MINDORA_GITEE_ENABLED:true}
+      base-url: ${GITEE_API_BASE_URL:https://gitee.com/api/v5}
+      default-token: ${GITEE_TOKEN:}
+    embedding:
+      enabled: ${MINDORA_EMBEDDING_ENABLED:true}
+      provider: ${EMBEDDING_PROVIDER:bailian}
+      base-url: ${EMBEDDING_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+      api-key: ${EMBEDDING_API_KEY:}
+      model: ${EMBEDDING_MODEL:text-embedding-v4}
+      dimensions: ${EMBEDDING_DIMENSIONS:1024}
+    rerank:
+      enabled: ${MINDORA_RERANK_ENABLED:true}
+      provider: ${RERANK_PROVIDER:siliconflow}
+      base-url: ${RERANK_BASE_URL:https://api.siliconflow.cn/v1}
+      api-key: ${RERANK_MODEL_API_KEY:}
+      model: ${RERANK_MODEL:BAAI/bge-reranker-v2-m3}
+    vector:
+      enabled: ${MINDORA_VECTOR_ENABLED:true}
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-long-random-stage0-secret}
   cors:
@@ -53,7 +83,9 @@ mindora:
     root: ${MINDORA_STORAGE_ROOT:/data/docker-data/mindora/storage}
   qdrant:
     url: ${QDRANT_URL:http://192.168.222.128:6333}
+    api-key: ${QDRANT_API_KEY:}
     collection: ${QDRANT_COLLECTION:mindora_chunks}
+    vector-name: ${QDRANT_VECTOR_NAME:dense}
   infrastructure:
     vm-host: ${MINDORA_VM_HOST:192.168.222.128}
 

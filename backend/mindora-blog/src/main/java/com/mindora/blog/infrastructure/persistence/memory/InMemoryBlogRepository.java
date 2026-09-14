@@ -35,6 +35,13 @@ public class InMemoryBlogRepository implements BlogRepository {
     }
 
     @Override
+    public Optional<BlogArticle> findArticleByKnowledgeDocumentId(UUID documentId) {
+        return articles.values().stream()
+                .filter(article -> documentId.equals(article.knowledgeDocumentId()))
+                .findFirst();
+    }
+
+    @Override
     public List<BlogArticle> listArticles() {
         return new ArrayList<>(articles.values());
     }

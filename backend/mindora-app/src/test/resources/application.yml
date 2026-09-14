@@ -17,5 +17,9 @@ mindora:
     blog: memory
     user: memory
     asset: filesystem
+    knowledge: memory
+  knowledge:
+    async: false
+    dispatcher: executor
   seed:
     enabled: false

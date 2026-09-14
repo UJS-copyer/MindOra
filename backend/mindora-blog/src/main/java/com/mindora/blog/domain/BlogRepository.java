@@ -11,6 +11,8 @@ public interface BlogRepository {
 
     Optional<BlogArticle> findArticleBySlug(String slug);
 
+    Optional<BlogArticle> findArticleByKnowledgeDocumentId(UUID documentId);
+
     List<BlogArticle> listArticles();
 
     Category saveCategory(Category category);

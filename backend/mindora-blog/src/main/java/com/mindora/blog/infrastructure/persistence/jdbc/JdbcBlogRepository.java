@@ -32,8 +32,9 @@ public class JdbcBlogRepository implements BlogRepository {
                 """
                 INSERT INTO blog_article (
                     id, title, slug, summary, body, cover_asset_id, category_id,
-                    status, visibility, read_count, created_at, updated_at, published_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    status, visibility, knowledge_enabled, knowledge_document_id,
+                    knowledge_index_status, read_count, created_at, updated_at, published_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     title = VALUES(title),
                     slug = VALUES(slug),
@@ -43,6 +44,9 @@ public class JdbcBlogRepository implements BlogRepository {
                     category_id = VALUES(category_id),
                     status = VALUES(status),
                     visibility = VALUES(visibility),
+                    knowledge_enabled = VALUES(knowledge_enabled),
+                    knowledge_document_id = VALUES(knowledge_document_id),
+                    knowledge_index_status = VALUES(knowledge_index_status),
                     read_count = VALUES(read_count),
                     updated_at = VALUES(updated_at),
                     published_at = VALUES(published_at)
@@ -56,6 +60,9 @@ public class JdbcBlogRepository implements BlogRepository {
                 PublicIds.toPublicId(article.categoryId()),
                 article.status().value(),
                 article.visibility(),
+                article.knowledgeEnabled(),
+                PublicIds.toPublicId(article.knowledgeDocumentId()),
+                article.knowledgeIndexStatus(),
                 article.readCount(),
                 timestamp(article.createdAt()),
                 timestamp(article.updatedAt()),
@@ -78,6 +85,12 @@ public class JdbcBlogRepository implements BlogRepository {
     @Override
     public Optional<BlogArticle> findArticleBySlug(String slug) {
         return queryArticles("WHERE a.slug = ? AND a.deleted = FALSE", slug).stream().findFirst();
+    }
+
+    @Override
+    public Optional<BlogArticle> findArticleByKnowledgeDocumentId(UUID documentId) {
+        return queryArticles("WHERE a.knowledge_document_id = ? AND a.deleted = FALSE",
+                PublicIds.toPublicId(documentId)).stream().findFirst();
     }
 
     @Override
@@ -163,7 +176,8 @@ public class JdbcBlogRepository implements BlogRepository {
         List<BlogArticle> articles = jdbcTemplate.query(
                 """
                 SELECT a.id, a.title, a.slug, a.summary, a.body, a.cover_asset_id,
-                       a.category_id, a.status, a.visibility, a.read_count,
+                       a.category_id, a.status, a.visibility, a.knowledge_enabled,
+                       a.knowledge_document_id, a.knowledge_index_status, a.read_count,
                        a.created_at, a.updated_at, a.published_at
                 FROM blog_article a
                 """
@@ -192,6 +206,9 @@ public class JdbcBlogRepository implements BlogRepository {
                 tagIds,
                 article.status(),
                 article.visibility(),
+                article.knowledgeEnabled(),
+                article.knowledgeDocumentId(),
+                article.knowledgeIndexStatus(),
                 article.readCount(),
                 article.createdAt(),
                 article.updatedAt(),
@@ -210,6 +227,9 @@ public class JdbcBlogRepository implements BlogRepository {
                 Set.of(),
                 ArticleStatus.valueOf(rs.getString("status").toUpperCase()),
                 rs.getString("visibility"),
+                rs.getBoolean("knowledge_enabled"),
+                toUuid(rs.getString("knowledge_document_id")),
+                rs.getString("knowledge_index_status"),
                 rs.getLong("read_count"),
                 instant(rs.getTimestamp("created_at")),
                 instant(rs.getTimestamp("updated_at")),

@@ -17,14 +17,24 @@ public class ArticleService {
     private static final String PUBLIC_VISIBILITY = "public";
 
     private final BlogRepository repository;
+    private final ArticleKnowledgePort knowledge;
     private final Clock clock;
 
     public ArticleService(BlogRepository repository) {
-        this(repository, Clock.systemUTC());
+        this(repository, ArticleKnowledgePort.noop(), Clock.systemUTC());
     }
 
     public ArticleService(BlogRepository repository, Clock clock) {
+        this(repository, ArticleKnowledgePort.noop(), clock);
+    }
+
+    public ArticleService(BlogRepository repository, ArticleKnowledgePort knowledge) {
+        this(repository, knowledge, Clock.systemUTC());
+    }
+
+    public ArticleService(BlogRepository repository, ArticleKnowledgePort knowledge, Clock clock) {
         this.repository = repository;
+        this.knowledge = knowledge == null ? ArticleKnowledgePort.noop() : knowledge;
         this.clock = clock;
     }
 
@@ -88,11 +98,15 @@ public class ArticleService {
                 command.tagIds(),
                 ArticleStatus.DRAFT,
                 normalizeVisibility(command.visibility()),
+                command.knowledgeEnabledOrDefault(),
+                null,
+                "pending",
                 0,
                 now,
                 now,
                 null);
-        return repository.saveArticle(article);
+        BlogArticle saved = repository.saveArticle(article);
+        return saved;
     }
 
     public BlogArticle updateDraft(UUID id, ArticleDraftCommand command) {
@@ -127,7 +141,12 @@ public class ArticleService {
                 command.tagIds(),
                 normalizeVisibility(command.visibility()),
                 Instant.now(clock));
-        return repository.saveArticle(updated);
+        BlogArticle saved = repository.saveArticle(updated.withKnowledgeState(
+                command.knowledgeEnabledOrDefault(),
+                article.knowledgeDocumentId(),
+                article.knowledgeIndexStatus(),
+                updated.updatedAt()));
+        return saved;
     }
 
     public BlogArticle publish(UUID id) {
@@ -136,7 +155,8 @@ public class ArticleService {
             return article;
         }
         Instant now = Instant.now(clock);
-        return repository.saveArticle(article.publish(now));
+        BlogArticle saved = repository.saveArticle(article.publish(now));
+        return syncKnowledge(saved);
     }
 
     public BlogArticle unpublish(UUID id) {
@@ -145,7 +165,59 @@ public class ArticleService {
             throw new BusinessException(
                     "article_invalid_transition", "Only published articles can be unpublished");
         }
-        return repository.saveArticle(article.unpublish(Instant.now(clock)));
+        BlogArticle saved = repository.saveArticle(article.unpublish(Instant.now(clock)));
+        ArticleKnowledgePort.ArticleKnowledgeState state = knowledge.disable(saved);
+        return saveKnowledgeState(saved, saved.knowledgeEnabled(), state);
+    }
+
+    public BlogArticle updateKnowledgeEnabled(UUID id, boolean enabled) {
+        BlogArticle article = get(id);
+        BlogArticle saved = repository.saveArticle(article.withKnowledgeState(
+                enabled,
+                article.knowledgeDocumentId(),
+                article.knowledgeIndexStatus(),
+                Instant.now(clock)));
+        if (saved.status() == ArticleStatus.PUBLISHED) {
+            return enabled ? syncKnowledge(saved) : disableKnowledge(saved);
+        }
+        return saved;
+    }
+
+    public BlogArticle publishKnowledgeDocument(
+            UUID documentId,
+            String title,
+            String sourcePath,
+            String body,
+            String indexStatus) {
+        if (documentId == null) {
+            throw new BusinessException("knowledge_document_id_required", "Knowledge document id is required");
+        }
+        String normalizedTitle = requireText(title, "article_title_required", "Article title is required");
+        String normalizedBody = requireText(body, "article_body_required", "Article body is required");
+        Instant now = Instant.now(clock);
+        BlogArticle existing = repository.findArticleByKnowledgeDocumentId(documentId).orElse(null);
+        String slug = existing == null
+                ? uniqueSlug(slugBase(sourcePath, normalizedTitle), documentId, null)
+                : existing.slug();
+        BlogArticle article = new BlogArticle(
+                existing == null ? UUID.randomUUID() : existing.id(),
+                normalizedTitle,
+                slug,
+                summarize(normalizedBody),
+                normalizedBody,
+                existing == null ? null : existing.coverAssetId(),
+                existing == null ? null : existing.categoryId(),
+                existing == null ? Set.of() : existing.tagIds(),
+                existing == null ? ArticleStatus.DRAFT : existing.status(),
+                PUBLIC_VISIBILITY,
+                true,
+                documentId,
+                indexStatus == null || indexStatus.isBlank() ? "pending" : indexStatus,
+                existing == null ? 0 : existing.readCount(),
+                existing == null ? now : existing.createdAt(),
+                now,
+                existing == null ? null : existing.publishedAt());
+        return repository.saveArticle(article);
     }
 
     public BlogArticle get(UUID id) {
@@ -214,9 +286,81 @@ public class ArticleService {
                 });
     }
 
+    private String uniqueSlug(String base, UUID documentId, UUID currentArticleId) {
+        String normalized = base == null || base.isBlank()
+                ? "knowledge-" + documentId.toString().substring(0, 8)
+                : base;
+        String candidate = normalized;
+        int suffix = 2;
+        while (repository.findArticleBySlug(candidate)
+                .filter(article -> !article.id().equals(currentArticleId))
+                .isPresent()) {
+            candidate = normalized + "-" + suffix++;
+        }
+        return candidate;
+    }
+
+    private String slugBase(String sourcePath, String title) {
+        String value = sourcePath == null || sourcePath.isBlank() ? title : sourcePath;
+        int slash = Math.max(value.lastIndexOf('/'), value.lastIndexOf('\\'));
+        if (slash >= 0) {
+            value = value.substring(slash + 1);
+        }
+        value = value.replaceFirst("(?i)\\.md$", "");
+        String slug = value.toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("(^-|-$)", "");
+        return slug.isBlank() ? "knowledge" : slug;
+    }
+
+    private String summarize(String body) {
+        String text = body.replaceAll("(?m)^#{1,6}\\s*", "")
+                .replaceAll("!\\[[^]]*]\\([^)]*\\)", "")
+                .replaceAll("\\[[^]]*]\\(([^)]*)\\)", "")
+                .replaceAll("[*_`>\\-]", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+        return text.length() <= 180 ? text : text.substring(0, 180);
+    }
+
     private boolean isPubliclyVisible(BlogArticle article) {
         return article.status() == ArticleStatus.PUBLISHED
                 && PUBLIC_VISIBILITY.equals(article.visibility());
+    }
+
+    private BlogArticle syncKnowledge(BlogArticle article) {
+        if (!article.knowledgeEnabled()) {
+            return disableKnowledge(article);
+        }
+        ArticleKnowledgePort.ArticleKnowledgeState state = knowledge.upsert(article);
+        return saveKnowledgeState(article, true, state);
+    }
+
+    private BlogArticle disableKnowledge(BlogArticle article) {
+        ArticleKnowledgePort.ArticleKnowledgeState state = knowledge.disable(article);
+        return saveKnowledgeState(article, false, state);
+    }
+
+    private BlogArticle saveKnowledgeState(
+            BlogArticle article,
+            boolean enabled,
+            ArticleKnowledgePort.ArticleKnowledgeState state) {
+        if (state == null) {
+            return article;
+        }
+        String indexStatus = state.indexStatus() == null || state.indexStatus().isBlank()
+                ? article.knowledgeIndexStatus()
+                : state.indexStatus();
+        if (enabled == article.knowledgeEnabled()
+                && java.util.Objects.equals(state.documentId(), article.knowledgeDocumentId())
+                && java.util.Objects.equals(indexStatus, article.knowledgeIndexStatus())) {
+            return article;
+        }
+        return repository.saveArticle(article.withKnowledgeState(
+                enabled,
+                state.documentId(),
+                indexStatus,
+                Instant.now(clock)));
     }
 
     private String normalizeVisibility(String visibility) {

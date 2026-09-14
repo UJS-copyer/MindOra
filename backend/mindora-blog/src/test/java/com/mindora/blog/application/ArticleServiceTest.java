@@ -12,6 +12,7 @@ import com.mindora.blog.infrastructure.persistence.memory.InMemoryBlogRepository
 import com.mindora.common.exception.BusinessException;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -142,6 +143,48 @@ class ArticleServiceTest {
 
         assertEquals(1, firstRead.readCount());
         assertEquals(2, secondRead.readCount());
+    }
+
+    @Test
+    void publishesKnowledgeDocumentAsLinkedDraftArticle() {
+        UUID documentId = UUID.randomUUID();
+
+        BlogArticle first = articleService.publishKnowledgeDocument(
+                documentId, "公开笔记", "notes/public-note.md", "# 公开笔记\n正文", "indexed");
+        BlogArticle updated = articleService.publishKnowledgeDocument(
+                documentId, "公开笔记更新", "notes/public-note.md", "# 公开笔记更新\n正文", "indexed");
+
+        assertEquals(first.id(), updated.id());
+        assertEquals(documentId, updated.knowledgeDocumentId());
+        assertEquals(ArticleStatus.DRAFT, updated.status());
+        assertEquals("public", updated.visibility());
+        assertEquals("public-note", updated.slug());
+        assertTrue(articleService.listPublic(null, null).isEmpty());
+    }
+
+    @Test
+    void syncsKnowledgeOnlyAfterPublish() {
+        List<UUID> upserts = new java.util.ArrayList<>();
+        ArticleService service = new ArticleService(repository, new ArticleKnowledgePort() {
+            @Override
+            public ArticleKnowledgeState upsert(BlogArticle article) {
+                upserts.add(article.id());
+                return new ArticleKnowledgeState(UUID.randomUUID(), "indexed");
+            }
+
+            @Override
+            public ArticleKnowledgeState disable(BlogArticle article) {
+                return new ArticleKnowledgeState(article.knowledgeDocumentId(), "pending");
+            }
+        });
+
+        BlogArticle draft = service.createDraft(command("First title", "first-title"));
+        assertTrue(upserts.isEmpty());
+
+        BlogArticle published = service.publish(draft.id());
+
+        assertEquals(List.of(draft.id()), upserts);
+        assertEquals("indexed", published.knowledgeIndexStatus());
     }
 
     private ArticleDraftCommand command(String title, String slug) {
