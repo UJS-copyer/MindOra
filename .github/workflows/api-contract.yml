@@ -20,8 +20,7 @@ jobs:
       - name: Export OpenAPI document
         working-directory: backend
         run: >
-          mvn -s .mvn/mindora-settings.xml
-          -gs .mvn/mindora-settings.xml
+          mvn
           -pl mindora-app -am
           -Dtest=OpenApiContractTest
           -Dsurefire.failIfNoSpecifiedTests=false
