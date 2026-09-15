@@ -195,17 +195,6 @@ export async function getKnowledgeBaseState(): Promise<KnowledgeBaseState> {
       request.get<LiveRuntimeConfig>({ url: '/api/v1/admin/knowledge/config/runtime' })
     ])
     const sourceNameById = new Map(sources.map((source) => [source.id, source.name]))
-    const chunkEntries = await Promise.all(
-      documents.map(async (document) => {
-        const chunks = document.currentVersionId
-          ? await request.get<LiveChunk[]>({
-              url: `/api/v1/admin/knowledge/documents/${document.id}/chunks`
-            })
-          : []
-        return [document.id, chunks] as const
-      })
-    )
-    const chunksByDocumentId = new Map(chunkEntries)
     const ragConfig: KnowledgeRagConfig = {
       chunkSize: chunking.chunkSize,
       chunkOverlap: chunking.overlap,
@@ -222,7 +211,7 @@ export async function getKnowledgeBaseState(): Promise<KnowledgeBaseState> {
       syncTasks: tasks.map((task) => mapLiveSyncTask(task, sourceNameById.get(task.sourceId))),
       documents: documents.map(mapLiveDocument),
       indexRecords: documents.map((document) =>
-        mapLiveIndexRecord(document, chunksByDocumentId.get(document.id) || [], ragConfig.embeddingModel)
+        mapLiveIndexRecord(document, ragConfig.embeddingModel)
       ),
       ragConfig
     }
@@ -487,33 +476,50 @@ function mapLiveDocument(document: LiveDocument) {
   } satisfies KnowledgeBaseState['documents'][number]
 }
 
+export async function getDocumentChunks(documentId: string): Promise<LiveChunk[]> {
+  if (useMock) {
+    return []
+  }
+  return request.get<LiveChunk[]>({
+    url: `/api/v1/admin/knowledge/documents/${documentId}/chunks`
+  })
+}
+
 function mapLiveIndexRecord(
   document: LiveDocument,
-  chunks: LiveChunk[],
   embeddingModel: string
 ): KnowledgeIndexRecord {
-  const failedChunk = chunks.find((chunk) => chunk.indexStatus === 'failed')
+  const isChunkReady =
+    document.parseStatus === 'parsed' ||
+    document.indexStatus === 'indexed' ||
+    Boolean(document.currentVersionId && document.indexStatus !== 'failed')
+  const isChunkFailed = document.parseStatus === 'failed'
+
+  const chunkStatus: KnowledgeIndexRecord['chunkStatus'] = isChunkFailed
+    ? 'failed'
+    : isChunkReady
+      ? 'ready'
+      : 'pending'
+
+  const indexStatus: KnowledgeIndexRecord['indexStatus'] =
+    document.indexStatus === 'indexed'
+      ? 'ready'
+      : document.indexStatus === 'failed'
+        ? 'failed'
+        : document.indexStatus === 'pending'
+          ? 'pending'
+          : 'processing'
+
   return {
     id: document.id,
     documentId: document.id,
     documentTitle: document.title,
-    chunkCount: chunks.length,
-    chunkStatus: failedChunk
-      ? 'failed'
-      : chunks.length === 0 || document.indexStatus === 'pending'
-        ? 'pending'
-        : 'ready',
-    indexStatus:
-      document.indexStatus === 'indexed'
-        ? 'ready'
-        : document.indexStatus === 'failed'
-          ? 'failed'
-          : document.indexStatus === 'pending'
-            ? 'pending'
-            : 'processing',
-    embeddingModel: chunks.find((chunk) => chunk.embeddingModel)?.embeddingModel || embeddingModel,
-    errorMessage: document.indexFailureReason || failedChunk?.failureReason || null,
-    retryCount: document.indexRetryCount,
+    chunkCount: isChunkReady ? 1 : 0,
+    chunkStatus,
+    indexStatus,
+    embeddingModel,
+    errorMessage: document.indexFailureReason || null,
+    retryCount: document.indexRetryCount || 0,
     updatedAt: document.updatedAt
   }
 }
@@ -555,6 +561,8 @@ interface LiveDocument {
   visibility: string
   knowledgeEnabled: boolean
   publicArticleId: string | null
+  status?: string
+  parseStatus?: string
   indexStatus: string
   indexFailureReason: string | null
   indexRetryCount: number
@@ -586,7 +594,7 @@ interface LiveRerankResult {
   document: string
 }
 
-interface LiveChunk {
+export interface LiveChunk {
   id: string
   documentVersionId: string
   sequence: number
