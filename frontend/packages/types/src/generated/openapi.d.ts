@@ -273,6 +273,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/knowledge/retrieval/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["retrievalSearch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/knowledge/rerank/preview": {
         parameters: {
             query?: never;
@@ -973,6 +989,53 @@ export interface components {
         SyncRequest: {
             mode?: string;
         };
+        RetrievalSearchRequest: {
+            query?: string;
+            scope?: string;
+            /** Format: int32 */
+            topN?: number;
+            /** Format: int32 */
+            rerankTopK?: number;
+            rerankEnabled?: boolean;
+        };
+        ApiResponseRetrievalResultView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["RetrievalResultView"];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        RetrievalHitView: {
+            chunkId?: string;
+            documentId?: string;
+            documentTitle?: string;
+            sourceType?: string;
+            sourcePath?: string;
+            headingPath?: string;
+            blockType?: string;
+            codeLanguage?: string;
+            /** Format: double */
+            vectorScore?: number;
+            /** Format: double */
+            rerankScore?: number;
+            contentPreview?: string;
+            articleId?: string;
+            articleSlug?: string;
+        };
+        RetrievalResultView: {
+            scope?: string;
+            /** Format: int32 */
+            topN?: number;
+            /** Format: int32 */
+            rerankTopK?: number;
+            rerankEnabled?: boolean;
+            fallback?: boolean;
+            fallbackReason?: string;
+            /** Format: int64 */
+            latencyMs?: number;
+            results?: components["schemas"]["RetrievalHitView"][];
+        };
         RerankPreviewRequest: {
             query?: string;
             documents?: string[];
@@ -1221,6 +1284,11 @@ export interface components {
             content?: string;
             /** Format: int32 */
             characterCount?: number;
+            headingPath?: string;
+            /** Format: int32 */
+            headingLevel?: number;
+            blockType?: string;
+            codeLanguage?: string;
             indexStatus?: string;
             embeddingModel?: string;
             vectorPointId?: string;
@@ -1965,6 +2033,32 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSyncTaskView"];
+                };
+            };
+        };
+    };
+    retrievalSearch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RetrievalSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRetrievalResultView"];
                 };
             };
         };

@@ -6,6 +6,7 @@ import com.mindora.knowledge.domain.KnowledgeChunk;
 import com.mindora.knowledge.domain.KnowledgeDocument;
 import com.mindora.knowledge.domain.KnowledgeDocumentVersion;
 import com.mindora.knowledge.domain.SyncTask;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,6 +41,10 @@ public final class KnowledgeRepositories {
         KnowledgeChunk saveChunk(KnowledgeChunk chunk);
 
         List<KnowledgeChunk> listChunks(UUID versionId);
+
+        List<KnowledgeChunk> findChunksByIds(Collection<UUID> ids);
+
+        List<KnowledgeDocument> findDocumentsByIds(Collection<UUID> ids);
 
         void archiveChunks(UUID versionId);
 

@@ -19,12 +19,18 @@ public class OpenAiCompatibleEmbeddingAdapter implements KnowledgeAdapters.Embed
     }
 
     public OpenAiCompatibleEmbeddingAdapter(String provider, String baseUrl, String apiKey, String model, int dimensions) {
+        this(provider, baseUrl, apiKey, model, dimensions, 10000);
+    }
+
+    public OpenAiCompatibleEmbeddingAdapter(
+            String provider, String baseUrl, String apiKey, String model, int dimensions, int timeoutMillis) {
         this.provider = provider == null || provider.isBlank() ? "bailian" : provider;
         this.model = model == null || model.isBlank() ? "text-embedding-v4" : model;
         this.apiKey = apiKey;
         this.dimensions = dimensions;
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl == null || baseUrl.isBlank() ? "https://dashscope.aliyuncs.com/compatible-mode/v1" : baseUrl)
+                .requestFactory(AdapterHttpFactories.withTimeout(timeoutMillis))
                 .build();
     }
 

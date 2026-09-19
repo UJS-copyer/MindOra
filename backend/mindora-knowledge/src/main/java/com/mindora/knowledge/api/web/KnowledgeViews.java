@@ -46,7 +46,9 @@ final class KnowledgeViews {
 
     static ChunkView chunk(KnowledgeChunk chunk) {
         return new ChunkView(PublicIds.toPublicId(chunk.id()), PublicIds.toPublicId(chunk.documentVersionId()),
-                chunk.sequence(), chunk.content(), chunk.characterCount(), chunk.indexStatus().name().toLowerCase(),
+                chunk.sequence(), chunk.content(), chunk.characterCount(),
+                chunk.headingPath(), chunk.headingLevel(), chunk.blockType().name().toLowerCase(), chunk.codeLanguage(),
+                chunk.indexStatus().name().toLowerCase(),
                 chunk.embeddingModel(), chunk.vectorPointId(), chunk.failureReason(), chunk.retryCount(),
                 chunk.createdAt());
     }
@@ -123,6 +125,10 @@ final class KnowledgeViews {
             int sequence,
             String content,
             int characterCount,
+            String headingPath,
+            int headingLevel,
+            String blockType,
+            String codeLanguage,
             String indexStatus,
             String embeddingModel,
             String vectorPointId,

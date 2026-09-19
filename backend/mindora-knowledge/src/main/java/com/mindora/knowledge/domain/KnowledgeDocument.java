@@ -82,4 +82,17 @@ public record KnowledgeDocument(
                 knowledgeEnabled, articleId, status, parseStatus, indexStatus,
                 indexFailureReason, indexRetryCount, createdAt, at);
     }
+
+    /**
+     * 博客来源文档的 {@code sourcePath} 约定为 {@code blog:<slug>}，据此还原文章 slug，
+     * 供检索结果直接生成引用链接；非博客来源或无有效 slug 时返回 {@code null}。
+     */
+    public String articleSlug() {
+        String prefix = "blog:";
+        if (sourceType != KnowledgeEnums.SourceType.BLOG || !sourcePath.startsWith(prefix)) {
+            return null;
+        }
+        String slug = sourcePath.substring(prefix.length());
+        return slug.isBlank() ? null : slug;
+    }
 }

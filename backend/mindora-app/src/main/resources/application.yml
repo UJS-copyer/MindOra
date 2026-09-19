@@ -67,14 +67,21 @@ mindora:
       api-key: ${EMBEDDING_API_KEY:}
       model: ${EMBEDDING_MODEL:text-embedding-v4}
       dimensions: ${EMBEDDING_DIMENSIONS:1024}
+      timeout-ms: ${MINDORA_EMBEDDING_TIMEOUT_MS:10000}
     rerank:
       enabled: ${MINDORA_RERANK_ENABLED:true}
       provider: ${RERANK_PROVIDER:siliconflow}
       base-url: ${RERANK_BASE_URL:https://api.siliconflow.cn/v1}
       api-key: ${RERANK_MODEL_API_KEY:}
       model: ${RERANK_MODEL:BAAI/bge-reranker-v2-m3}
+      timeout-ms: ${MINDORA_RERANK_TIMEOUT_MS:3000}
     vector:
       enabled: ${MINDORA_VECTOR_ENABLED:true}
+    retrieval:
+      top-n: ${MINDORA_RETRIEVAL_TOP_N:30}
+      rerank-top-k: ${MINDORA_RETRIEVAL_RERANK_TOP_K:8}
+      rerank-enabled: ${MINDORA_RETRIEVAL_RERANK_ENABLED:true}
+      fallback-enabled: ${MINDORA_RETRIEVAL_FALLBACK_ENABLED:true}
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-long-random-stage0-secret}
   cors:
@@ -84,7 +91,7 @@ mindora:
   qdrant:
     url: ${QDRANT_URL:http://192.168.222.128:6333}
     api-key: ${QDRANT_API_KEY:}
-    collection: ${QDRANT_COLLECTION:mindora_chunks}
+    collection: ${QDRANT_COLLECTION:mindora_chunk}
     vector-name: ${QDRANT_VECTOR_NAME:dense}
   infrastructure:
     vm-host: ${MINDORA_VM_HOST:192.168.222.128}

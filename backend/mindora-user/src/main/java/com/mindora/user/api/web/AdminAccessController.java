@@ -139,6 +139,12 @@ public class AdminAccessController {
                                 "KnowledgeRagConfig",
                                 "/knowledge/rag-config",
                                 new MenuMeta("menus.knowledge.ragConfig", null, Set.of("R_SUPER", "R_ADMIN")),
+                                List.of()),
+                        new MenuChildView(
+                                "retrieval",
+                                "KnowledgeRetrieval",
+                                "/knowledge/retrieval",
+                                new MenuMeta("menus.knowledge.retrieval", null, Set.of("R_SUPER", "R_ADMIN")),
                                 List.of())));
     }
 

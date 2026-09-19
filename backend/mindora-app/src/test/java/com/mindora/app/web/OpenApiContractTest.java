@@ -33,6 +33,7 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/v1/admin/articles']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/knowledge/sources']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/knowledge/documents']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/knowledge/retrieval/search']").exists())
                 .andReturn();
 
         String outputFile = System.getProperty("openapi.output");

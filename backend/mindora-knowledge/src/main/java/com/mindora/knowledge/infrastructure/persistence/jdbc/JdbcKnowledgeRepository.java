@@ -12,6 +12,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -130,9 +132,10 @@ public class JdbcKnowledgeRepository implements KnowledgeRepositories.KnowledgeR
                 """
                 INSERT INTO knowledge_chunk (
                     id, document_version_id, sequence_no, content, character_count,
+                    heading_path, heading_level, block_type, code_language, content_hash,
                     index_status, embedding_model, vector_point_id, failure_reason,
                     retry_count, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     index_status = VALUES(index_status),
                     embedding_model = VALUES(embedding_model),
@@ -145,6 +148,11 @@ public class JdbcKnowledgeRepository implements KnowledgeRepositories.KnowledgeR
                 chunk.sequence(),
                 chunk.content(),
                 chunk.characterCount(),
+                chunk.headingPath(),
+                chunk.headingLevel(),
+                chunk.blockType().name().toLowerCase(),
+                chunk.codeLanguage(),
+                chunk.contentHash(),
                 chunk.indexStatus().name().toLowerCase(),
                 chunk.embeddingModel(),
                 chunk.vectorPointId(),
@@ -160,6 +168,34 @@ public class JdbcKnowledgeRepository implements KnowledgeRepositories.KnowledgeR
                 "SELECT * FROM knowledge_chunk WHERE document_version_id = ? AND (failure_reason IS NULL OR failure_reason <> 'archived') ORDER BY sequence_no",
                 (rs, rowNum) -> mapChunk(rs),
                 PublicIds.toPublicId(versionId));
+    }
+
+    @Override
+    public List<KnowledgeChunk> findChunksByIds(Collection<UUID> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<String> publicIds = ids.stream().map(PublicIds::toPublicId).toList();
+        return jdbcTemplate.query(
+                "SELECT * FROM knowledge_chunk WHERE id IN (" + placeholders(publicIds.size()) + ")",
+                (rs, rowNum) -> mapChunk(rs),
+                publicIds.toArray());
+    }
+
+    @Override
+    public List<KnowledgeDocument> findDocumentsByIds(Collection<UUID> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<String> publicIds = ids.stream().map(PublicIds::toPublicId).toList();
+        return jdbcTemplate.query(
+                "SELECT * FROM knowledge_document WHERE id IN (" + placeholders(publicIds.size()) + ")",
+                (rs, rowNum) -> mapDocument(rs),
+                publicIds.toArray());
+    }
+
+    private String placeholders(int count) {
+        return String.join(",", Collections.nCopies(count, "?"));
     }
 
     @Override
@@ -302,12 +338,23 @@ public class JdbcKnowledgeRepository implements KnowledgeRepositories.KnowledgeR
                 rs.getInt("sequence_no"),
                 rs.getString("content"),
                 rs.getInt("character_count"),
+                rs.getString("heading_path"),
+                rs.getInt("heading_level"),
+                blockType(rs.getString("block_type")),
+                rs.getString("code_language"),
+                rs.getString("content_hash"),
                 KnowledgeEnums.IndexStatus.valueOf(rs.getString("index_status").toUpperCase()),
                 rs.getString("embedding_model"),
                 rs.getString("vector_point_id"),
                 rs.getString("failure_reason"),
                 rs.getInt("retry_count"),
                 instant(rs.getTimestamp("created_at")));
+    }
+
+    private KnowledgeEnums.BlockType blockType(String value) {
+        return value == null || value.isBlank()
+                ? KnowledgeEnums.BlockType.PARAGRAPH
+                : KnowledgeEnums.BlockType.valueOf(value.trim().toUpperCase());
     }
 
     private SyncTask mapTask(ResultSet rs) throws SQLException {

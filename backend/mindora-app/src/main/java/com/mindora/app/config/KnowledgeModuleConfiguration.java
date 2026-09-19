@@ -6,6 +6,7 @@ import com.mindora.blog.application.ArticleKnowledgePort;
 import com.mindora.blog.application.ArticleService;
 import com.mindora.blog.domain.BlogArticle;
 import com.mindora.common.exception.BusinessException;
+import com.mindora.knowledge.application.KnowledgeRetrievalService;
 import com.mindora.knowledge.application.KnowledgeService;
 import com.mindora.knowledge.application.port.KnowledgeAdapters;
 import com.mindora.knowledge.domain.KnowledgeDocument;
@@ -77,8 +78,9 @@ public class KnowledgeModuleConfiguration {
             @Value("${mindora.knowledge.embedding.base-url:${EMBEDDING_BASE_URL:}}") String baseUrl,
             @Value("${mindora.knowledge.embedding.api-key:${EMBEDDING_API_KEY:}}") String apiKey,
             @Value("${mindora.knowledge.embedding.model:${EMBEDDING_MODEL:text-embedding-v4}}") String model,
-            @Value("${mindora.knowledge.embedding.dimensions:${EMBEDDING_DIMENSIONS:1024}}") int dimensions) {
-        return new OpenAiCompatibleEmbeddingAdapter(provider, baseUrl, apiKey, model, dimensions);
+            @Value("${mindora.knowledge.embedding.dimensions:${EMBEDDING_DIMENSIONS:1024}}") int dimensions,
+            @Value("${mindora.knowledge.embedding.timeout-ms:10000}") int timeoutMillis) {
+        return new OpenAiCompatibleEmbeddingAdapter(provider, baseUrl, apiKey, model, dimensions, timeoutMillis);
     }
 
     @Bean
@@ -93,8 +95,9 @@ public class KnowledgeModuleConfiguration {
             @Value("${mindora.knowledge.rerank.provider:siliconflow}") String provider,
             @Value("${mindora.knowledge.rerank.base-url:${RERANK_BASE_URL:https://api.siliconflow.cn/v1}}") String baseUrl,
             @Value("${mindora.knowledge.rerank.api-key:${RERANK_MODEL_API_KEY:}}") String apiKey,
-            @Value("${mindora.knowledge.rerank.model:${RERANK_MODEL:BAAI/bge-reranker-v2-m3}}") String model) {
-        return new SiliconFlowRerankAdapter(provider, baseUrl, apiKey, model);
+            @Value("${mindora.knowledge.rerank.model:${RERANK_MODEL:BAAI/bge-reranker-v2-m3}}") String model,
+            @Value("${mindora.knowledge.rerank.timeout-ms:3000}") int timeoutMillis) {
+        return new SiliconFlowRerankAdapter(provider, baseUrl, apiKey, model, timeoutMillis);
     }
 
     @Bean
@@ -194,6 +197,31 @@ public class KnowledgeModuleConfiguration {
             var article = articleService.publishKnowledgeDocument(documentId, title, sourcePath, content, indexStatus);
             return new KnowledgeAdapters.PublishedArticle(article.id(), article.slug());
         };
+    }
+
+    /**
+     * 检索编排服务。
+     *
+     * <p>不额外设置 retrieval 总开关：高成本依赖（embedding/vector）已有各自的开关，
+     * 关闭时会注入 Unavailable 适配器，使检索返回明确的临时不可用错误而不是静默放行。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    KnowledgeRetrievalService knowledgeRetrievalService(
+            KnowledgeRepositories.KnowledgeRepository repository,
+            KnowledgeAdapters.EmbeddingProviderPort embedding,
+            KnowledgeAdapters.RerankProviderPort rerank,
+            KnowledgeAdapters.VectorStorePort vectors,
+            @Value("${mindora.knowledge.retrieval.top-n:30}") int topN,
+            @Value("${mindora.knowledge.retrieval.rerank-top-k:8}") int rerankTopK,
+            @Value("${mindora.knowledge.retrieval.rerank-enabled:true}") boolean rerankEnabled,
+            @Value("${mindora.knowledge.retrieval.fallback-enabled:true}") boolean fallbackEnabled) {
+        return new KnowledgeRetrievalService(
+                repository,
+                embedding,
+                rerank,
+                vectors,
+                new KnowledgeRetrievalService.RetrievalSettings(topN, rerankTopK, rerankEnabled, fallbackEnabled));
     }
 
     @Bean

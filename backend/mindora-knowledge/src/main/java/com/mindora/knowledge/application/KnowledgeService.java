@@ -12,6 +12,7 @@ import com.mindora.knowledge.application.port.KnowledgeAdapters.SyncTaskExecutor
 import com.mindora.knowledge.application.port.KnowledgeAdapters.VectorStorePort;
 import com.mindora.knowledge.application.port.KnowledgeRepositories.DataSourceRepository;
 import com.mindora.knowledge.application.port.KnowledgeRepositories.KnowledgeRepository;
+import com.mindora.knowledge.domain.ChunkDraft;
 import com.mindora.knowledge.domain.ChunkingConfig;
 import com.mindora.knowledge.domain.DataSource;
 import com.mindora.knowledge.domain.KnowledgeChunk;
@@ -320,15 +321,18 @@ public class KnowledgeService {
                 versionId, document.id(), KnowledgeEnums.SourceType.BLOG, articleId.toString(), sourcePath,
                 parsed.body(), metadata(parsed), hash, now);
         repository.saveVersion(version);
-        if (document.currentVersionId() != null) {
-            repository.archiveChunks(UUID.fromString(document.currentVersionId()));
+        UUID obsoleteVersionId = document.currentVersionId() == null
+                ? null
+                : UUID.fromString(document.currentVersionId());
+        if (obsoleteVersionId != null) {
+            repository.archiveChunks(obsoleteVersionId);
         }
         KnowledgeDocument versioned = document.versioned(versionId.toString(), hash, title.trim(), now);
         repository.saveDocument(versioned);
         for (String image : parsed.imageReferences()) {
             assets.attachMarkdownReference(sourcePath, image, document.id().toString());
         }
-        indexVersion(versioned, versionId);
+        indexVersion(versioned, versionId, obsoleteVersionId);
         return getDocument(document.id());
     }
 
@@ -376,7 +380,8 @@ public class KnowledgeService {
         }
         UUID versionId = UUID.fromString(document.currentVersionId());
         repository.archiveChunks(versionId);
-        indexVersion(document, versionId);
+        // 重建必须替换而不是追加：索引阶段会先清掉该版本在向量库中的旧点。
+        indexVersion(document, versionId, versionId);
     }
 
     public int rebuildDocuments(List<UUID> documentIds) {
@@ -463,42 +468,57 @@ public class KnowledgeService {
                 versionId, document.id(), KnowledgeEnums.SourceType.GITEE, source.id().toString(),
                 file.path(), parsed.body(), metadata(parsed), hash, clock.instant());
         repository.saveVersion(version);
-        if (document.currentVersionId() != null) {
-            repository.archiveChunks(UUID.fromString(document.currentVersionId()));
+        UUID obsoleteVersionId = document.currentVersionId() == null
+                ? null
+                : UUID.fromString(document.currentVersionId());
+        if (obsoleteVersionId != null) {
+            repository.archiveChunks(obsoleteVersionId);
         }
         KnowledgeDocument versioned = document.versioned(versionId.toString(), hash, parsed.title(), clock.instant());
         repository.saveDocument(versioned);
         for (String image : parsed.imageReferences()) {
             assets.attachMarkdownReference(file.path(), image, document.id().toString());
         }
-        indexVersion(versioned, versionId);
+        indexVersion(versioned, versionId, obsoleteVersionId);
     }
 
-    private void indexVersion(KnowledgeDocument document, UUID versionId) {
+    /**
+     * 索引指定版本。
+     *
+     * <p>{@code obsoleteVersionId} 是要在写入前清理掉向量点的旧版本。清理与写入同处一个
+     * 失败域：任一步失败都记录为索引失败，避免旧点残留导致重建退化成追加。清理先于写入，
+     * 因此清理失败时不会写入新点，不会产生重复。
+     */
+    private void indexVersion(KnowledgeDocument document, UUID versionId, UUID obsoleteVersionId) {
         KnowledgeDocumentVersion version = repository.findVersion(versionId)
                 .orElseThrow(() -> new BusinessException("knowledge_version_not_found", "Document version not found"));
-        List<String> contents = chunker.chunk(version.contentSnapshot(), repository.getChunkingConfig());
+        List<ChunkDraft> drafts = chunker.chunk(version.contentSnapshot(), repository.getChunkingConfig());
         List<KnowledgeChunk> chunks = new ArrayList<>();
-        for (int index = 0; index < contents.size(); index++) {
-            String content = contents.get(index);
+        for (ChunkDraft draft : drafts) {
             chunks.add(new KnowledgeChunk(
-                    UUID.randomUUID(), versionId, index, content, content.length(),
+                    UUID.randomUUID(), versionId, draft.sequence(), draft.content(), draft.content().length(),
+                    draft.headingPath(), draft.headingLevel(), draft.blockType(), draft.codeLanguage(),
+                    KnowledgeHash.sha256(draft.content()),
                     KnowledgeEnums.IndexStatus.VECTORIZING, null, null, null, 0, clock.instant()));
         }
         chunks.forEach(repository::saveChunk);
-        if (contents.isEmpty()) {
+        if (drafts.isEmpty()) {
             repository.saveDocument(document.index(KnowledgeEnums.IndexStatus.INDEXED, null, clock.instant()));
             return;
         }
         try {
-            List<List<Double>> embeddings = embedding.embed(contents);
-            if (embeddings.size() != contents.size()) {
+            if (obsoleteVersionId != null) {
+                vectors.deleteByVersion(obsoleteVersionId);
+            }
+            List<String> embeddingInputs = drafts.stream().map(ChunkDraft::embeddingText).toList();
+            List<List<Double>> embeddings = embedding.embed(embeddingInputs);
+            if (embeddings.size() != drafts.size()) {
                 throw new IllegalStateException("Embedding provider returned an unexpected vector count");
             }
             List<KnowledgeChunk> indexed = IntStream.range(0, chunks.size())
-                    .mapToObj(index -> chunks.get(index).indexed(embedding.model(), document.id() + ":" + index))
+                    .mapToObj(index -> chunks.get(index).indexed(embedding.model(), chunks.get(index).id().toString()))
                     .toList();
-            vectors.upsert(document.id(), indexed, embeddings);
+            vectors.upsert(vectorRecords(document, versionId, indexed), embeddings);
             indexed.forEach(repository::saveChunk);
             repository.saveDocument(document.index(KnowledgeEnums.IndexStatus.INDEXED, null, clock.instant()));
         } catch (RuntimeException exception) {
@@ -506,6 +526,35 @@ public class KnowledgeService {
             chunks.stream().map(chunk -> chunk.failed(reason)).forEach(repository::saveChunk);
             repository.saveDocument(document.index(KnowledgeEnums.IndexStatus.FAILED, reason, clock.instant()));
         }
+    }
+
+    /**
+     * 组装向量点：只携带检索与权限过滤所需的最小字段，正文不入向量库。
+     */
+    private List<KnowledgeAdapters.VectorRecord> vectorRecords(
+            KnowledgeDocument document, UUID versionId, List<KnowledgeChunk> chunks) {
+        String sourceType = document.sourceType().name().toLowerCase();
+        String status = document.status().name().toLowerCase();
+        String articleSlug = document.articleSlug();
+        return chunks.stream()
+                .map(chunk -> new KnowledgeAdapters.VectorRecord(
+                        chunk.id(),
+                        document.id(),
+                        versionId,
+                        chunk.sequence(),
+                        chunk.headingPath(),
+                        chunk.blockType().name().toLowerCase(),
+                        chunk.codeLanguage(),
+                        sourceType,
+                        document.sourceId(),
+                        document.sourcePath(),
+                        document.visibility(),
+                        status,
+                        document.knowledgeEnabled(),
+                        document.publicArticleId(),
+                        articleSlug,
+                        chunk.contentHash()))
+                .toList();
     }
 
     private int archiveMissing(DataSource source, Set<String> seen, KnowledgeEnums.SyncMode mode) {

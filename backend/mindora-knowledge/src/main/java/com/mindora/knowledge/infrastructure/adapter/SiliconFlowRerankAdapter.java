@@ -14,11 +14,16 @@ public class SiliconFlowRerankAdapter implements KnowledgeAdapters.RerankProvide
     private final String apiKey;
 
     public SiliconFlowRerankAdapter(String provider, String baseUrl, String apiKey, String model) {
+        this(provider, baseUrl, apiKey, model, 3000);
+    }
+
+    public SiliconFlowRerankAdapter(String provider, String baseUrl, String apiKey, String model, int timeoutMillis) {
         this.provider = provider == null || provider.isBlank() ? "siliconflow" : provider;
         this.model = model == null || model.isBlank() ? "BAAI/bge-reranker-v2-m3" : model;
         this.apiKey = apiKey;
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl == null || baseUrl.isBlank() ? "https://api.siliconflow.cn/v1" : baseUrl)
+                .requestFactory(AdapterHttpFactories.withTimeout(timeoutMillis))
                 .build();
     }
 

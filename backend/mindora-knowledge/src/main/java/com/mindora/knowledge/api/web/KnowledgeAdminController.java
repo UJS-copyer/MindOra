@@ -1,7 +1,9 @@
 package com.mindora.knowledge.api.web;
 
 import com.mindora.common.api.ApiResponse;
+import com.mindora.common.exception.BusinessException;
 import com.mindora.common.id.PublicIds;
+import com.mindora.knowledge.application.KnowledgeRetrievalService;
 import com.mindora.knowledge.application.KnowledgeService;
 import com.mindora.knowledge.domain.ChunkingConfig;
 import com.mindora.knowledge.domain.KnowledgeEnums;
@@ -25,10 +27,12 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "bearerAuth")
 public class KnowledgeAdminController {
     private final KnowledgeService service;
+    private final KnowledgeRetrievalService retrievalService;
     private final RuntimeConfigView runtimeConfig;
 
     public KnowledgeAdminController(
             KnowledgeService service,
+            KnowledgeRetrievalService retrievalService,
             @Value("${mindora.knowledge.embedding.provider:bailian}") String embeddingProvider,
             @Value("${mindora.knowledge.embedding.model:text-embedding-v4}") String embeddingModel,
             @Value("${mindora.knowledge.embedding.dimensions:1024}") int embeddingDimensions,
@@ -36,6 +40,7 @@ public class KnowledgeAdminController {
             @Value("${mindora.knowledge.rerank.model:BAAI/bge-reranker-v2-m3}") String rerankModel,
             @Value("${mindora.qdrant.collection:mindora_chunk}") String qdrantCollection) {
         this.service = service;
+        this.retrievalService = retrievalService;
         this.runtimeConfig = new RuntimeConfigView(
                 embeddingProvider,
                 embeddingModel,
@@ -199,6 +204,66 @@ public class KnowledgeAdminController {
         return success(results, traceId);
     }
 
+    /**
+     * 管理端检索调试：输入 query，返回带向量分与重排分的召回结果。
+     *
+     * <p>{@code scope} 必填（{@code all} / {@code public}）；缺失或非法时由服务层拒绝，
+     * 不会退化成「无过滤条件」的检索。
+     */
+    @PostMapping("/retrieval/search")
+    public ApiResponse<RetrievalResultView> retrievalSearch(
+            @RequestBody(required = false) RetrievalSearchRequest request,
+            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+        KnowledgeRetrievalService.RetrievalOutcome outcome = retrievalService.search(
+                new KnowledgeRetrievalService.RetrievalQuery(
+                        request == null ? null : request.query(),
+                        parseScope(request == null ? null : request.scope()),
+                        request == null ? null : request.topN(),
+                        request == null ? null : request.rerankTopK(),
+                        request == null ? null : request.rerankEnabled()));
+        return success(retrievalResult(outcome), traceId);
+    }
+
+    private KnowledgeRetrievalService.Scope parseScope(String value) {
+        if (value == null || value.isBlank()) {
+            // 交给服务层统一执行 fail-closed 校验，避免两处判断不一致
+            return null;
+        }
+        try {
+            return KnowledgeRetrievalService.Scope.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(
+                    "retrieval_scope_invalid", "Unsupported retrieval scope: " + value);
+        }
+    }
+
+    private static RetrievalResultView retrievalResult(KnowledgeRetrievalService.RetrievalOutcome outcome) {
+        return new RetrievalResultView(
+                outcome.scope(),
+                outcome.topN(),
+                outcome.rerankTopK(),
+                outcome.rerankEnabled(),
+                outcome.fallback(),
+                outcome.fallbackReason(),
+                outcome.latencyMs(),
+                outcome.results().stream()
+                        .map(hit -> new RetrievalHitView(
+                                hit.chunkId(),
+                                hit.documentId(),
+                                hit.documentTitle(),
+                                hit.sourceType(),
+                                hit.sourcePath(),
+                                hit.headingPath(),
+                                hit.blockType(),
+                                hit.codeLanguage(),
+                                hit.vectorScore(),
+                                hit.rerankScore(),
+                                hit.contentPreview(),
+                                hit.articleId(),
+                                hit.articleSlug()))
+                        .toList());
+    }
+
     private <T> ApiResponse<T> success(T data, String traceId) {
         return ApiResponse.success(data, traceId == null || traceId.isBlank() ? UUID.randomUUID().toString() : traceId);
     }
@@ -235,6 +300,41 @@ public class KnowledgeAdminController {
     }
 
     public record RerankResultView(int index, double score, String document) {
+    }
+
+    public record RetrievalSearchRequest(
+            String query,
+            String scope,
+            Integer topN,
+            Integer rerankTopK,
+            Boolean rerankEnabled) {
+    }
+
+    public record RetrievalResultView(
+            String scope,
+            int topN,
+            int rerankTopK,
+            boolean rerankEnabled,
+            boolean fallback,
+            String fallbackReason,
+            long latencyMs,
+            List<RetrievalHitView> results) {
+    }
+
+    public record RetrievalHitView(
+            String chunkId,
+            String documentId,
+            String documentTitle,
+            String sourceType,
+            String sourcePath,
+            String headingPath,
+            String blockType,
+            String codeLanguage,
+            double vectorScore,
+            Double rerankScore,
+            String contentPreview,
+            String articleId,
+            String articleSlug) {
     }
 
     public record ChunkingConfigRequest(

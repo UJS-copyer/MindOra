@@ -46,4 +46,15 @@ public final class KnowledgeEnums {
         MARKDOWN_HEADING,
         FIXED_SIZE
     }
+
+    /**
+     * 切片的结构类型。用于检索时的精准引用与后续按块类型调优。
+     */
+    public enum BlockType {
+        PARAGRAPH,
+        CODE,
+        TABLE,
+        LIST,
+        QUOTE
+    }
 }

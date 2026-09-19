@@ -3,8 +3,8 @@ package com.mindora.knowledge.infrastructure.adapter;
 import com.mindora.common.exception.BusinessException;
 import com.mindora.knowledge.application.port.KnowledgeAdapters;
 import com.mindora.knowledge.domain.DataSource;
-import com.mindora.knowledge.domain.KnowledgeChunk;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public final class UnavailableKnowledgeAdapters {
@@ -60,7 +60,7 @@ public final class UnavailableKnowledgeAdapters {
 
     public static class VectorStore implements KnowledgeAdapters.VectorStorePort {
         @Override
-        public void upsert(UUID documentId, List<KnowledgeChunk> chunks, List<List<Double>> embeddings) {
+        public void upsert(List<KnowledgeAdapters.VectorRecord> points, List<List<Double>> embeddings) {
             throw new BusinessException(
                     "vector_adapter_unavailable",
                     "Vector store is not configured in this runtime");
@@ -68,6 +68,14 @@ public final class UnavailableKnowledgeAdapters {
 
         @Override
         public void deleteByVersion(UUID documentVersionId) {
+        }
+
+        @Override
+        public List<KnowledgeAdapters.VectorHit> search(
+                List<Double> queryVector, int topN, Map<String, Object> exactMatchFilter) {
+            throw new BusinessException(
+                    "vector_adapter_unavailable",
+                    "Vector store is not configured in this runtime");
         }
     }
 

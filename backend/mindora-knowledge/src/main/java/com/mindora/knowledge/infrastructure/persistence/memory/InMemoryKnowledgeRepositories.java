@@ -9,6 +9,7 @@ import com.mindora.knowledge.domain.KnowledgeDocumentVersion;
 import com.mindora.knowledge.domain.KnowledgeEnums;
 import com.mindora.knowledge.domain.SyncTask;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,14 @@ public final class InMemoryKnowledgeRepositories {
         }
 
         @Override
+        public synchronized List<KnowledgeDocument> findDocumentsByIds(Collection<UUID> ids) {
+            if (ids == null || ids.isEmpty()) {
+                return List.of();
+            }
+            return ids.stream().map(documents::get).filter(java.util.Objects::nonNull).toList();
+        }
+
+        @Override
         public synchronized KnowledgeDocumentVersion saveVersion(KnowledgeDocumentVersion version) {
             versions.put(version.id(), version);
             return version;
@@ -108,10 +117,20 @@ public final class InMemoryKnowledgeRepositories {
         }
 
         @Override
+        public synchronized List<KnowledgeChunk> findChunksByIds(Collection<UUID> ids) {
+            if (ids == null || ids.isEmpty()) {
+                return List.of();
+            }
+            return ids.stream().map(chunks::get).filter(java.util.Objects::nonNull).toList();
+        }
+
+        @Override
         public synchronized void archiveChunks(UUID versionId) {
             chunks.replaceAll((id, value) -> value.documentVersionId().equals(versionId)
                     ? new KnowledgeChunk(value.id(), value.documentVersionId(), value.sequence(),
-                    value.content(), value.characterCount(), KnowledgeEnums.IndexStatus.PENDING,
+                    value.content(), value.characterCount(), value.headingPath(), value.headingLevel(),
+                    value.blockType(), value.codeLanguage(), value.contentHash(),
+                    KnowledgeEnums.IndexStatus.PENDING,
                     value.embeddingModel(), value.vectorPointId(), "archived", value.retryCount(),
                     value.createdAt())
                     : value);

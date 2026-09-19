@@ -37,7 +37,8 @@ class AdminAccessControllerTest {
                 .andExpect(jsonPath("$.data[1].path", is("/knowledge")))
                 .andExpect(jsonPath("$.data[1].children[*].path", hasItem("sources")))
                 .andExpect(jsonPath("$.data[1].children[*].path", hasItem("documents")))
-                .andExpect(jsonPath("$.data[1].children[*].path", hasItem("indexes")));
+                .andExpect(jsonPath("$.data[1].children[*].path", hasItem("indexes")))
+                .andExpect(jsonPath("$.data[1].children[*].path", hasItem("retrieval")));
     }
 
     private String tokenFor(RoleName role) {
