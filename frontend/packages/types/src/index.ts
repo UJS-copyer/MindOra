@@ -83,4 +83,27 @@ export interface ArticleFilters {
   tagId?: string;
 }
 
+export type WallpaperMode = 'aurora' | 'mountain' | 'minimal' | 'custom';
+
+export interface WallpaperSettings {
+  mode: WallpaperMode;
+  blur: number;
+  customUrl?: string;
+  opacity: number;
+}
+
+export interface ReadingHistoryItem {
+  slug: string;
+  title: string;
+  categoryName?: string;
+  progress: number;
+  updatedAt: number;
+}
+
+export interface ArticleTocItem {
+  id: string;
+  title: string;
+  level: number;
+}
+
 export type * from './generated/openapi';
