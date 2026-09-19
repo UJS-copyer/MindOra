@@ -33,6 +33,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { MenuThemeType } from '@/types/store'
+import type { WallpaperSettings } from '@mindora/types'
 import AppConfig from '@/config'
 import { SystemThemeEnum, MenuThemeEnum, MenuTypeEnum, ContainerWidthEnum } from '@/enums/appEnum'
 import { setElementThemeColor } from '@/utils/ui'
@@ -116,6 +117,26 @@ export const useSettingStore = defineStore(
     // 节日相关
     /** 节日日期 */
     const festivalDate = ref('')
+
+    // 壁纸与外观设置
+    const wallpaperConfig = ref<WallpaperSettings>({
+      mode: 'aurora',
+      blur: 24,
+      opacity: 0.85,
+      customUrl: ''
+    })
+
+    const setWallpaperConfig = (config: Partial<WallpaperSettings>) => {
+      wallpaperConfig.value = {
+        ...wallpaperConfig.value,
+        ...config
+      }
+      try {
+        localStorage.setItem('mindora-wallpaper-settings', JSON.stringify(wallpaperConfig.value))
+      } catch {
+        // ignore
+      }
+    }
 
     /**
      * 获取菜单主题
@@ -438,7 +459,9 @@ export const useSettingStore = defineStore(
       setholidayFireworksLoaded,
       setShowFestivalText,
       setFestivalDate,
-      setDualMenuShowText
+      setDualMenuShowText,
+      wallpaperConfig,
+      setWallpaperConfig
     }
   },
   {
