@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindOra Studio - 知识中枢与内容工坊</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            canvas: { light: '#f8fafc', dark: '#08080b' },
+            surface: { light: '#ffffff', dark: '#131317' },
+            subtle: { light: '#f1f3f5', dark: '#1c1c22' },
+            accent: { DEFAULT: '#059669', light: '#10b981' }
+          },
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'PingFang SC', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* 毛玻璃工作台卡片 */
+    .glass-card {
+      background-color: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+    .dark .glass-card {
+      background-color: rgba(18, 18, 23, 0.78);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 10px 36px -4px rgba(0, 0, 0, 0.55);
+    }
+
+    .glass-bar {
+      background-color: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-color: rgba(0, 0, 0, 0.06);
+    }
+    .dark .glass-bar {
+      background-color: rgba(10, 10, 14, 0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .hover-lift {
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .hover-lift:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.08);
+    }
+    .dark .hover-lift:hover {
+      box-shadow: 0 14px 36px -4px rgba(0, 0, 0, 0.6);
+    }
+
+    /* 环境流光背景 */
+    .bg-aurora {
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.12) 0px, transparent 45%),
+        radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 45%),
+        radial-gradient(at 50% 100%, rgba(168, 85, 247, 0.08) 0px, transparent 45%);
+    }
+    .dark .bg-aurora {
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.14) 0px, transparent 45%),
+        radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.11) 0px, transparent 45%),
+        radial-gradient(at 50% 100%, rgba(168, 85, 247, 0.09) 0px, transparent 45%);
+    }
+
+    #studio-wallpaper-layer {
+      transition: all 0.5s ease-in-out;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.25); border-radius: 9999px; }
+  </style>
+</head>
+<body class="bg-[#f8fafc] dark:bg-[#08080b] text-zinc-800 dark:text-zinc-200 transition-colors duration-200 antialiased min-h-screen flex text-sm relative">
+
+  <!-- ================= 背景环境层 (可由后台配置) ================= -->
+  <div id="studio-wallpaper-layer" class="fixed inset-0 pointer-events-none z-0 bg-aurora opacity-100"></div>
+
+  <!-- ================= 左侧全局侧边栏 (260px，毛玻璃 + 舒适间距) ================= -->
+  <aside class="w-64 flex-shrink-0 glass-bar border-r flex flex-col h-screen sticky top-0 z-30">
+    
+    <!-- 头部标识 (56px) -->
+    <div class="h-14 px-5 flex items-center justify-between border-b border-black/[0.05] dark:border-white/[0.06]">
+      <div class="flex items-center gap-3">
+        <div class="w-7 h-7 rounded-lg bg-emerald-600 dark:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center shadow-md shadow-emerald-500/20">
+          M
+        </div>
+        <div>
+          <div class="font-semibold text-sm tracking-tight text-zinc-900 dark:text-zinc-50">MindOra Studio</div>
+          <div class="text-[11px] text-zinc-400 dark:text-zinc-500">知识工坊中枢</div>
+        </div>
+      </div>
+      <span class="px-2 py-0.5 rounded text-xs font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-500">Stage 2</span>
+    </div>
+
+    <!-- 侧栏菜单列表 -->
+    <div class="p-4 space-y-6 flex-1 overflow-y-auto">
+      <div>
+        <div class="px-3 pb-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">知识中枢</div>
+        <nav class="space-y-1" id="nav-group">
+          <button onclick="switchView('overview')" id="nav-overview" class="w-full h-9 px-3 rounded-lg flex items-center gap-3 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 font-medium transition-colors text-sm">
+            <i data-lucide="layout-grid" class="w-4 h-4"></i>
+            <span>概览全景看板</span>
+          </button>
+          <button onclick="switchView('pipeline')" id="nav-pipeline" class="w-full h-9 px-3 rounded-lg flex items-center gap-3 text-zinc-600 dark:text-zinc-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] font-medium transition-colors text-sm">
+            <i data-lucide="git-merge" class="w-4 h-4"></i>
+            <span>知识流水线监控</span>
+            <span class="ml-auto w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          </button>
+          <button onclick="switchView('sources')" id="nav-sources" class="w-full h-9 px-3 rounded-lg flex items-center gap-3 text-zinc-600 dark:text-zinc-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] font-medium transition-colors text-sm">
+            <i data-lucide="folder-git-2" class="w-4 h-4"></i>
+            <span>数据源配置 (Gitee)</span>
+          </button>
+        </nav>
+      </div>
+
+      <div>
+        <div class="px-3 pb-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">内容创作与资产</div>
+        <nav class="space-y-1">
+          <button onclick="switchView('editor')" id="nav-editor" class="w-full h-9 px-3 rounded-lg flex items-center gap-3 text-zinc-600 dark:text-zinc-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] font-medium transition-colors text-sm">
+            <i data-lucide="pen-tool" class="w-4 h-4"></i>
+            <span>双区专注编辑器</span>
+          </button>
+          <button onclick="alert('文章管理列表')" class="w-full h-9 px-3 rounded-lg flex items-center gap-3 text-zinc-600 dark:text-zinc-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] font-medium transition-colors text-sm">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            <span>公开文章管理</span>
+          </button>
+          <button onclick="alert('图片资产库')" class="w-full h-9 px-3 rounded-lg flex items-center gap-3 text-zinc-600 dark:text-zinc-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] font-medium transition-colors text-sm">
+            <i data-lucide="image" class="w-4 h-4"></i>
+            <span>图片资产库</span>
+          </button>
+        </nav>
+      </div>
+
+      <div>
+        <div class="px-3 pb-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">系统与外观</div>
+        <nav class="space-y-1">
+          <button onclick="switchView('theme-setting')" id="nav-theme-setting" class="w-full h-9 px-3 rounded-lg flex items-center gap-3 text-zinc-600 dark:text-zinc-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] font-medium transition-colors text-sm">
+            <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
+            <span>外观与背景配置</span>
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <!-- 底部状态 -->
+    <div class="p-4 border-t border-black/[0.05] dark:border-white/[0.06] flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-full bg-emerald-600/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
+          AD
+        </div>
+        <div>
+          <div class="font-medium text-zinc-900 dark:text-zinc-100 text-xs">admin@mindora.com</div>
+          <div class="text-[11px] text-emerald-600 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> 服务正常
+          </div>
+        </div>
+      </div>
+      <button onclick="toggleDark()" class="p-2 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.05] text-zinc-500 transition-colors" title="切换暗黑模式">
+        <i data-lucide="sun" class="w-4 h-4 dark:hidden"></i>
+        <i data-lucide="moon" class="w-4 h-4 hidden dark:block"></i>
+      </button>
+    </div>
+  </aside>
+
+
+  <!-- ================= 右侧工作台主体 (广角 1350px 充实布局) ================= -->
+  <div class="flex-1 flex flex-col min-w-0 relative z-10">
+
+    <!-- 顶栏工具 (56px) -->
+    <header class="h-14 glass-bar border-b px-8 flex items-center justify-between sticky top-0 z-20">
+      <div class="flex items-center gap-3" id="breadcrumb">
+        <span class="text-zinc-400 text-xs">MindOra Studio</span>
+        <span class="text-zinc-300 dark:text-zinc-700">/</span>
+        <span class="font-semibold text-sm text-zinc-900 dark:text-zinc-100" id="current-title">概览全景看板</span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <a href="site-editorial-canvas.html" target="_blank" class="h-8 px-3 rounded-lg glass-card text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium flex items-center gap-1.5 transition-colors">
+          <span>前台门户预览</span>
+          <i data-lucide="external-link" class="w-3.5 h-3.5 text-zinc-400"></i>
+        </a>
+        <button onclick="triggerQuickSync()" class="h-8 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex items-center gap-2 transition-colors text-xs shadow-sm">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5" id="sync-icon"></i>
+          <span>一键增量同步</span>
+        </button>
+        <button onclick="switchView('editor')" class="h-8 px-3.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 font-medium flex items-center gap-1.5 transition-colors text-xs shadow-sm">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+          <span>新建文章</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 主展示区 -->
+    <main class="flex-1 p-8 overflow-y-auto max-w-7xl w-full mx-auto">
+
+      <!-- ================= 视图 1: 概览全景 (大尺寸真实指标卡 + 知识库矩阵) ================= -->
+      <div id="view-overview" class="space-y-8">
+        
+        <!-- 4 核心指标大卡片 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          
+          <div class="p-5 rounded-2xl glass-card hover-lift space-y-3">
+            <div class="flex items-center justify-between text-zinc-400 text-xs">
+              <span class="font-medium">知识库文档总数</span>
+              <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                <i data-lucide="file-text" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-3">
+              <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-50 font-mono tracking-tight">42</span>
+              <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">+3 本周新增</span>
+            </div>
+            <div class="text-xs text-zinc-400 pt-1 border-t border-black/[0.04] dark:border-white/[0.05]">
+              38 篇已联动至前台公开发布
+            </div>
+          </div>
+
+          <div class="p-5 rounded-2xl glass-card hover-lift space-y-3">
+            <div class="flex items-center justify-between text-zinc-400 text-xs">
+              <span class="font-medium">向量切片总量 (Chunks)</span>
+              <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                <i data-lucide="cpu" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-3">
+              <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-50 font-mono tracking-tight">318</span>
+              <span class="text-xs text-zinc-400">均长 480 字</span>
+            </div>
+            <div class="text-xs text-emerald-600 flex items-center gap-1.5 pt-1 border-t border-black/[0.04] dark:border-white/[0.05]">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+              <span>100% 完成 Embedding 注入</span>
+            </div>
+          </div>
+
+          <div class="p-5 rounded-2xl glass-card hover-lift space-y-3">
+            <div class="flex items-center justify-between text-zinc-400 text-xs">
+              <span class="font-medium">Qdrant 向量维度</span>
+              <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                <i data-lucide="database" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-3">
+              <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-50 font-mono tracking-tight">1024</span>
+              <span class="text-xs text-zinc-400">text-embedding-v4</span>
+            </div>
+            <div class="text-xs text-zinc-400 pt-1 border-t border-black/[0.04] dark:border-white/[0.05]">
+              集合：mindora-knowledge
+            </div>
+          </div>
+
+          <div class="p-5 rounded-2xl glass-card hover-lift space-y-3">
+            <div class="flex items-center justify-between text-zinc-400 text-xs">
+              <span class="font-medium">Rerank 检索健康度</span>
+              <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-3">
+              <span class="text-3xl font-bold text-zinc-900 dark:text-zinc-50 font-mono tracking-tight">98.2%</span>
+              <span class="text-xs text-emerald-600 font-medium">高可用</span>
+            </div>
+            <div class="text-xs text-zinc-400 pt-1 border-t border-black/[0.04] dark:border-white/[0.05]">
+              平均检索重排延迟 64ms
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 数据源卡片与流转日志 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <div class="p-6 rounded-2xl glass-card space-y-5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <h3 class="font-semibold text-base text-zinc-900 dark:text-zinc-100">Gitee 官方知识库</h3>
+              </div>
+              <span class="px-2.5 py-1 rounded text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                增量监听中
+              </span>
+            </div>
+
+            <div class="space-y-3 text-xs text-zinc-500 dark:text-zinc-400">
+              <div class="flex justify-between py-1 border-b border-black/[0.04] dark:border-white/[0.05]">
+                <span>仓库地址</span>
+                <span class="font-mono text-zinc-800 dark:text-zinc-200">mindora/mindora-docs</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-black/[0.04] dark:border-white/[0.05]">
+                <span>绑定分支</span>
+                <span class="font-mono text-zinc-800 dark:text-zinc-200">main</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-black/[0.04] dark:border-white/[0.05]">
+                <span>根目录路径</span>
+                <span class="font-mono text-zinc-800 dark:text-zinc-200">docs/</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-black/[0.04] dark:border-white/[0.05]">
+                <span>上次同步时间</span>
+                <span class="text-zinc-800 dark:text-zinc-200">18 分钟前</span>
+              </div>
+            </div>
+
+            <div class="pt-2 flex items-center justify-between">
+              <button onclick="switchView('pipeline')" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1.5 font-medium text-xs">
+                <span>查看执行流水线</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </button>
+              <button onclick="triggerQuickSync()" class="h-8 px-3.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium text-xs transition-colors">
+                立即重新拉取
+              </button>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2 p-6 rounded-2xl glass-card space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-black/[0.06] dark:border-white/[0.08]">
+              <div>
+                <h3 class="font-semibold text-base text-zinc-900 dark:text-zinc-100">最新流转任务状态</h3>
+                <p class="text-xs text-zinc-400 mt-0.5">文档拉取、AST 解析、语义分块与向量写入审计</p>
+              </div>
+              <button onclick="switchView('pipeline')" class="text-xs text-emerald-600 dark:text-emerald-400 font-medium hover:underline">
+                进入流水线看板 →
+              </button>
+            </div>
+
+            <div class="space-y-3">
+              <div class="p-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.05] dark:border-white/[0.06] flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                  </div>
+                  <div>
+                    <div class="font-medium text-zinc-900 dark:text-zinc-100 text-xs">快速开始 (docs/getting-started/quick-start.md)</div>
+                    <div class="text-xs text-zinc-400 mt-0.5">18 Chunks · text-embedding-v4 写入完成 · 耗时 1.2s</div>
+                  </div>
+                </div>
+                <span class="px-2.5 py-1 rounded-md text-xs font-mono bg-emerald-500/10 text-emerald-600 font-semibold">v4 Synced</span>
+              </div>
+
+              <div class="p-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.05] dark:border-white/[0.06] flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                    <i data-lucide="loader" class="w-4 h-4 animate-spin"></i>
+                  </div>
+                  <div>
+                    <div class="font-medium text-zinc-900 dark:text-zinc-100 text-xs">认证与权限系统 (docs/api/authentication.md)</div>
+                    <div class="text-xs text-zinc-400 mt-0.5">正在进行 Embedding 生成 (6/9 Chunks)...</div>
+                  </div>
+                </div>
+                <span class="px-2.5 py-1 rounded-md text-xs font-mono bg-amber-500/10 text-amber-600 font-semibold">Processing</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ================= 视图 2: 5 步流水线监控看板 (Pipeline) ================= -->
+      <div id="view-pipeline" class="hidden space-y-6">
+        <div class="p-6 rounded-2xl glass-card space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">当前任务流：Task #20260915-082 (增量同步)</h2>
+              <p class="text-xs text-zinc-400 mt-0.5">触发自 main 分支 commit: 5e42d70 · 关联 3 篇文档变更</p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+              实时处理中 (82%)
+            </span>
+          </div>
+
+          <div class="pt-4 pb-2 grid grid-cols-5 gap-3 text-center text-xs">
+            <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+              <div class="font-semibold text-sm flex items-center justify-center gap-1.5"><i data-lucide="check" class="w-4 h-4"></i> 1. 抓取</div>
+              <div class="text-xs text-emerald-600/80 mt-1">3 个文件已下载</div>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+              <div class="font-semibold text-sm flex items-center justify-center gap-1.5"><i data-lucide="check" class="w-4 h-4"></i> 2. 解析</div>
+              <div class="text-xs text-emerald-600/80 mt-1">AST 树构建完成</div>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+              <div class="font-semibold text-sm flex items-center justify-center gap-1.5"><i data-lucide="check" class="w-4 h-4"></i> 3. 切片</div>
+              <div class="text-xs text-emerald-600/80 mt-1">生成 39 个 Chunks</div>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-700 dark:text-amber-400 shadow-sm animate-pulse">
+              <div class="font-semibold text-sm flex items-center justify-center gap-1.5"><i data-lucide="loader" class="w-4 h-4 animate-spin"></i> 4. 向量化</div>
+              <div class="text-xs text-amber-600/80 mt-1">32/39 注入中</div>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-zinc-200/50 dark:bg-zinc-800/60 text-zinc-400">
+              <div class="font-semibold text-sm flex items-center justify-center gap-1.5"><i data-lucide="circle" class="w-4 h-4"></i> 5. 写入</div>
+              <div class="text-xs mt-1">待入库 Qdrant</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card rounded-2xl overflow-hidden">
+          <div class="px-6 py-4 border-b border-black/[0.06] dark:border-white/[0.08] flex items-center justify-between">
+            <div>
+              <h3 class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">批次文档切片清单</h3>
+              <p class="text-xs text-zinc-400 mt-0.5">点击任一条目可原地展开切片内容抽样检查器</p>
+            </div>
+            <span class="text-xs text-zinc-400">共 3 篇文档</span>
+          </div>
+
+          <div class="divide-y divide-black/[0.04] dark:divide-white/[0.05]">
+            <div class="p-5 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] cursor-pointer transition-colors flex items-center justify-between" onclick="toggleChunkInspector('doc1')">
+              <div class="flex items-center gap-4">
+                <i data-lucide="file-code" class="w-5 h-5 text-emerald-600"></i>
+                <div>
+                  <div class="font-semibold text-sm text-zinc-900 dark:text-zinc-100">快速开始 (docs/getting-started/quick-start.md)</div>
+                  <div class="text-xs text-zinc-400 mt-0.5">18 Chunks · text-embedding-v4 (1024 维) · 耗时 320ms</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="px-2.5 py-1 rounded text-xs font-mono bg-emerald-500/10 text-emerald-600 font-semibold">Ready</span>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-zinc-400"></i>
+              </div>
+            </div>
+
+            <div id="inspector-doc1" class="hidden p-6 bg-black/[0.02] dark:bg-white/[0.02] border-t border-black/[0.05] dark:border-white/[0.06] space-y-3">
+              <div class="text-xs font-semibold text-zinc-500 flex justify-between">
+                <span>切片语义抽样 (Previewing Chunks 1-2 of 18)</span>
+                <span class="text-emerald-600 font-mono">Qdrant Point: #qd-810a92</span>
+              </div>
+              <div class="space-y-2 font-mono text-xs">
+                <div class="p-3.5 rounded-xl bg-white dark:bg-zinc-950 border border-black/[0.06] dark:border-white/[0.08] text-zinc-700 dark:text-zinc-300">
+                  <span class="text-zinc-400 font-semibold"># Chunk 01 [Heading: 快速安装 > 依赖前置]:</span><br>
+                  MindOra 支持在单机 Ubuntu 宿主机上通过 Docker Compose 一键启动 MySQL 8.0, Redis 7 以及 Milvus/Qdrant 向量存储服务...
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 视图 3: 双区专注写作编辑器 (Zen Editor) ================= -->
+      <div id="view-editor" class="hidden h-[calc(100vh-120px)] flex gap-6">
+        <div class="flex-1 glass-card rounded-2xl flex flex-col p-6 overflow-hidden">
+          <div class="flex items-center justify-between pb-4 border-b border-black/[0.06] dark:border-white/[0.08]">
+            <input type="text" value="构建现代化个人 RAG 系统的切片策略与重排实践" placeholder="输入文章标题..." class="text-xl font-bold bg-transparent outline-none w-full text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400">
+            <div class="flex items-center gap-3 flex-shrink-0">
+              <button onclick="toggleInspector()" class="p-2 rounded-lg border border-black/[0.08] dark:border-white/[0.08] hover:bg-black/[0.03] text-zinc-500 transition-colors" title="展开/收起属性面板">
+                <i data-lucide="panel-right" class="w-4 h-4"></i>
+              </button>
+              <button onclick="saveDraft()" class="h-8 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors text-xs shadow-sm">
+                保存草稿
+              </button>
+            </div>
+          </div>
+
+          <div class="flex-1 flex pt-5 gap-6 overflow-hidden">
+            <textarea class="w-1/2 h-full bg-transparent resize-none outline-none font-mono text-sm leading-relaxed text-zinc-800 dark:text-zinc-200 border-r border-black/[0.06] dark:border-white/[0.08] pr-5" placeholder="在此撰写 Markdown 正文...">## 为什么定长切片在个人笔记场景下表现不佳
+
+在处理由 Markdown 编写的技术笔记时，段落通常紧凑且带有代码块。传统的 500-token 定长切片策略极易在代码函数中间截断，导致 Embedding 语义破碎...
+
+```ts
+export function createChunk() {
+  // 具备全路径上下文继承的切片逻辑
+}
+```</textarea>
+            <div class="w-1/2 h-full overflow-y-auto pl-3 prose prose-zinc dark:prose-invert text-sm leading-relaxed space-y-4">
+              <h2 class="text-base font-semibold">为什么定长切片在个人笔记场景下表现不佳</h2>
+              <p class="text-zinc-600 dark:text-zinc-300">在处理由 Markdown 编写的技术笔记时，段落通常紧凑且带有代码块。传统的 500-token 定长切片策略极易在代码函数中间截断，导致 Embedding 语义破碎...</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="editor-inspector" class="w-72 glass-card rounded-2xl p-5 space-y-5 flex-shrink-0 overflow-y-auto">
+          <div class="flex items-center justify-between pb-3 border-b border-black/[0.06] dark:border-white/[0.08]">
+            <span class="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">文章与知识属性</span>
+            <span class="text-xs text-emerald-600 font-medium">就绪</span>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-zinc-500 mb-1.5">文章访问路径 (Slug)</label>
+              <input type="text" value="modern-rag-chunking-practice" class="w-full h-8 px-3 rounded-lg border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-white/[0.03] text-xs text-zinc-800 dark:text-zinc-200 font-mono">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-zinc-500 mb-1.5">所属分类</label>
+              <select class="w-full h-8 px-3 rounded-lg border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-white/[0.03] text-xs text-zinc-800 dark:text-zinc-200">
+                <option>系统设计与架构</option>
+                <option selected>知识检索与 RAG</option>
+                <option>设计工程与交互</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-zinc-500 mb-1.5">知识库自动化关联</label>
+              <div class="p-3.5 rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-white/[0.03] space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-medium text-zinc-800 dark:text-zinc-200">纳入向量知识库</span>
+                  <input type="checkbox" checked class="w-4 h-4 accent-emerald-600 rounded">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 视图 4: 【新增】系统外观与背景可配置面板 (Theme & Background Settings) ================= -->
+      <div id="view-theme-setting" class="hidden space-y-6">
+        <div class="p-6 rounded-2xl glass-card space-y-6">
+          <div class="pb-4 border-b border-black/[0.06] dark:border-white/[0.08]">
+            <h2 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+              <i data-lucide="image" class="w-5 h-5 text-emerald-600"></i>
+              <span>工作空间外观与背景配置 (Appearance Settings)</span>
+            </h2>
+            <p class="text-xs text-zinc-400 mt-1">
+              可配置全站前台与后台的环境背景纹理、高斯模糊度以及卡片毛玻璃透光系数，摆脱纯白单调。
+            </p>
+          </div>
+
+          <!-- 预设壁纸与材质选择 -->
+          <div class="space-y-3">
+            <label class="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">选择环境背景主题：</label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              
+              <!-- 方案 1 -->
+              <div onclick="setAdminBg('aurora')" class="p-4 rounded-xl border-2 border-emerald-500 bg-white/70 dark:bg-zinc-900/70 cursor-pointer hover-lift space-y-2" id="card-aurora">
+                <div class="h-20 rounded-lg bg-aurora border border-black/10 flex items-center justify-center">
+                  <span class="text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-white/80 dark:bg-black/60 px-2 py-0.5 rounded">极光流体光晕</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-medium text-zinc-800 dark:text-zinc-200">Aurora Mesh</span>
+                  <span class="text-[10px] text-emerald-600 font-semibold">当前激活</span>
+                </div>
+              </div>
+
+              <!-- 方案 2 -->
+              <div onclick="setAdminBg('mountain')" class="p-4 rounded-xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-zinc-900/70 cursor-pointer hover-lift space-y-2" id="card-mountain">
+                <div class="h-20 rounded-lg bg-cover bg-center border border-black/10 flex items-center justify-center relative overflow-hidden" style="background-image: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80');">
+                  <div class="absolute inset-0 bg-black/30 backdrop-blur-sm"></div>
+                  <span class="relative z-10 text-xs font-medium text-white px-2 py-0.5 rounded">自然雪山 + 高斯模糊</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-medium text-zinc-800 dark:text-zinc-200">Nature Frosted</span>
+                  <span class="text-[10px] text-zinc-400">点击应用</span>
+                </div>
+              </div>
+
+              <!-- 方案 3 -->
+              <div onclick="setAdminBg('minimal')" class="p-4 rounded-xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-zinc-900/70 cursor-pointer hover-lift space-y-2" id="card-minimal">
+                <div class="h-20 rounded-lg border border-black/10 flex items-center justify-center" style="background-image: radial-gradient(rgba(0,0,0,0.15) 1px, transparent 0); background-size: 16px 16px;">
+                  <span class="text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white/80 dark:bg-black/60 px-2 py-0.5 rounded">精密点阵微网格</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-medium text-zinc-800 dark:text-zinc-200">Subtle Dot Grid</span>
+                  <span class="text-[10px] text-zinc-400">点击应用</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- 自定义背景 URL 与模糊滑块控制 -->
+          <div class="p-5 rounded-xl border border-black/[0.08] dark:border-white/[0.08] bg-black/[0.02] dark:bg-white/[0.02] space-y-4">
+            <h4 class="text-xs font-semibold text-zinc-800 dark:text-zinc-200">自定义壁纸图片与滤镜</h4>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs text-zinc-500 mb-1">外链壁纸图片 URL (支持高清大图)</label>
+                <input type="text" id="custom-img-url" value="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80" class="w-full h-8 px-3 rounded-lg border border-black/[0.08] dark:border-white/[0.08] bg-white dark:bg-zinc-900 text-xs text-zinc-800 dark:text-zinc-200 font-mono">
+              </div>
+
+              <div>
+                <label class="block text-xs text-zinc-500 mb-1">
+                  高斯模糊半径 (Backdrop Blur): <span id="blur-val-label" class="font-mono text-emerald-600 font-semibold">24px</span>
+                </label>
+                <input type="range" min="0" max="60" value="24" class="w-full mt-2 accent-emerald-600" oninput="updateBlur(this.value)">
+              </div>
+            </div>
+
+            <div class="flex justify-end pt-2">
+              <button onclick="applyCustomWallpaper()" class="h-8 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs shadow-sm transition-colors">
+                保存并应用壁纸配置
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    function toggleDark() {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    }
+    if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+
+    function switchView(viewName) {
+      const views = ['overview', 'pipeline', 'editor', 'theme-setting'];
+      views.forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        if (el) el.classList.add('hidden');
+        const nav = document.getElementById(`nav-${v}`);
+        if (nav) {
+          nav.classList.remove('text-emerald-700', 'dark:text-emerald-400', 'bg-emerald-500/10');
+          nav.classList.add('text-zinc-600', 'dark:text-zinc-400');
+        }
+      });
+
+      const target = document.getElementById(`view-${viewName}`);
+      if (target) target.classList.remove('hidden');
+
+      const targetNav = document.getElementById(`nav-${viewName}`);
+      if (targetNav) {
+        targetNav.classList.add('text-emerald-700', 'dark:text-emerald-400', 'bg-emerald-500/10');
+        targetNav.classList.remove('text-zinc-600', 'dark:text-zinc-400');
+      }
+
+      const titles = {
+        overview: '概览全景看板',
+        pipeline: '知识流水线监控',
+        editor: '双区专注编辑器',
+        'theme-setting': '外观与背景配置'
+      };
+      document.getElementById('current-title').innerText = titles[viewName] || '工作台';
+    }
+
+    function toggleInspector() {
+      const inspector = document.getElementById('editor-inspector');
+      inspector.classList.toggle('hidden');
+    }
+
+    function toggleChunkInspector(id) {
+      const inspector = document.getElementById(`inspector-${id}`);
+      inspector.classList.toggle('hidden');
+    }
+
+    function triggerQuickSync() {
+      const icon = document.getElementById('sync-icon');
+      icon.classList.add('animate-spin');
+      setTimeout(() => {
+        icon.classList.remove('animate-spin');
+        alert('增量同步触发成功：已从 Gitee main 分支拉取最新 Markdown 变更！');
+      }, 1000);
+    }
+
+    function saveDraft() {
+      alert('草稿已保存并自动触发局部切片与向量化！');
+    }
+
+    // 背景环境动态配置演示
+    function setAdminBg(type) {
+      const bg = document.getElementById('studio-wallpaper-layer');
+      if (type === 'aurora') {
+        bg.className = "fixed inset-0 pointer-events-none z-0 bg-aurora opacity-100";
+        bg.style.backgroundImage = '';
+      } else if (type === 'mountain') {
+        bg.className = "fixed inset-0 pointer-events-none z-0 opacity-40 dark:opacity-25 bg-cover bg-center filter blur-xl scale-105";
+        bg.style.backgroundImage = 'url("https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80")';
+      } else if (type === 'minimal') {
+        bg.className = "fixed inset-0 pointer-events-none z-0 opacity-30 dark:opacity-20";
+        bg.style.backgroundImage = 'radial-gradient(rgba(0,0,0,0.15) 1px, transparent 0)';
+        bg.style.backgroundSize = '24px 24px';
+      }
+    }
+
+    function updateBlur(val) {
+      document.getElementById('blur-val-label').innerText = `${val}px`;
+    }
+
+    function applyCustomWallpaper() {
+      const url = document.getElementById('custom-img-url').value;
+      const blurVal = document.getElementById('blur-val-label').innerText;
+      const bg = document.getElementById('studio-wallpaper-layer');
+      bg.className = `fixed inset-0 pointer-events-none z-0 opacity-40 dark:opacity-25 bg-cover bg-center scale-105`;
+      bg.style.backgroundImage = `url("${url}")`;
+      bg.style.filter = `blur(${blurVal})`;
+      alert('背景配置已保存生效！所有毛玻璃卡片已与自定义壁纸融为一体。');
+    }
+  </script>
+</body>
+</html>
