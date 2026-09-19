@@ -1,0 +1,24 @@
+:root {
+  /* Brand Accents */
+  --mindora-accent: #059669;
+  --mindora-accent-light: #10b981;
+  --mindora-accent-soft: rgba(16, 185, 129, 0.08);
+  --mindora-accent-border: rgba(16, 185, 129, 0.25);
+
+  /* Glassmorphism Light */
+  --glass-bg-light: rgba(255, 255, 255, 0.8);
+  --glass-header-light: rgba(255, 255, 255, 0.85);
+  --glass-border-light: rgba(255, 255, 255, 0.65);
+  --glass-hairline-light: rgba(0, 0, 0, 0.06);
+  --glass-shadow-light: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+
+  /* Glassmorphism Dark */
+  --glass-bg-dark: rgba(18, 18, 23, 0.78);
+  --glass-header-dark: rgba(10, 10, 14, 0.82);
+  --glass-border-dark: rgba(255, 255, 255, 0.08);
+  --glass-hairline-dark: rgba(255, 255, 255, 0.08);
+  --glass-shadow-dark: 0 10px 36px -4px rgba(0, 0, 0, 0.55);
+
+  /* Easing */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+}
