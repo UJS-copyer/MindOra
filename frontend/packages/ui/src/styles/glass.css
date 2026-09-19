@@ -1,0 +1,78 @@
+/* 半透明毛玻璃卡片与高光微描边 */
+.glass-card {
+  background-color: var(--glass-bg-light, rgba(255, 255, 255, 0.8));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border-light, rgba(255, 255, 255, 0.65));
+  box-shadow: var(--glass-shadow-light, 0 4px 20px -2px rgba(0, 0, 0, 0.04));
+}
+
+.dark .glass-card,
+html.dark .glass-card {
+  background-color: var(--glass-bg-dark, rgba(18, 18, 23, 0.78));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border-dark, rgba(255, 255, 255, 0.08));
+  box-shadow: var(--glass-shadow-dark, 0 10px 36px -4px rgba(0, 0, 0, 0.55));
+}
+
+.glass-header {
+  background-color: var(--glass-header-light, rgba(255, 255, 255, 0.85));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-hairline-light, rgba(0, 0, 0, 0.06));
+}
+
+.dark .glass-header,
+html.dark .glass-header {
+  background-color: var(--glass-header-dark, rgba(10, 10, 14, 0.82));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-hairline-dark, rgba(255, 255, 255, 0.08));
+}
+
+/* 悬停微升动效 */
+.card-hover,
+.hover-lift {
+  transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-hover:hover,
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.08);
+  border-color: rgba(5, 150, 105, 0.35);
+}
+
+.dark .card-hover:hover,
+html.dark .card-hover:hover,
+.dark .hover-lift:hover,
+html.dark .hover-lift:hover {
+  box-shadow: 0 16px 40px -6px rgba(0, 0, 0, 0.6);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+/* 目录树激活态 */
+.tree-active {
+  background-color: rgba(5, 150, 105, 0.1);
+  color: #059669;
+  font-weight: 600;
+  border-left: 2px solid #059669;
+}
+
+.dark .tree-active,
+html.dark .tree-active {
+  background-color: rgba(16, 185, 129, 0.14);
+  color: #34d399;
+  border-left: 2px solid #34d399;
+}
+
+/* 1px 发丝微描边 */
+.hairline-border {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.dark .hairline-border,
+html.dark .hairline-border {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}

@@ -22,9 +22,11 @@ if (!['--sync', '--generate', '--check'].includes(command)) {
 const spec = JSON.parse(await readFile(specPath, 'utf8'));
 const generated = await renderTypes(spec);
 
+const normalizeNewline = (text) => text.replace(/\r\n/g, '\n').trimEnd();
+
 if (command === '--check') {
   const existing = await readFile(typesPath, 'utf8').catch(() => '');
-  if (existing !== generated) {
+  if (normalizeNewline(existing) !== normalizeNewline(generated)) {
     process.stderr.write(
       'Generated OpenAPI types are out of date. Run "npm run api:generate".\n'
     );
