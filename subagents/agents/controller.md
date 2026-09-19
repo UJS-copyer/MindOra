@@ -25,6 +25,8 @@ Frontend applications are `frontend/apps/site` for public pages and `frontend/ap
 - Stop if the integration worktree or either target worktree is dirty.
 - Build a task manifest with stable IDs, dependency waves, branch ownership, allowed paths, acceptance criteria, test commands, contract impact, and report paths.
 - Dispatch independent task implementers and reviewers. Never give one agent multiple unrelated tasks.
+- Delegate simple tasks and parallelisable work to multiple subagents on `easy-cliproxyapi/gemini-3.8-flash-high` (see `subagents/agents/agent-policy.toml`). Keep ownership of the overall plan, task decomposition, acceptance criteria, and implementation approach; verify every delegated result independently instead of accepting its report.
+- Never parallelise two subagents onto the same file or the same semantic change; split parallel work by file or by concern.
 - Allow integration-branch work only for contract fixtures, integration checks, documentation, and explicitly integration-owned files.
 - Monitor progress and classify blockers before recovery.
 - Run spec review before quality review for every task.

@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindOra - 个人知识空间与深度阅读</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            canvas: { light: '#f8fafc', dark: '#08080b' },
+            surface: { light: '#ffffff', dark: '#121216' },
+            accent: { DEFAULT: '#059669', light: '#10b981', soft: 'rgba(16, 185, 129, 0.08)' }
+          },
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'PingFang SC', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* 半透明毛玻璃卡片与高光微描边 */
+    .glass-card {
+      background-color: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+    .dark .glass-card {
+      background-color: rgba(18, 18, 22, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.5);
+    }
+
+    .glass-header {
+      background-color: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .dark .glass-header {
+      background-color: rgba(8, 8, 11, 0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* 悬停微升动效 */
+    .card-hover {
+      transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .card-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.08);
+      border-color: rgba(5, 150, 105, 0.35);
+    }
+    .dark .card-hover:hover {
+      box-shadow: 0 16px 40px -6px rgba(0, 0, 0, 0.6);
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    /* 目录树激活态 */
+    .tree-active {
+      background-color: rgba(5, 150, 105, 0.1);
+      color: #059669;
+      font-weight: 600;
+      border-left: 2px solid #059669;
+    }
+    .dark .tree-active {
+      background-color: rgba(16, 185, 129, 0.14);
+      color: #34d399;
+      border-left: 2px solid #34d399;
+    }
+
+    /* 环境背景图与柔和光晕层 (可由后台配置) */
+    .bg-aurora {
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(168, 85, 247, 0.08) 0px, transparent 50%);
+    }
+    .dark .bg-aurora {
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.12) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(168, 85, 247, 0.1) 0px, transparent 50%);
+    }
+
+    /* 自定义背景壁纸与磨砂模糊层 */
+    #custom-wallpaper-layer {
+      transition: all 0.5s ease-in-out;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.25); border-radius: 9999px; }
+  </style>
+</head>
+<body class="bg-[#f8fafc] dark:bg-[#08080b] text-zinc-800 dark:text-zinc-200 transition-colors duration-300 antialiased min-h-screen flex flex-col text-sm relative">
+
+  <!-- ================= 背景层：支持后台配置壁纸图片、光晕与高斯模糊 ================= -->
+  <div id="custom-wallpaper-layer" class="fixed inset-0 pointer-events-none z-0 bg-aurora opacity-100"></div>
+
+  <!-- 顶部主导航 (毛玻璃 + 高透光微底线) -->
+  <header class="sticky top-0 z-50 glass-header">
+    <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-4 cursor-pointer" onclick="showFeed()">
+        <div class="w-8 h-8 rounded-lg bg-emerald-600 dark:bg-emerald-500 flex items-center justify-center text-white font-bold text-sm tracking-tight shadow-md shadow-emerald-500/20">
+          M
+        </div>
+        <div>
+          <span class="font-semibold text-base text-zinc-900 dark:text-zinc-50 tracking-tight">MindOra</span>
+          <span class="text-xs text-zinc-400 dark:text-zinc-500 ml-2 font-normal hidden sm:inline">知识工坊 · 深度阅读</span>
+        </div>
+      </div>
+
+      <!-- 顶部搜索框、背景切换微控制器与操作 -->
+      <div class="flex items-center gap-3">
+        
+        <!-- 背景样式切换微控制器 (模拟后台已配置好的多种质感) -->
+        <div class="hidden sm:flex items-center gap-1.5 p-1 rounded-lg glass-card text-xs text-zinc-500">
+          <span class="text-[11px] px-1 text-zinc-400">背景环境:</span>
+          <button onclick="setThemeBg('aurora')" id="bg-btn-aurora" class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-medium transition-colors">极光流光</button>
+          <button onclick="setThemeBg('mountain')" id="bg-btn-mountain" class="px-2 py-0.5 rounded hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors">自然雪峰(模糊)</button>
+          <button onclick="setThemeBg('minimal')" id="bg-btn-minimal" class="px-2 py-0.5 rounded hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors">素雅微网格</button>
+        </div>
+
+        <button onclick="toggleSearch()" class="h-9 px-3.5 rounded-lg glass-card text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center gap-3 transition-colors">
+          <i data-lucide="search" class="w-4 h-4 text-zinc-400"></i>
+          <span class="hidden md:inline">全站语义混合搜索...</span>
+          <kbd class="text-[11px] px-2 py-0.5 rounded bg-zinc-200/60 dark:bg-zinc-800 text-zinc-500 font-mono">⌘K</kbd>
+        </button>
+        
+        <button onclick="toggleDark()" class="w-9 h-9 rounded-lg glass-card flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors" title="切换深浅主题">
+          <i data-lucide="sun" class="w-4 h-4 dark:hidden"></i>
+          <i data-lucide="moon" class="w-4 h-4 hidden dark:block"></i>
+        </button>
+
+        <a href="admin-knowledge-studio.html" class="h-9 px-3.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 text-xs font-medium flex items-center gap-1.5 transition-colors shadow-sm">
+          <span>进入 Studio</span>
+          <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= 全局三栏架构主体 (总宽 1400px，充满通透感与层次感) ================= -->
+  <div class="flex-1 max-w-7xl w-full mx-auto px-6 py-6 flex gap-8 relative z-10">
+
+    <!-- ================= 左侧栏 (280px): 模式自适应变身 =================
+         模式 A (Feed 状态): 知识库全局分类文档树
+         模式 B (Reader 状态): 当前文章大纲目录树 (TOC)
+    ======================================================================== -->
+    <aside class="w-72 flex-shrink-0 hidden lg:flex flex-col space-y-5 sticky top-20 h-[calc(100vh-6rem)]">
+      
+      <!-- 状态指示小徽章 -->
+      <div class="p-4 rounded-xl glass-card space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="font-medium text-xs text-zinc-900 dark:text-zinc-100" id="left-panel-badge">已同步知识库</span>
+          </div>
+          <span class="text-[11px] font-mono text-zinc-400" id="left-panel-sub">42 篇 / 318 Chunks</span>
+        </div>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed" id="left-panel-desc">
+          基于 Gitee Markdown 知识仓库自动双向同步与向量化。
+        </p>
+      </div>
+
+      <!-- 动态面板容器 -->
+      <div class="flex-1 flex flex-col p-4 rounded-xl glass-card overflow-hidden">
+        
+        <!-- 【侧栏状态 1: 浏览 Feed 模式下的知识分类树】 -->
+        <div id="left-tree-feed" class="flex-1 flex flex-col overflow-hidden">
+          <div class="flex items-center justify-between pb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
+            <span class="font-semibold text-xs tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+              <i data-lucide="folder-tree" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"></i>
+              知识库分类树
+            </span>
+            <span class="text-[11px] text-zinc-400">全部展开</span>
+          </div>
+
+          <nav class="mt-3 flex-1 overflow-y-auto space-y-1 text-xs pr-1" id="category-tree">
+            <!-- 分类 1: RAG -->
+            <div class="space-y-0.5">
+              <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.04] cursor-pointer font-medium" onclick="toggleTreeNode(this)">
+                <span class="flex items-center gap-2">
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-zinc-400 tree-icon transition-transform"></i>
+                  <i data-lucide="brain-circuit" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"></i>
+                  <span>知识检索与 RAG</span>
+                </span>
+                <span class="text-[10px] text-zinc-400 font-mono">6</span>
+              </div>
+              <div class="pl-6 space-y-0.5 border-l border-zinc-200 dark:border-zinc-800 ml-4 py-0.5">
+                <a href="javascript:void(0)" onclick="openArticle('rag')" class="block px-2.5 py-1.5 rounded-md text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-500/10 text-xs truncate">
+                  RAG 切片策略与重排实践
+                </a>
+                <a href="javascript:void(0)" class="block px-2.5 py-1.5 rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] truncate">
+                  密向量与 BM25 混合检索调优
+                </a>
+              </div>
+            </div>
+
+            <!-- 分类 2: 系统架构 -->
+            <div class="space-y-0.5 pt-1">
+              <div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.04] cursor-pointer font-medium" onclick="toggleTreeNode(this)">
+                <span class="flex items-center gap-2">
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-zinc-400 tree-icon transition-transform"></i>
+                  <i data-lucide="layers" class="w-3.5 h-3.5 text-blue-500"></i>
+                  <span>系统设计与架构</span>
+                </span>
+                <span class="text-[10px] text-zinc-400 font-mono">8</span>
+              </div>
+              <div class="pl-6 space-y-0.5 border-l border-zinc-200 dark:border-zinc-800 ml-4 py-0.5">
+                <a href="javascript:void(0)" onclick="openArticle('arch')" class="block px-2.5 py-1.5 rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] truncate">
+                  Spring Boot 3 模块化单体实践
+                </a>
+              </div>
+            </div>
+          </nav>
+        </div>
+
+        <!-- 【侧栏状态 2: 深度阅读模式下的当前文章大纲目录树 (TOC Tree)】 -->
+        <div id="left-tree-reader" class="hidden flex-1 flex flex-col overflow-hidden">
+          <div class="flex items-center justify-between pb-3 border-b border-black/[0.05] dark:border-white/[0.06]">
+            <span class="font-semibold text-xs tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+              <i data-lucide="list-tree" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"></i>
+              文章目录大纲 (TOC)
+            </span>
+            <button onclick="showFeed()" class="text-[11px] text-emerald-600 hover:underline flex items-center gap-0.5">
+              <span>全库</span>
+            </button>
+          </div>
+
+          <nav class="mt-3 flex-1 overflow-y-auto space-y-1 text-xs pr-1" id="article-toc-tree">
+            <a href="#heading-intro" class="block px-2.5 py-2 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
+              前言与场景背景
+            </a>
+            <a href="#heading-chunk" class="block px-2.5 py-2 rounded-lg tree-active transition-colors">
+              一、为什么传统的定长切片会失效？
+            </a>
+            <div class="pl-4 space-y-1 border-l border-emerald-500/20 ml-3 py-1">
+              <a href="#heading-chunk-1" class="block px-2 py-1 text-[11px] text-zinc-500 hover:text-emerald-600">
+                1.1 代码块断裂与上下文遗失
+              </a>
+              <a href="#heading-chunk-2" class="block px-2 py-1 text-[11px] text-zinc-500 hover:text-emerald-600">
+                1.2 标题树父子关系递归继承
+              </a>
+            </div>
+            <a href="#heading-rerank" class="block px-2.5 py-2 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
+              二、重排模型 (Reranker) 的实测增益
+            </a>
+            <a href="#heading-summary" class="block px-2.5 py-2 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">
+              三、落地指标与阶段总结
+            </a>
+          </nav>
+        </div>
+
+      </div>
+
+    </aside>
+
+
+    <!-- ================= 中间主栏: 内容流 / 深度阅读区 (饱满透气，flex-1) ================= -->
+    <main class="flex-1 min-w-0">
+
+      <!-- 视图 1: 文章卡片流 (Feed) -->
+      <div id="view-feed" class="space-y-5">
+        
+        <!-- 分类切换滑动胶囊控制器 (透光毛玻璃背景) -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-2 glass-card rounded-xl">
+          <div class="inline-flex p-1 bg-zinc-200/50 dark:bg-zinc-900/80 rounded-lg relative text-xs font-medium" id="tab-container">
+            <div id="tab-pill" class="absolute top-1 bottom-1 bg-white dark:bg-zinc-800 rounded-md shadow-sm transition-all duration-300 ease-out" style="left: 4px; width: 80px;"></div>
+            <button onclick="switchTab(this, 'all')" class="relative z-10 px-3.5 py-1.5 text-zinc-900 dark:text-zinc-50 transition-colors">全部文章 (18)</button>
+            <button onclick="switchTab(this, 'rag')" class="relative z-10 px-3.5 py-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors">RAG 与检索</button>
+            <button onclick="switchTab(this, 'arch')" class="relative z-10 px-3.5 py-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors">架构落地</button>
+            <button onclick="switchTab(this, 'design')" class="relative z-10 px-3.5 py-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors">设计工程</button>
+          </div>
+
+          <div class="flex items-center gap-3 text-xs text-zinc-400 pr-2">
+            <span>按最后同步时间</span>
+            <span class="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700"></span>
+            <span class="text-emerald-600 dark:text-emerald-400 font-medium">18 篇知识库联动</span>
+          </div>
+        </div>
+
+        <!-- 卡片列表 (毛玻璃卡片 + 呼吸透光) -->
+        <div class="space-y-4" id="article-list">
+
+          <!-- 文章 1 -->
+          <article onclick="openArticle('rag')" class="p-6 rounded-2xl glass-card card-hover cursor-pointer group">
+            <div class="flex items-baseline justify-between gap-4">
+              <div class="flex items-center gap-2.5">
+                <span class="px-2.5 py-1 rounded text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                  知识库精选
+                </span>
+                <span class="px-2.5 py-1 rounded text-xs font-medium bg-zinc-200/50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-300">
+                  RAG 与检索
+                </span>
+                <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-50 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight">
+                  构建现代化个人 RAG 系统的切片策略与重排实践
+                </h3>
+              </div>
+              <span class="text-xs text-zinc-400 font-mono whitespace-nowrap">2026-09-14</span>
+            </div>
+
+            <p class="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+              探讨基于 Markdown 标题层级递归切片与固定滑动窗口切片的边界权衡，深度记录引入 SiliconFlow BGE-Reranker-v2 后多路召回准确率由 64% 跃升至 89% 的真实落地指标。
+            </p>
+
+            <div class="mt-4 flex items-center justify-between text-xs text-zinc-400 pt-3 border-t border-black/[0.04] dark:border-white/[0.05]">
+              <div class="flex items-center gap-4">
+                <span class="flex items-center gap-1.5"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 6 分钟阅读</span>
+                <span>·</span>
+                <span>18 个向量切片 (Chunks)</span>
+                <span>·</span>
+                <span class="text-zinc-500 dark:text-zinc-400">#AI #向量检索 #Qdrant</span>
+              </div>
+              <span class="text-emerald-600 dark:text-emerald-400 font-medium group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                开始阅读 <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </span>
+            </div>
+          </article>
+
+          <!-- 文章 2 -->
+          <article onclick="openArticle('arch')" class="p-6 rounded-2xl glass-card card-hover cursor-pointer group">
+            <div class="flex items-baseline justify-between gap-4">
+              <div class="flex items-center gap-2.5">
+                <span class="px-2.5 py-1 rounded text-xs font-medium bg-zinc-200/50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-300">
+                  系统设计
+                </span>
+                <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-50 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight">
+                  Spring Boot 3 + Vue 3 模块化单体架构落地记录
+                </h3>
+              </div>
+              <span class="text-xs text-zinc-400 font-mono whitespace-nowrap">2026-09-08</span>
+            </div>
+
+            <p class="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+              摒弃过早微服务化带来的高昂运维与通信成本，利用 Maven 多模块拆分业务边界，配合 npm workspaces 实现类型自动同步，保证单机 4G 内存平稳跑通整套全栈体系。
+            </p>
+
+            <div class="mt-4 flex items-center justify-between text-xs text-zinc-400 pt-3 border-t border-black/[0.04] dark:border-white/[0.05]">
+              <div class="flex items-center gap-4">
+                <span class="flex items-center gap-1.5"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 5 分钟阅读</span>
+                <span>·</span>
+                <span>#Java #Vue3 #架构设计</span>
+              </div>
+              <span class="text-emerald-600 dark:text-emerald-400 font-medium group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                开始阅读 <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </span>
+            </div>
+          </article>
+
+          <!-- 文章 3 -->
+          <article onclick="openArticle('design')" class="p-6 rounded-2xl glass-card card-hover cursor-pointer group">
+            <div class="flex items-baseline justify-between gap-4">
+              <div class="flex items-center gap-2.5">
+                <span class="px-2.5 py-1 rounded text-xs font-medium bg-zinc-200/50 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-300">
+                  设计工程
+                </span>
+                <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-50 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight">
+                  克制与工具感：如何避免后台管理系统模板审美疲劳
+                </h3>
+              </div>
+              <span class="text-xs text-zinc-400 font-mono whitespace-nowrap">2026-08-30</span>
+            </div>
+
+            <p class="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+              探讨为何泛滥的巨大渐变字和五彩缤纷的无用图表令人厌倦。通过收紧字阶层级、引入 1px Hairline 透光描边以及物理弹簧阻尼微动效，打造如精密仪器般的舒适体感。
+            </p>
+
+            <div class="mt-4 flex items-center justify-between text-xs text-zinc-400 pt-3 border-t border-black/[0.04] dark:border-white/[0.05]">
+              <div class="flex items-center gap-4">
+                <span class="flex items-center gap-1.5"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 4 分钟阅读</span>
+                <span>·</span>
+                <span>#UI规范 #前端交互</span>
+              </div>
+              <span class="text-emerald-600 dark:text-emerald-400 font-medium group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                开始阅读 <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </span>
+            </div>
+          </article>
+
+        </div>
+      </div>
+
+      <!-- 视图 2: 沉浸式阅读正文区 (Zen Reader) -->
+      <div id="view-reader" class="hidden space-y-6">
+        
+        <!-- 返回控制条 -->
+        <div class="flex items-center justify-between pb-3 border-b border-black/[0.06] dark:border-white/[0.08] text-xs">
+          <button onclick="showFeed()" class="inline-flex items-center gap-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors font-medium">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>返回目录流</span>
+          </button>
+          <div class="flex items-center gap-4 text-zinc-400 text-xs">
+            <span>当前阅读进度: <strong id="progress-text" class="text-emerald-600 font-mono font-bold">0%</strong></span>
+            <button onclick="alert('链接已复制')" class="hover:text-zinc-700 dark:hover:text-zinc-200 flex items-center gap-1">
+              <i data-lucide="share-2" class="w-3.5 h-3.5"></i> 分享
+            </button>
+          </div>
+        </div>
+
+        <!-- 正文卡片容器 (毛玻璃 + 舒适行距) -->
+        <div class="p-8 rounded-2xl glass-card space-y-6">
+          <div class="space-y-3 pb-5 border-b border-black/[0.06] dark:border-white/[0.08]">
+            <div class="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+              <span>知识库精选</span>
+              <span>·</span>
+              <span class="text-zinc-400">2026-09-14 发布</span>
+              <span>·</span>
+              <span class="text-zinc-400">6 分钟深度阅读</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight">
+              构建现代化个人 RAG 系统的切片策略与重排实践
+            </h1>
+            <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed border-l-2 border-emerald-500 pl-3.5 py-0.5">
+              在个人知识库场景下，文档具有结构清晰、Markdown 标题层级明确的特点。本文剖析如何结合父子层级关系保持长上下文连贯性，并引入重排模型消除幻觉。
+            </p>
+          </div>
+
+          <!-- 正文排版 -->
+          <article class="prose prose-zinc dark:prose-invert prose-base max-w-none text-zinc-700 dark:text-zinc-300 leading-relaxed space-y-5">
+            <h2 class="text-xl font-semibold text-zinc-900 dark:text-zinc-100 pt-2" id="heading-chunk">
+              一、为什么传统的定长切片会失效？
+            </h2>
+            <p id="heading-chunk-1">
+              许多通用 RAG 教程推荐使用 500-token 定长分块（Fixed-size Chunking）。但在技术笔记中，代码块、函数签名和表格会被机械切断，导致检索召回的单片碎屑无法被大语言模型完整理解。
+            </p>
+
+            <!-- 舒适等宽代码块 -->
+            <div class="rounded-xl overflow-hidden bg-zinc-950 text-zinc-200 my-5 text-xs font-mono shadow-inner hairline-border">
+              <div class="px-4 py-2.5 bg-zinc-900/80 border-b border-white/[0.08] flex items-center justify-between text-zinc-400">
+                <span class="flex items-center gap-2"><i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i> MarkdownHeadingSplitter.ts</span>
+                <button onclick="copyCode(this)" class="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-300 flex items-center gap-1.5 transition-colors">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                  <span>复制实现</span>
+                </button>
+              </div>
+              <pre class="p-4 overflow-x-auto leading-relaxed text-sm"><code>export async function chunkMarkdown(content: string, options: ChunkConfig) {
+  const ast = parseMarkdownToTree(content);
+  // 保留全路径 Heading 作为上下文注入
+  return traverseTree(ast, {
+    maxTokens: 800,
+    overlap: 120,
+    injectHierarchy: true
+  });
+}</code></pre>
+            </div>
+
+            <h3 class="text-lg font-semibold text-zinc-800 dark:text-zinc-200" id="heading-chunk-2">
+              1.2 标题树父子关系递归继承
+            </h3>
+            <p>
+              针对多级 Markdown 章节，我们将根标题与二级路径注入为每个 Chunk 的 metadata 前缀，使得向量相似度不仅匹配正文语义，更能准确锚定在所属系统模块内。
+            </p>
+
+            <h2 class="text-xl font-semibold text-zinc-900 dark:text-zinc-100 pt-3" id="heading-rerank">
+              二、重排模型 (Reranker) 的实测增益
+            </h2>
+            <p>
+              在第一阶段向量检索召回 Top-20 后，通过 SiliconFlow 托管的 BAAI/bge-reranker-v2-m3 对问题和候选文档进行交叉注意力评分，只把相关度前 3 的切片送入 Prompt。实验证明，这种组合显著降低了上下文噪音并节约了 Token 消耗。
+            </p>
+
+            <h2 class="text-xl font-semibold text-zinc-900 dark:text-zinc-100 pt-3" id="heading-summary">
+              三、落地指标与阶段总结
+            </h2>
+            <p>
+              经过对 42 篇知识文档与 318 个向量切片的压测，结合单机 MySQL + Qdrant 运行方案，混合召回准确度达到 89.4%，完全满足个人知识检索与智能写作问答的精度需求。
+            </p>
+          </article>
+        </div>
+
+      </div>
+
+    </main>
+
+
+    <!-- ================= 右侧栏: 始终保留历史阅读 + 相关推荐 + 标签云 ================= -->
+    <aside class="w-72 flex-shrink-0 hidden xl:flex flex-col space-y-5 sticky top-20 h-[calc(100vh-6rem)]">
+
+      <!-- 模块 1: 最近阅读历史 (History) -->
+      <div class="p-4 rounded-xl glass-card space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-black/[0.05] dark:border-white/[0.06]">
+          <span class="font-semibold text-xs text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+            <i data-lucide="history" class="w-3.5 h-3.5 text-zinc-400"></i>
+            最近历史阅读
+          </span>
+          <button onclick="clearHistory()" class="text-[11px] text-zinc-400 hover:text-zinc-600">清空</button>
+        </div>
+
+        <div class="space-y-2.5">
+          <div class="group cursor-pointer" onclick="openArticle('rag')">
+            <div class="text-xs font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-emerald-600 transition-colors line-clamp-1">
+              构建现代化个人 RAG 系统的切片策略
+            </div>
+            <div class="mt-1 flex items-center justify-between text-[11px] text-zinc-400">
+              <span>阅读至 85%</span>
+              <span>10 分钟前</span>
+            </div>
+            <div class="w-full bg-zinc-200/50 dark:bg-zinc-800 h-1.5 rounded-full mt-1 overflow-hidden">
+              <div class="bg-emerald-500 h-full rounded-full" style="width: 85%;"></div>
+            </div>
+          </div>
+
+          <div class="group cursor-pointer pt-2 border-t border-black/[0.04] dark:border-white/[0.05]" onclick="openArticle('arch')">
+            <div class="text-xs font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-emerald-600 transition-colors line-clamp-1">
+              Spring Boot 3 + Vue 3 模块化单体实践
+            </div>
+            <div class="mt-1 flex items-center justify-between text-[11px] text-zinc-400">
+              <span>已读完</span>
+              <span>昨天</span>
+            </div>
+            <div class="w-full bg-zinc-200/50 dark:bg-zinc-800 h-1.5 rounded-full mt-1 overflow-hidden">
+              <div class="bg-emerald-500 h-full rounded-full" style="width: 100%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模块 2: 知识库相关推荐 (Related Recommendations) -->
+      <div class="p-4 rounded-xl glass-card space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-black/[0.05] dark:border-white/[0.06]">
+          <span class="font-semibold text-xs text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-500"></i>
+            语义相关推荐
+          </span>
+          <span class="text-[10px] text-zinc-400 font-mono">Qdrant Top-K</span>
+        </div>
+
+        <div class="space-y-3">
+          <a href="javascript:void(0)" onclick="openArticle('arch')" class="block group">
+            <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">92% 语义相似</span>
+            <div class="text-xs font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-emerald-600 transition-colors line-clamp-2 mt-0.5">
+              RocketMQ 事务消息驱动的异步切片任务处理
+            </div>
+          </a>
+
+          <a href="javascript:void(0)" onclick="openArticle('design')" class="block group pt-2 border-t border-black/[0.04] dark:border-white/[0.05]">
+            <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">87% 语义相似</span>
+            <div class="text-xs font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-emerald-600 transition-colors line-clamp-2 mt-0.5">
+              打造轻量现代的 Design Tokens 样式系统
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- 模块 3: 标签云 -->
+      <div class="p-4 rounded-xl glass-card space-y-2.5">
+        <span class="font-semibold text-xs text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+          <i data-lucide="tags" class="w-3.5 h-3.5 text-zinc-400"></i>
+          知识库热门标签
+        </span>
+        <div class="flex flex-wrap gap-1.5 pt-1">
+          <span class="px-2 py-0.5 rounded text-[11px] bg-zinc-200/50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 cursor-pointer">#RAG (12)</span>
+          <span class="px-2 py-0.5 rounded text-[11px] bg-zinc-200/50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 cursor-pointer">#Spring (8)</span>
+          <span class="px-2 py-0.5 rounded text-[11px] bg-zinc-200/50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 cursor-pointer">#Vue3 (6)</span>
+          <span class="px-2 py-0.5 rounded text-[11px] bg-zinc-200/50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 cursor-pointer">#Qdrant (5)</span>
+          <span class="px-2 py-0.5 rounded text-[11px] bg-zinc-200/50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 cursor-pointer">#UI/UX (4)</span>
+        </div>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    function toggleDark() {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    }
+    if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+
+    // 背景壁纸/光晕实时切换 (模拟后台外观配置)
+    function setThemeBg(type) {
+      const bgLayer = document.getElementById('custom-wallpaper-layer');
+      ['bg-btn-aurora', 'bg-btn-mountain', 'bg-btn-minimal'].forEach(id => {
+        const btn = document.getElementById(id);
+        btn.classList.remove('bg-emerald-500/10', 'text-emerald-600', 'font-medium');
+      });
+
+      if (type === 'aurora') {
+        bgLayer.className = "fixed inset-0 pointer-events-none z-0 bg-aurora opacity-100";
+        bgLayer.style.backgroundImage = '';
+        document.getElementById('bg-btn-aurora').classList.add('bg-emerald-500/10', 'text-emerald-600', 'font-medium');
+      } else if (type === 'mountain') {
+        // 高清自然雪山 + 高斯模糊滤镜
+        bgLayer.className = "fixed inset-0 pointer-events-none z-0 opacity-40 dark:opacity-25 bg-cover bg-center filter blur-xl scale-105";
+        bgLayer.style.backgroundImage = 'url("https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80")';
+        document.getElementById('bg-btn-mountain').classList.add('bg-emerald-500/10', 'text-emerald-600', 'font-medium');
+      } else if (type === 'minimal') {
+        bgLayer.className = "fixed inset-0 pointer-events-none z-0 opacity-30 dark:opacity-20";
+        bgLayer.style.backgroundImage = 'radial-gradient(rgba(0,0,0,0.15) 1px, transparent 0)';
+        bgLayer.style.backgroundSize = '24px 24px';
+        document.getElementById('bg-btn-minimal').classList.add('bg-emerald-500/10', 'text-emerald-600', 'font-medium');
+      }
+    }
+
+    // 分段胶囊滑动切换
+    function switchTab(btn, category) {
+      const container = document.getElementById('tab-container');
+      const pill = document.getElementById('tab-pill');
+      const buttons = container.querySelectorAll('button');
+      
+      buttons.forEach(b => {
+        b.classList.remove('text-zinc-900', 'dark:text-zinc-50');
+        b.classList.add('text-zinc-500');
+      });
+
+      btn.classList.add('text-zinc-900', 'dark:text-zinc-50');
+      btn.classList.remove('text-zinc-500');
+
+      pill.style.left = `${btn.offsetLeft}px`;
+      pill.style.width = `${btn.offsetWidth}px`;
+    }
+
+    function toggleTreeNode(el) {
+      const icon = el.querySelector('.tree-icon');
+      const children = el.nextElementSibling;
+      if (children) {
+        children.classList.toggle('hidden');
+        icon.classList.toggle('-rotate-90');
+      }
+    }
+
+    // 视图切换：进入阅读模式时，左侧栏自动切换为【文章目录树 (TOC)】
+    function openArticle(id) {
+      document.getElementById('view-feed').classList.add('hidden');
+      document.getElementById('view-reader').classList.remove('hidden');
+
+      // 左侧栏切换到文章大纲目录树
+      document.getElementById('left-tree-feed').classList.add('hidden');
+      document.getElementById('left-tree-reader').classList.remove('hidden');
+      document.getElementById('left-panel-badge').innerText = '当前阅读大纲';
+      document.getElementById('left-panel-sub').innerText = '共 3 个核心章节';
+      document.getElementById('left-panel-desc').innerText = '点击章节可快速平滑跳转定位。';
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // 返回 Feed 流模式时，左侧栏恢复为【知识库分类树】
+    function showFeed() {
+      document.getElementById('view-reader').classList.add('hidden');
+      document.getElementById('view-feed').classList.remove('hidden');
+
+      // 左侧栏恢复为分类树
+      document.getElementById('left-tree-reader').classList.add('hidden');
+      document.getElementById('left-tree-feed').classList.remove('hidden');
+      document.getElementById('left-panel-badge').innerText = '已同步知识库';
+      document.getElementById('left-panel-sub').innerText = '42 篇 / 318 Chunks';
+      document.getElementById('left-panel-desc').innerText = '基于 Gitee Markdown 知识仓库自动双向同步与向量化。';
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function copyCode(btn) {
+      const original = btn.innerHTML;
+      navigator.clipboard?.writeText("export async function chunkMarkdown(...)");
+      btn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400"></i><span class="text-emerald-400">已复制</span>`;
+      lucide.createIcons();
+      setTimeout(() => {
+        btn.innerHTML = original;
+        lucide.createIcons();
+      }, 1500);
+    }
+
+    function clearHistory() {
+      alert('已清空本地阅读历史记录');
+    }
+
+    function toggleSearch() {
+      alert('Cmd+K 语义搜索弹窗：支持按标题、正文及 Qdrant 向量混合检索');
+    }
+
+    window.addEventListener('scroll', () => {
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (docHeight > 0) {
+        const percent = Math.min(100, Math.round((window.scrollY / docHeight) * 100));
+        const progressEl = document.getElementById('progress-text');
+        if (progressEl) progressEl.innerText = `${percent}%`;
+      }
+    });
+  </script>
+</body>
+</html>

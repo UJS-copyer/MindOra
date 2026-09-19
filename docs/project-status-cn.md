@@ -2,7 +2,7 @@
 
 本文用于记录当前项目迁移结果、启动方式、启动地址，以及前后端各阶段的开发状态，便于后续继续开发和回滚检查。
 
-最近维护：2026-07-28
+最近维护：2026-09-19
 
 ## 迁移结果确认
 
@@ -20,6 +20,8 @@
 - 当前 Stage 2 基线提交：`b341a77`
 - 当前 Stage 2 主线分支：`feature/stage-2-knowledge-base-loop`
 - 当前 Stage 2 开发分支：`feature/stage-2-frontend-knowledge`
+- 当前 Stage 3 基线提交：`34e7697`
+- 当前 Stage 3 主线分支：`feature/stage-3-retrieval-foundation`
 - 后端内容分支已合并：`d5b160d`，来源为 `feature/stage-1-backend-content`
 - 前端内容分支已合并：`62a5cab`，来源为 `feature/stage-1-frontend-content`
 - Stage 1 回滚点未修改；当前工作区包含 Stage 2 开发改动，提交前需再次检查 `git status`
@@ -81,7 +83,7 @@ mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml -pl mindora-app -
 | Stage 0 | 已完成 | 基础工程、模块边界、认证、统一返回、基础测试等已落地 |
 | Stage 1 | 已完成 | 内容与后台管理能力已接入，包含文章、分类标签、资产、登录与管理页 |
 | Stage 2 | 第一轮闭环已完成 | 已实现 Gitee Markdown 同步、文档版本、切片、Embedding/Qdrant 适配、MQ 异步任务、索引状态、失败重试、知识文档生成草稿文章和博客文章发布后进入知识库 |
-| Stage 3 | 未开始 | RAG 问答与对话链路待实现 |
+| Stage 3 | 第一轮检索底座已完成 | 切片元数据化、向量 payload 富化与点生命周期修复、向量检索读链路、管理端检索调试接口；对话/SSE/引用展示/关键词检索仍未开始 |
 | Stage 4 | 未开始 | 运维与可观测增强待实现 |
 
 ### 前端
@@ -91,7 +93,7 @@ mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml -pl mindora-app -
 | Stage 0 | 已完成 | 基础工作台壳、路由、请求层、权限基础、主题与布局能力已接入 |
 | Stage 1 | 已完成 | 已迁移到 Art Design Pro 方案，并完成主要后台业务页面迁移与验证 |
 | Stage 2 | 第一轮闭环已完成 | `frontend/apps/admin-art` 已增加知识库数据源、同步任务、文档、索引状态、失败重试、切片配置和模型配置页面；知识库 mock 默认关闭，联调默认请求真实接口 |
-| Stage 3 | 未开始 | RAG 交互与问答页面待扩展 |
+| Stage 3 | 检索调试页已完成 | `frontend/apps/admin-art` 新增 `/knowledge/retrieval` 页面 |
 | Stage 4 | 未开始 | 监控、告警、运维视图待扩展 |
 
 ## 当前检查结果
@@ -123,6 +125,20 @@ mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml -pl mindora-app -
 - `POST /api/v1/admin/knowledge/rerank/preview`：用于 Stage 2 联调时验证 rerank provider 连通性，暂不接入 RAG 对话页。
 - `POST /api/v1/admin/articles/{id}/knowledge`：控制在线文章是否进入知识库；在线文章流程仍保持草稿、发布、下线，不回写 Gitee 仓库。
 
+## Stage 3 接口与行为
+
+- `POST /api/v1/admin/knowledge/retrieval/search`：管理端知识库检索调试接口。
+  - 请求参数：`query`（检索词）、`scope`（必填，`all` 或 `public`）、`topN`（候选切片数）、`rerankTopK`（重排返回切片数）、`rerankEnabled`（是否启用重排）。
+  - 响应参数：包含 `scope`、`topN`、`rerankTopK`、`rerankEnabled`、`fallback`、`fallbackReason`、`latencyMs` 以及 `results` 列表（切片项含 `chunkId`、`documentId`、`documentTitle`、`sourcePath`、`headingPath`、`blockType`、`vectorScore`、`rerankScore`、`contentPreview` 等）。
+- `GET /api/v1/admin/knowledge/documents/{id}/chunks`：切片列表接口响应新增 `headingPath`、`headingLevel`、`blockType`、`codeLanguage` 四个元数据字段。
+- 检索与模型超时配置：
+  - `mindora.knowledge.retrieval.top-n`：向量召回候选数。
+  - `mindora.knowledge.retrieval.rerank-top-k`：重排最终返回数。
+  - `mindora.knowledge.retrieval.rerank-enabled`：是否默认开启 rerank 重排。
+  - `mindora.knowledge.retrieval.fallback-enabled`：重排失败或异常时是否降级为纯向量相似度排序。
+  - `mindora.knowledge.embedding.timeout-ms`：Embedding 外部调用超时时间（毫秒）。
+  - `mindora.knowledge.rerank.timeout-ms`：Rerank 外部调用超时时间（毫秒）。
+
 ## Stage 2 数据边界
 
 - 本地 Gitee 笔记仓库是只读知识源，外部访问通过 `GiteeRepositoryPort` 适配器封装。
@@ -133,6 +149,14 @@ mvn -s .mvn\mindora-settings.xml -gs .mvn\mindora-settings.xml -pl mindora-app -
 - 向量库当前实现为 Qdrant adapter，设计文档中的 Milvus 仍作为后续可替换目标，边界是 `VectorStorePort`。
 - admin-art 知识库 mock 默认关闭，只有显式设置 `VITE_KNOWLEDGE_USE_MOCK=true` 才启用 mock。
 - 后端 `application.yml` 已导入本地运行配置 `backend/mindora-app/config/mindora-local.yml`；该文件由 `docs/project-env-local.md` 生成并已加入 `.gitignore`，用于本机动态读取 Gitee、RocketMQ、Embedding、Rerank 和 Qdrant 配置。
+
+## Stage 3 数据边界
+
+- 向量库目标已从 Qdrant Cloud 切换为 VM 本地 Qdrant（`http://192.168.222.128:6333`），集合为 `mindora_chunk`，named vector 使用 `dense`（1024 维，Cosine 相似度）。
+- 向量 payload 仅存储最小检索与权限字段（`chunkId`、`documentId`、`versionId`、`sequence`、`sourceType`、`sourceId`、`sourcePath`、`visibility`、`status`、`knowledgeEnabled`、`blockType`、`contentHash`、`articleId` 以及层级 `headingPath`），切片正文不存入 payload，检索召回后按 `chunkId` 回查 MySQL 组装正文与预览。
+- 权限隔离采用 fail-closed 策略：`PUBLIC` 检索范围在 Qdrant 侧强制过滤 `visibility=public` 且 `status=active` 且 `knowledgeEnabled=true`；若请求中的 `scope` 缺失或不合法，直接报错拒绝，杜绝越权召回私有切片。
+- 向量点生命周期与点 ID 修复：向量点 ID 与 MySQL 中 `knowledge_chunk.id` 保持一致，修复了此前 `vector_point_id` 记录 `documentId:index` 的错配；文档重建索引或版本更新时会先显式清理旧版本向量点，避免脏点残留与点堆积。
+- 索引重建要求：因切片嵌入文本（标题路径拼接正文）与 payload 结构变更，Stage 3 部署后必须执行一次全量重建索引，集合点数会从零重新累积。
 
 ## 前台流程
 
@@ -172,3 +196,46 @@ Stage 2 后续应优先做现场联调和体验收口：
 - 2026-07-28 18:53 复查：`POST /api/v1/admin/knowledge/rerank/preview` 返回真实 rerank 分数，embedding 和 rerank 外部模型链路已打通。
 - 2026-07-28 18:56 复查：从非空 Gitee 知识文档 `论文/阅读线路.md` 手动生成在线文章草稿成功；文章状态 `draft`，带 `knowledgeDocumentId` 回链，公开列表 `/api/v1/public/articles` 不展示该草稿。
 - 2026-07-28 18:57 复查：浏览器登录后台后 `/api/v1/admin/me` 无代理错误；知识库页面显示 `真实 API`。同步任务页只有存在 queued/running 任务时才 5 秒静默刷新，不会整页刷新。
+
+## Stage 3 现场联调记录
+
+- VM 基础服务（MySQL / Redis / Qdrant / RocketMQ）位于 192.168.222.128；Qdrant 目标已从被回收的 Qdrant Cloud 免费集群切换为 VM 本地 `http://192.168.222.128:6333`。
+- 后端 8080、后台前端 5175 均已运行；V6 迁移已应用，`knowledge_chunk` 新增 `heading_path` / `heading_level` / `block_type` / `code_language` / `content_hash` 五列。
+- Qdrant 集合 `mindora_chunk` 由后端按需创建，使用 named vector `dense`（1024 维，Cosine）。
+- 切片样本 payload 含 chunkId / documentId / versionId / sequence / sourceType / sourceId / sourcePath / visibility / status / knowledgeEnabled / blockType / contentHash / articleId；headingPath 已在 26 个切片上按「A > B > C」层级写入。
+- 向量点 ID 已与 chunkId 一致，修正了此前 `vector_point_id` 记录 `documentId:index` 的错配。
+- 管理端检索接口 `POST /api/v1/admin/knowledge/retrieval/search` 实测返回 200 与真实召回结果（含 documentTitle、sourcePath、headingPath、blockType、vectorScore、contentPreview）。
+- 实测 rerank 因 SiliconFlow 账户余额不足返回 402，服务按 `fallback-enabled=true` 降级为向量相似度顺序，并返回 `fallback=true` 与 `fallbackReason`，验证了 design-04 的降级链路。
+- 端到端联调发现并修复两个缺陷：
+  1. 其一，Qdrant `points/search` 的命名向量必须使用 `{name, vector}` 形式，此前沿用写入时的 `{name: [...]}` 映射会被 Qdrant 以 400 JSON 格式错误拒绝；
+  2. 其二，段落紧邻围栏代码块且中间无空行时，围栏会被并入普通段落，导致 code 块与 blockType 丢失。两者均已补充回归测试。
+- 已知限制：超过 maximumSize 的代码块保持原子可能超限；Setext 仅识别紧邻的单行标题文本。
+- 切片器缺陷修复：支持 Setext 标题、剔除分隔线噪声切片、实现 FIXED_SIZE 策略，并按 spec/quality 评审意见修正了「FIXED_SIZE 跨章节切片一律套用首个章节元数据」与「连续分隔线被误判为标题」两个问题，均补充回归测试。
+
+### 全量重建与端到端验收（2026-09-19）
+
+- 全量重建：133 篇文档分 7 批执行，全部返回 200，总耗时约 66 秒。
+- 一致性：MySQL `index_status='indexed'` 切片 `2011` 条，Qdrant `mindora_chunk` `points_count` 同样为 `2011`，两侧完全对齐。
+- 元数据覆盖：`1521` 条切片带 `heading_path`（约 76%）；块类型分布为 paragraph 1344、list 454、code 110、table 91、quote 12。
+- 点生命周期：对同一文档连续两次重建，`points_count` 保持 `2011` 不变，确认重建为替换而非追加。
+- 权限隔离：语料为 132 篇 private + 1 篇 public；`scope=public` 的命中全部来自该唯一 public 文档，无私有内容泄漏。
+- fail-closed：缺少 `scope` 的请求返回 `retrieval_scope_required`（400），未被放行。
+- 降级可见：SiliconFlow 账户已充值，rerankEnabled=true 时 fallback=false 并返回真实 rerankScore，且排序相对向量序发生变化（向量分 0.573 的切片被重排到第 1 位 rerank 0.9012，向量分 0.682 的切片降到第 2 位 rerank 0.8242，无关切片 rerank 分接近 0 并沉到末尾）；rerankEnabled=false 时按向量分排序、rerankScore 为 null；降级路径仅在 rerank 不可用时触发。
+- 浏览器验证：`http://localhost:5175/#/knowledge/retrieval` 输入查询后返回 8 条真实结果，正确渲染耗时、命中条数、生效范围、重排状态、降级状态，以及文档标题、章节路径、来源路径、块类型、向量分与内容预览。
+- 检索质量抽样：查询「Java 项目 幂等 重试 补偿」在 `scope=all` 下命中「众安康项目」「JAVASE」「Redis-黑马点评项目笔记」等语义相关文档，其中 code 块带出 `项目结构 > 异常处理` 章节路径，延迟约 103 ms。
+
+### 切片器修复后复验（2026-09-19）
+
+- 复验方式：后端重启加载切片器修复后，对全部 133 篇文档执行全量重建索引。
+- 重建：133 篇分 7 批，全部返回 200，总耗时约 67 秒。
+- 切片总数：修复前 2011 → 修复后 1988。
+- 带 heading_path 的切片：修复前 1521 → 修复后 1508；覆盖率 75.63% → 75.86%（比例略有提升）。
+- 完全无 heading_path 的文档数：37 → 36。
+- Setext 修复在真实语料上生效：README 文档（id 前缀 af2e9f82）的 heading_path 覆盖由 0 提升到 5，出现形如「Gitee > 部署」的层级路径。
+- 共 2 篇文档覆盖数提升：596f6162（47→55）、af2e9f82（0→5）。
+- 5 篇文档覆盖数下降（最大为 8d12718e 由 117 降至 106）。原因是这些文档中的分隔线此前会被当作普通段落参与合并、额外抬高切片数与切片长度；剔除分隔线后切片数减少。逐篇覆盖率比例基本不变（例如 8d12718e 由 117/118=99.2% 变为 106/107=99.1%），不构成元数据质量回退。
+- 噪声切片：仅剩 1 条内容为单个「-」的切片。单个连字符不足 3 个，按 CommonMark 也不是分隔线，因此将其作为普通段落是正确行为，仅记录为极小的已知语料噪声。
+- 向量库与数据库一致性：Qdrant points_count = 1988，MySQL index_status=indexed 切片数 = 1988，两侧一致，集合状态 green。
+- 重建后块类型分布：paragraph 1322、list 453、code 110、table 91、quote 12。
+- 重建后检索抽检（rerankEnabled=true）：fallback=false，延迟 441ms，返回真实 rerank 分 0.9003 / 0.8251 / 0.0123，命中切片带形如「负责的核心链路 > 支付后创建合同。」的章节路径。
+

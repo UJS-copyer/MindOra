@@ -54,8 +54,10 @@ RERANK_BASE_URL="https://api.siliconflow.cn/v1"
 RERANK_MODEL="BAAI/bge-reranker-v2-m3"
 
 # Qdrant 向量库配置
-QDRANT_URL="https://your-cluster-id.cloud.qdrant.io"
-QDRANT_API_KEY="your-qdrant-api-key"
+# 本地开发指向 VM 本地 Qdrant 容器，无需 API Key。
+# 注意：Qdrant Cloud 免费集群会因长期闲置被永久删除，本地开发不再依赖公网集群。
+QDRANT_URL="http://192.168.222.128:6333"
+QDRANT_API_KEY=""
 QDRANT_COLLECTION="mindora_chunk"
 QDRANT_VECTOR_NAME="dense"
 

@@ -1,7 +1,19 @@
-default_model = "inherit"
-frontend_model = "inherit"
-backend_model = "inherit"
-reviewer_model = "inherit"
+# 子代理模型分工（长期规则，不要只执行一次）
+#
+# 规则：简单任务、以及可以并行的任务，优先开启多个子代理，并使用
+# `easy-cliproxyapi/gemini-3.8-flash-high` 执行；controller（主控代理）保留
+# 整体方案、任务拆分、验收口径与实现思路的决策权，负责把控方向与最终把关。
+#
+# 约束：
+# - 并行拆分必须落在不同文件或不同关注点上；同一个文件或同一处语义改动不得同时派给多个子代理。
+# - 每个子任务仍需独立验证（定向测试 / 构建 / 契约检查）通过后才可提交。
+# - 门禁评审（spec review、quality review）默认沿用 controller 模型以保持把关强度；
+#   若希望评审也交给 flash-high，把下面两个值一并改为
+#   "easy-cliproxyapi/gemini-3.8-flash-high" 即可。
+default_model = "easy-cliproxyapi/gemini-3.8-flash-high"
+frontend_model = "easy-cliproxyapi/gemini-3.8-flash-high"
+backend_model = "easy-cliproxyapi/gemini-3.8-flash-high"
+reviewer_model = "easy-cliproxyapi/gemini-3.8-flash-high"
 spec_reviewer_model = "inherit"
 quality_reviewer_model = "inherit"
 worktree_required = true
