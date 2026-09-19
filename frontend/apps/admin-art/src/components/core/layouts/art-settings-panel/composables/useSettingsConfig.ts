@@ -228,7 +228,6 @@ export function useSettingsConfig() {
           const headerBarFeature = headerBarConfig[setting.headerBarKey]
           return headerBarFeature?.enabled !== false
         })
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         .map(({ headerBarKey: _headerBarKey, ...setting }) => setting)
     )
   })

@@ -259,7 +259,8 @@
       "syncTasks": "Sync tasks",
       "documents": "Knowledge documents",
       "indexes": "Index status",
-      "ragConfig": "RAG configuration"
+      "ragConfig": "RAG configuration",
+      "retrieval": "Retrieval Debug"
     },
     "result": {
       "title": "Result Page",

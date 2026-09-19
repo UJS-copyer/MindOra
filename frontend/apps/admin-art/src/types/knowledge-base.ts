@@ -91,3 +91,41 @@ export interface KnowledgeBaseState {
   indexRecords: KnowledgeIndexRecord[]
   ragConfig: KnowledgeRagConfig
 }
+
+export type KnowledgeRetrievalScope = 'all' | 'public'
+
+export interface KnowledgeRetrievalSearchParams {
+  query: string
+  scope: KnowledgeRetrievalScope
+  topN?: number
+  rerankTopK?: number
+  rerankEnabled?: boolean
+}
+
+export interface KnowledgeRetrievalResultItem {
+  chunkId: string
+  documentId: string
+  documentTitle: string
+  sourceType: string
+  sourcePath: string
+  headingPath: string | null
+  blockType: string
+  codeLanguage: string | null
+  vectorScore: number
+  rerankScore: number | null
+  contentPreview: string
+  articleId: string | null
+  articleSlug: string | null
+}
+
+export interface KnowledgeRetrievalSearchResponse {
+  scope: string
+  topN: number
+  rerankTopK: number
+  rerankEnabled: boolean
+  fallback: boolean
+  fallbackReason: string | null
+  latencyMs: number
+  results: KnowledgeRetrievalResultItem[]
+}
+

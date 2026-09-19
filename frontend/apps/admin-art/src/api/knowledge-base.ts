@@ -5,6 +5,9 @@ import type {
   KnowledgeDataSourceInput,
   KnowledgeIndexRecord,
   KnowledgeRagConfig,
+  KnowledgeRetrievalResultItem,
+  KnowledgeRetrievalSearchParams,
+  KnowledgeRetrievalSearchResponse,
   KnowledgeTaskStatus,
   KnowledgeSyncMode,
   KnowledgeSyncTask
@@ -195,17 +198,6 @@ export async function getKnowledgeBaseState(): Promise<KnowledgeBaseState> {
       request.get<LiveRuntimeConfig>({ url: '/api/v1/admin/knowledge/config/runtime' })
     ])
     const sourceNameById = new Map(sources.map((source) => [source.id, source.name]))
-    const chunkEntries = await Promise.all(
-      documents.map(async (document) => {
-        const chunks = document.currentVersionId
-          ? await request.get<LiveChunk[]>({
-              url: `/api/v1/admin/knowledge/documents/${document.id}/chunks`
-            })
-          : []
-        return [document.id, chunks] as const
-      })
-    )
-    const chunksByDocumentId = new Map(chunkEntries)
     const ragConfig: KnowledgeRagConfig = {
       chunkSize: chunking.chunkSize,
       chunkOverlap: chunking.overlap,
@@ -222,7 +214,7 @@ export async function getKnowledgeBaseState(): Promise<KnowledgeBaseState> {
       syncTasks: tasks.map((task) => mapLiveSyncTask(task, sourceNameById.get(task.sourceId))),
       documents: documents.map(mapLiveDocument),
       indexRecords: documents.map((document) =>
-        mapLiveIndexRecord(document, chunksByDocumentId.get(document.id) || [], ragConfig.embeddingModel)
+        mapLiveIndexRecord(document, ragConfig.embeddingModel)
       ),
       ragConfig
     }
@@ -432,6 +424,84 @@ export async function previewKnowledgeRerank(query: string, documents: string[])
     .sort((left, right) => right.score - left.score)
 }
 
+export async function searchKnowledgeRetrieval(
+  params: KnowledgeRetrievalSearchParams
+): Promise<KnowledgeRetrievalSearchResponse> {
+  if (!useMock) {
+    return request.post<KnowledgeRetrievalSearchResponse>({
+      url: '/api/v1/admin/knowledge/retrieval/search',
+      data: params,
+      showErrorMessage: false
+    })
+  }
+
+  const topN = params.topN ?? 30
+  const rerankTopK = params.rerankTopK ?? 8
+  const rerankEnabled = params.rerankEnabled ?? true
+
+  const mockResults: KnowledgeRetrievalResultItem[] = [
+    {
+      chunkId: 'chunk-mock-001',
+      documentId: 'doc-quick-start',
+      documentTitle: '快速开始',
+      sourceType: 'gitee',
+      sourcePath: 'docs/getting-started/quick-start.md',
+      headingPath: '快速开始 > 环境准备',
+      blockType: 'paragraph',
+      codeLanguage: null,
+      vectorScore: 0.8842,
+      rerankScore: rerankEnabled ? 0.9521 : null,
+      contentPreview:
+        '在开始使用 MindOra 之前，请确保已安装 Node.js (>= 18.0.0) 和 pnpm (>= 8.0.0)。本项目采用 Turborepo 组织 monorepo 架构。',
+      articleId: 'article-quick-start',
+      articleSlug: 'quick-start'
+    },
+    {
+      chunkId: 'chunk-mock-002',
+      documentId: 'doc-api-auth',
+      documentTitle: '认证与权限',
+      sourceType: 'gitee',
+      sourcePath: 'docs/api/authentication.md',
+      headingPath: '认证与权限 > JWT 鉴权机制',
+      blockType: 'code',
+      codeLanguage: 'typescript',
+      vectorScore: 0.8215,
+      rerankScore: rerankEnabled ? 0.8934 : null,
+      contentPreview:
+        'const authHeader = req.headers.authorization;\nif (!authHeader?.startsWith("Bearer ")) {\n  throw new UnauthorizedException("Missing token");\n}',
+      articleId: null,
+      articleSlug: null
+    },
+    {
+      chunkId: 'chunk-mock-003',
+      documentId: 'doc-release-notes',
+      documentTitle: '2026 年 7 月更新说明',
+      sourceType: 'gitee',
+      sourcePath: 'docs/releases/2026-07.md',
+      headingPath: '更新说明 > 知识库向量检索增强',
+      blockType: 'paragraph',
+      codeLanguage: null,
+      vectorScore: 0.7654,
+      rerankScore: rerankEnabled ? 0.8123 : null,
+      contentPreview:
+        '本次更新引入了两阶段检索架构：第一阶段基于 Qdrant 向量索引进行召回，第二阶段利用 SiliconFlow BGE-Reranker-v2-m3 进行重排序，显著提高 Top-K 命中率。',
+      articleId: null,
+      articleSlug: null
+    }
+  ]
+
+  return {
+    scope: params.scope,
+    topN,
+    rerankTopK,
+    rerankEnabled,
+    fallback: false,
+    fallbackReason: null,
+    latencyMs: 142,
+    results: mockResults
+  }
+}
+
 function mapLiveDataSource(source: LiveDataSource): KnowledgeDataSource {
   return {
     id: source.id,
@@ -487,33 +557,50 @@ function mapLiveDocument(document: LiveDocument) {
   } satisfies KnowledgeBaseState['documents'][number]
 }
 
+export async function getDocumentChunks(documentId: string): Promise<LiveChunk[]> {
+  if (useMock) {
+    return []
+  }
+  return request.get<LiveChunk[]>({
+    url: `/api/v1/admin/knowledge/documents/${documentId}/chunks`
+  })
+}
+
 function mapLiveIndexRecord(
   document: LiveDocument,
-  chunks: LiveChunk[],
   embeddingModel: string
 ): KnowledgeIndexRecord {
-  const failedChunk = chunks.find((chunk) => chunk.indexStatus === 'failed')
+  const isChunkReady =
+    document.parseStatus === 'parsed' ||
+    document.indexStatus === 'indexed' ||
+    Boolean(document.currentVersionId && document.indexStatus !== 'failed')
+  const isChunkFailed = document.parseStatus === 'failed'
+
+  const chunkStatus: KnowledgeIndexRecord['chunkStatus'] = isChunkFailed
+    ? 'failed'
+    : isChunkReady
+      ? 'ready'
+      : 'pending'
+
+  const indexStatus: KnowledgeIndexRecord['indexStatus'] =
+    document.indexStatus === 'indexed'
+      ? 'ready'
+      : document.indexStatus === 'failed'
+        ? 'failed'
+        : document.indexStatus === 'pending'
+          ? 'pending'
+          : 'processing'
+
   return {
     id: document.id,
     documentId: document.id,
     documentTitle: document.title,
-    chunkCount: chunks.length,
-    chunkStatus: failedChunk
-      ? 'failed'
-      : chunks.length === 0 || document.indexStatus === 'pending'
-        ? 'pending'
-        : 'ready',
-    indexStatus:
-      document.indexStatus === 'indexed'
-        ? 'ready'
-        : document.indexStatus === 'failed'
-          ? 'failed'
-          : document.indexStatus === 'pending'
-            ? 'pending'
-            : 'processing',
-    embeddingModel: chunks.find((chunk) => chunk.embeddingModel)?.embeddingModel || embeddingModel,
-    errorMessage: document.indexFailureReason || failedChunk?.failureReason || null,
-    retryCount: document.indexRetryCount,
+    chunkCount: isChunkReady ? 1 : 0,
+    chunkStatus,
+    indexStatus,
+    embeddingModel,
+    errorMessage: document.indexFailureReason || null,
+    retryCount: document.indexRetryCount || 0,
     updatedAt: document.updatedAt
   }
 }
@@ -555,6 +642,8 @@ interface LiveDocument {
   visibility: string
   knowledgeEnabled: boolean
   publicArticleId: string | null
+  status?: string
+  parseStatus?: string
   indexStatus: string
   indexFailureReason: string | null
   indexRetryCount: number
@@ -586,7 +675,7 @@ interface LiveRerankResult {
   document: string
 }
 
-interface LiveChunk {
+export interface LiveChunk {
   id: string
   documentVersionId: string
   sequence: number

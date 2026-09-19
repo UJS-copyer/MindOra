@@ -39,6 +39,12 @@ export const knowledgeRoutes: AppRouteRecord = {
       name: 'KnowledgeRagConfig',
       component: '/knowledge/rag-config',
       meta: { title: 'menus.knowledge.ragConfig', keepAlive: true, roles: ['R_SUPER', 'R_ADMIN'] }
+    },
+    {
+      path: 'retrieval',
+      name: 'KnowledgeRetrieval',
+      component: '/knowledge/retrieval',
+      meta: { title: 'menus.knowledge.retrieval', keepAlive: true, roles: ['R_SUPER', 'R_ADMIN'] }
     }
   ]
 }

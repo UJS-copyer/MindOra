@@ -259,7 +259,8 @@
       "syncTasks": "同步任务",
       "documents": "知识文档",
       "indexes": "索引状态",
-      "ragConfig": "RAG 配置"
+      "ragConfig": "RAG 配置",
+      "retrieval": "检索调试"
     },
     "result": {
       "title": "结果页面",

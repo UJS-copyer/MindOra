@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
+  getDocumentChunks,
   getKnowledgeBaseState,
   publishKnowledgeDocument,
   rebuildKnowledgeIndexes,
@@ -102,6 +103,7 @@ export const useKnowledgeBaseStore = defineStore('knowledgeBaseStore', () => {
     setDocumentEnabled,
     publishDocument,
     rebuildIndexes,
-    saveRag
+    saveRag,
+    getDocumentChunks
   }
 })

@@ -1,111 +1,185 @@
 <template>
-  <div class="content-page">
-    <ElCard class="content-card">
-      <template #header>
-        <div class="page-header">
-          <div>
-            <h2>{{ articleId ? '编辑文章' : '新建文章' }}</h2>
-            <p>使用 Markdown 编写正文，并选择分类、标签和封面资产。</p>
-          </div>
-          <ElSpace>
-            <ElButton @click="router.push({ name: 'ContentArticles' })">返回列表</ElButton>
-            <ElButton type="primary" :loading="saving" @click="save">保存草稿</ElButton>
-          </ElSpace>
+  <div class="content-editor-studio">
+    <!-- 顶部动作条 -->
+    <div class="glass-card mb-4 p-4 rounded-xl flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <ElButton @click="router.push({ name: 'ContentArticles' })">
+          ← 返回列表
+        </ElButton>
+        <div>
+          <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100 m-0">
+            {{ articleId ? '编辑文章' : '新建文章' }}
+          </h2>
+          <span class="text-xs text-zinc-400">双区专注 Markdown 创作与知识中枢联动</span>
         </div>
-      </template>
+      </div>
 
-      <ElForm label-position="top" class="editor-form">
-        <ElRow :gutter="16">
-          <ElCol :xs="24" :md="12">
-            <ElFormItem label="标题">
-              <ElInput v-model="form.title" placeholder="请输入文章标题" />
-            </ElFormItem>
-          </ElCol>
-          <ElCol :xs="24" :md="12">
-            <ElFormItem label="Slug">
-              <ElInput v-model="form.slug" placeholder="url-friendly-slug" />
-            </ElFormItem>
-          </ElCol>
-          <ElCol :xs="24">
-            <ElFormItem label="摘要">
-              <ElInput v-model="form.summary" type="textarea" :rows="3" />
-            </ElFormItem>
-          </ElCol>
-          <ElCol :xs="24" :md="8">
-            <ElFormItem label="分类">
-              <ElSelect v-model="form.categoryId" clearable placeholder="未分类">
-                <ElOption
-                  v-for="category in categories"
-                  :key="category.id"
-                  :label="category.name"
-                  :value="category.id"
+      <ElSpace>
+        <ElButton
+          type="info"
+          plain
+          @click="isInspectorOpen = !isInspectorOpen"
+        >
+          {{ isInspectorOpen ? '收起属性抽屉' : '展开属性抽屉' }}
+        </ElButton>
+        <ElButton type="primary" :loading="saving" @click="save">
+          保存并发布草稿
+        </ElButton>
+      </ElSpace>
+    </div>
+
+    <!-- 双区布局 -->
+    <div class="flex flex-col lg:flex-row gap-4 items-start">
+      <!-- 左侧：沉浸写作画布 (80% 宽度) -->
+      <div
+        class="glass-card p-5 rounded-xl transition-all duration-300 w-full"
+        :class="isInspectorOpen ? 'lg:w-[75%]' : 'lg:w-full'"
+      >
+        <ElForm label-position="top">
+          <!-- 标题与 Slug 输入行 -->
+          <ElRow :gutter="16" class="mb-2">
+            <ElCol :xs="24" :md="16">
+              <ElFormItem label="文章标题" required>
+                <ElInput
+                  v-model="form.title"
+                  placeholder="请输入引人入胜的文章标题..."
+                  size="large"
+                  class="font-semibold text-lg"
                 />
-              </ElSelect>
-            </ElFormItem>
-          </ElCol>
-          <ElCol :xs="24" :md="8">
-            <ElFormItem label="可见范围">
-              <ElSelect v-model="form.visibility">
-                <ElOption label="公开" value="public" />
-                <ElOption label="私有" value="private" />
-              </ElSelect>
-            </ElFormItem>
-          </ElCol>
-          <ElCol :xs="24" :md="8">
-            <ElFormItem label="进入知识库">
-              <ElSwitch v-model="form.knowledgeEnabled" active-text="开启" inactive-text="关闭" />
-            </ElFormItem>
-          </ElCol>
-          <ElCol :xs="24" :md="8">
-            <ElFormItem label="上传封面">
-              <ElUpload
-                :auto-upload="false"
-                :show-file-list="false"
-                accept="image/*"
-                :on-change="uploadCover"
-              >
-                <ElButton :loading="uploading">选择图片</ElButton>
-              </ElUpload>
-            </ElFormItem>
-          </ElCol>
-          <ElCol :xs="24">
-            <ElFormItem label="标签">
-              <ElCheckboxGroup v-model="form.tagIds">
-                <ElCheckbox v-for="tag in tags" :key="tag.id" :value="tag.id">
-                  {{ tag.name }}
-                </ElCheckbox>
-              </ElCheckboxGroup>
-            </ElFormItem>
-          </ElCol>
-          <ElCol :xs="24" v-if="assets.length">
-            <ElFormItem label="选择已有封面">
-              <div class="asset-strip">
-                <button
-                  v-for="asset in assets.slice(0, 10)"
-                  :key="asset.id"
-                  class="asset-thumb"
-                  :class="{ selected: form.coverAssetId === asset.id }"
-                  type="button"
-                  @click="form.coverAssetId = asset.id"
-                >
-                  <img :src="assetUrl(asset)" :alt="asset.fileName" />
-                  <span>{{ asset.fileName }}</span>
-                </button>
-              </div>
-            </ElFormItem>
-          </ElCol>
-        </ElRow>
+              </ElFormItem>
+            </ElCol>
+            <ElCol :xs="24" :md="8">
+              <ElFormItem label="永久链接 Slug" required>
+                <ElInput
+                  v-model="form.slug"
+                  placeholder="url-friendly-slug"
+                  size="large"
+                />
+              </ElFormItem>
+            </ElCol>
+          </ElRow>
 
-        <ElFormItem label="正文">
-          <MdEditor v-model="form.body" class="body-editor" language="zh-CN" :preview="true" />
-        </ElFormItem>
+          <!-- 全宽 Markdown 编辑器 -->
+          <ElFormItem label="Markdown 正文" class="m-0">
+            <MdEditor
+              v-model="form.body"
+              class="body-editor"
+              language="zh-CN"
+              :preview="true"
+            />
+          </ElFormItem>
+        </ElForm>
+      </div>
 
-        <div class="bottom-actions">
-          <ElButton @click="router.push({ name: 'ContentArticles' })">返回列表</ElButton>
-          <ElButton type="primary" :loading="saving" @click="save">保存草稿</ElButton>
+      <!-- 右侧：元数据与知识库属性抽屉 (25% 宽度) -->
+      <div
+        v-show="isInspectorOpen"
+        class="glass-card p-5 rounded-xl w-full lg:w-[25%] flex-shrink-0 space-y-5"
+      >
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+          <span class="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">
+            文章发布属性
+          </span>
+          <span class="text-[11px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-mono">
+            Inspector
+          </span>
         </div>
-      </ElForm>
-    </ElCard>
+
+        <ElForm label-position="top" class="space-y-4">
+          <!-- 分类 -->
+          <ElFormItem label="知识库分类">
+            <ElSelect v-model="form.categoryId" clearable placeholder="选择分类" class="w-full">
+              <ElOption
+                v-for="category in categories"
+                :key="category.id"
+                :label="category.name"
+                :value="category.id"
+              />
+            </ElSelect>
+          </ElFormItem>
+
+          <!-- 可见范围 -->
+          <ElFormItem label="可见范围">
+            <ElSelect v-model="form.visibility" class="w-full">
+              <ElOption label="公开 (全站可见)" value="public" />
+              <ElOption label="私有 (仅管理员可见)" value="private" />
+            </ElSelect>
+          </ElFormItem>
+
+          <!-- 进入知识库 -->
+          <ElFormItem label="自动纳入知识中枢">
+            <div class="flex items-center justify-between w-full p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/60 dark:border-zinc-800">
+              <span class="text-xs text-zinc-600 dark:text-zinc-400">Qdrant 向量切片</span>
+              <ElSwitch v-model="form.knowledgeEnabled" active-text="开启" inactive-text="关闭" />
+            </div>
+          </ElFormItem>
+
+          <!-- 标签多选 -->
+          <ElFormItem label="标签关联">
+            <ElCheckboxGroup v-model="form.tagIds" class="flex flex-wrap gap-1.5">
+              <ElCheckbox
+                v-for="tag in tags"
+                :key="tag.id"
+                :value="tag.id"
+                border
+                size="small"
+              >
+                {{ tag.name }}
+              </ElCheckbox>
+            </ElCheckboxGroup>
+          </ElFormItem>
+
+          <!-- 核心摘要 -->
+          <ElFormItem label="文章核心摘要">
+            <ElInput
+              v-model="form.summary"
+              type="textarea"
+              :rows="4"
+              placeholder="简要概括文章核心思考，展示于前台卡片与搜索引用..."
+            />
+          </ElFormItem>
+
+          <!-- 上传封面 -->
+          <ElFormItem label="文章封面图片">
+            <ElUpload
+              :auto-upload="false"
+              :show-file-list="false"
+              accept="image/*"
+              :on-change="uploadCover"
+              class="w-full"
+            >
+              <ElButton :loading="uploading" class="w-full">
+                本地上传封面
+              </ElButton>
+            </ElUpload>
+          </ElFormItem>
+
+          <!-- 已有资产库封面选择 -->
+          <ElFormItem v-if="assets.length" label="或从资产库快速选择">
+            <div class="asset-strip max-h-48 overflow-y-auto pr-1">
+              <button
+                v-for="asset in assets.slice(0, 8)"
+                :key="asset.id"
+                class="asset-thumb"
+                :class="{ selected: form.coverAssetId === asset.id }"
+                type="button"
+                @click="form.coverAssetId = asset.id"
+              >
+                <img :src="assetUrl(asset)" :alt="asset.fileName" />
+                <span>{{ asset.fileName }}</span>
+              </button>
+            </div>
+          </ElFormItem>
+
+          <!-- 底部保存 -->
+          <div class="pt-3 border-t border-zinc-100 dark:border-zinc-800">
+            <ElButton type="primary" :loading="saving" class="w-full" @click="save">
+              保存草稿
+            </ElButton>
+          </div>
+        </ElForm>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -134,6 +208,8 @@
   const articleId = ref(typeof route.query.id === 'string' ? route.query.id : '')
   const saving = ref(false)
   const uploading = ref(false)
+  const isInspectorOpen = ref(true)
+
   const categories = ref<BlogCategory[]>([])
   const tags = ref<BlogTag[]>([])
   const assets = ref<Asset[]>([])
@@ -218,80 +294,8 @@
 </script>
 
 <style scoped>
-  .content-page {
+  .content-editor-studio {
     padding: 16px;
-  }
-
-  .content-card {
-    border-radius: 8px;
-  }
-
-  .page-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-  }
-
-  .page-header h2 {
-    margin: 0 0 6px;
-    font-size: 20px;
-  }
-
-  .page-header p {
-    margin: 0;
-    color: var(--art-gray-600);
-  }
-
-  .editor-form {
-    width: 100%;
-  }
-
-  .asset-strip {
-    display: grid;
-    width: 100%;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 10px;
-  }
-
-  .asset-thumb {
-    display: grid;
-    gap: 6px;
-    border: 1px solid var(--art-card-border);
-    border-radius: 8px;
-    padding: 8px;
-    background: var(--default-box-color);
-    color: var(--art-gray-700);
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .asset-thumb.selected {
-    border-color: var(--main-color);
-    box-shadow: inset 0 0 0 1px var(--main-color);
-  }
-
-  .asset-thumb img {
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    border-radius: 6px;
-    object-fit: cover;
-    background: var(--art-gray-200);
-  }
-
-  .asset-thumb span {
-    overflow: hidden;
-    font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .bottom-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    border-top: 1px solid var(--art-card-border);
-    padding-top: 16px;
   }
 
   :deep(.body-editor) {
@@ -300,10 +304,43 @@
     border-radius: 8px;
   }
 
-  @media (max-width: 768px) {
-    :deep(.body-editor) {
-      height: 72vh;
-      min-height: 560px;
-    }
+  .asset-strip {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .asset-thumb {
+    display: grid;
+    gap: 4px;
+    border: 1px solid var(--art-card-border);
+    border-radius: 6px;
+    padding: 6px;
+    background: var(--default-box-color);
+    color: var(--art-gray-700);
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .asset-thumb.selected {
+    border-color: #059669;
+    box-shadow: 0 0 0 1px #059669;
+  }
+
+  .asset-thumb img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: 4px;
+    object-fit: cover;
+    background: var(--art-gray-200);
+  }
+
+  .asset-thumb span {
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

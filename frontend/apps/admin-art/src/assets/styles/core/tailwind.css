@@ -1,6 +1,10 @@
 @import 'tailwindcss';
 @custom-variant dark (&:where(.dark, .dark *));
 
+@import '@mindora/ui/styles/tokens.css';
+@import '@mindora/ui/styles/glass.css';
+@import '@mindora/ui/styles/aurora.css';
+
 /* ==================== Light Mode Variables ==================== */
 :root {
   /* Base Colors */
