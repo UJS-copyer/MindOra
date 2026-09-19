@@ -132,6 +132,7 @@ declare module 'vue' {
     SidebarSubmenu: typeof import('./../../components/core/layouts/art-menus/art-sidebar-menu/widget/SidebarSubmenu.vue')['default']
     ThemeSettings: typeof import('./../../components/core/layouts/art-settings-panel/widget/ThemeSettings.vue')['default']
     ThemeSvg: typeof import('./../../components/core/theme/theme-svg/index.vue')['default']
+    WallpaperSettings: typeof import('./../../components/core/layouts/art-settings-panel/widget/WallpaperSettings.vue')['default']
   }
   export interface GlobalDirectives {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']
