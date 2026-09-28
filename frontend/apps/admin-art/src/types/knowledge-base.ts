@@ -94,12 +94,17 @@ export interface KnowledgeBaseState {
 
 export type KnowledgeRetrievalScope = 'all' | 'public'
 
+/** 命中来源：仅向量召回、仅关键词召回、或两路都命中（两路都命中通常更可信）。 */
+export type KnowledgeRetrievalMatchedBy = 'vector' | 'keyword' | 'both'
+
 export interface KnowledgeRetrievalSearchParams {
   query: string
   scope: KnowledgeRetrievalScope
   topN?: number
   rerankTopK?: number
   rerankEnabled?: boolean
+  /** 关闭后仅走向量召回，便于对比两路各自贡献了什么。 */
+  keywordEnabled?: boolean
 }
 
 export interface KnowledgeRetrievalResultItem {
@@ -111,8 +116,16 @@ export interface KnowledgeRetrievalResultItem {
   headingPath: string | null
   blockType: string
   codeLanguage: string | null
-  vectorScore: number
+  /** 仅关键词命中时为 null。 */
+  vectorScore: number | null
   rerankScore: number | null
+  /** RRF 融合分（仅排名参与计算）。 */
+  rrfScore: number | null
+  /** 该切片在向量召回中的 1-based 排名。 */
+  vectorRank: number | null
+  /** 该切片在关键词召回中的 1-based 排名。 */
+  keywordRank: number | null
+  matchedBy: KnowledgeRetrievalMatchedBy
   contentPreview: string
   articleId: string | null
   articleSlug: string | null
@@ -121,10 +134,17 @@ export interface KnowledgeRetrievalResultItem {
 export interface KnowledgeRetrievalSearchResponse {
   scope: string
   topN: number
+  keywordTopN: number
+  fusionTopM: number
   rerankTopK: number
   rerankEnabled: boolean
+  keywordEnabled: boolean
+  vectorCandidates: number
+  keywordCandidates: number
   fallback: boolean
   fallbackReason: string | null
+  keywordFallback: boolean
+  keywordFallbackReason: string | null
   latencyMs: number
   results: KnowledgeRetrievalResultItem[]
 }

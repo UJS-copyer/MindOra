@@ -98,6 +98,18 @@
           </ElCol>
 
           <ElCol :xs="24" :sm="8" :md="6">
+            <ElFormItem label="关键词召回 (Hybrid)">
+              <div class="switch-row">
+                <ElSwitch v-model="form.keywordEnabled" />
+                <span class="ml-2 text-xs text-zinc-500">
+                  {{ form.keywordEnabled ? '向量 + 关键词双路' : '仅向量单路' }}
+                </span>
+              </div>
+              <span class="field-tip">关闭可对比两路各自贡献了哪些结果</span>
+            </ElFormItem>
+          </ElCol>
+
+          <ElCol :xs="24" :sm="8" :md="6">
             <ElFormItem label="快捷重置">
               <div class="switch-row">
                 <ElButton @click="resetForm">重置参数</ElButton>
@@ -142,6 +154,22 @@
           </div>
         </ElAlert>
 
+        <!-- 关键词检索降级提示 -->
+        <ElAlert
+          v-if="searchResponse.keywordFallback"
+          type="info"
+          show-icon
+          :closable="false"
+          class="fallback-alert"
+        >
+          <template #title>
+            <span class="font-semibold text-sm">关键词检索不可用，已降级为纯向量检索</span>
+          </template>
+          <div class="mt-1 text-xs leading-relaxed">
+            降级原因：{{ searchResponse.keywordFallbackReason || '关键词索引未就绪或不可用' }}
+          </div>
+        </ElAlert>
+
         <!-- 检索元数据指标栏 -->
         <div class="meta-bar">
           <div class="meta-item">
@@ -159,10 +187,22 @@
             </ElTag>
           </div>
           <div class="meta-item">
-            <span class="meta-label">topN / rerankTopK：</span>
+            <span class="meta-label">召回 / 融合 / 返回：</span>
             <span class="font-mono text-zinc-700 dark:text-zinc-300">
-              {{ searchResponse.topN }} / {{ searchResponse.rerankTopK }}
+              {{ searchResponse.topN }} → {{ searchResponse.fusionTopM }} → {{ searchResponse.rerankTopK }}
             </span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">两路候选：</span>
+            <span class="font-mono text-zinc-700 dark:text-zinc-300">
+              向量 {{ searchResponse.vectorCandidates }} / 关键词 {{ searchResponse.keywordCandidates }}
+            </span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">关键词召回：</span>
+            <ElTag size="small" :type="searchResponse.keywordEnabled ? 'primary' : 'info'">
+              {{ searchResponse.keywordEnabled ? `开启 (${searchResponse.keywordTopN})` : '关闭' }}
+            </ElTag>
           </div>
           <div class="meta-item">
             <span class="meta-label">Rerank：</span>
@@ -173,7 +213,14 @@
           <div class="meta-item">
             <span class="meta-label">降级状态：</span>
             <ElTag size="small" :type="searchResponse.fallback ? 'warning' : 'success'">
-              {{ searchResponse.fallback ? '已降级' : '正常' }}
+              重排{{ searchResponse.fallback ? '已降级' : '正常' }}
+            </ElTag>
+            <ElTag
+              size="small"
+              :type="searchResponse.keywordFallback ? 'warning' : 'success'"
+              class="ml-1"
+            >
+              关键词{{ searchResponse.keywordFallback ? '已降级' : '正常' }}
             </ElTag>
           </div>
         </div>
@@ -239,6 +286,25 @@
             </template>
           </ElTableColumn>
 
+          <ElTableColumn label="命中来源" width="104" align="center">
+            <template #default="{ row }">
+              <ElTag size="small" :type="matchedByTagType(row.matchedBy)">
+                {{ matchedByLabel(row.matchedBy) }}
+              </ElTag>
+            </template>
+          </ElTableColumn>
+
+          <ElTableColumn label="两路排名 / RRF" width="168" align="right">
+            <template #default="{ row }">
+              <div class="rank-cell">
+                <span class="rank-line">
+                  向量 {{ row.vectorRank ?? '-' }} · 关键词 {{ row.keywordRank ?? '-' }}
+                </span>
+                <span class="rank-line rank-rrf">RRF {{ formatRrf(row.rrfScore) }}</span>
+              </div>
+            </template>
+          </ElTableColumn>
+
           <ElTableColumn label="向量得分" width="110" align="right">
             <template #default="{ row }">
               <span class="score-text vector-score">
@@ -294,6 +360,7 @@
     topN: number | undefined
     rerankTopK: number | undefined
     rerankEnabled: boolean
+    keywordEnabled: boolean
   }
 
   interface ApiErrorBody {
@@ -312,7 +379,8 @@
     scope: 'all',
     topN: undefined,
     rerankTopK: undefined,
-    rerankEnabled: true
+    rerankEnabled: true,
+    keywordEnabled: true
   })
 
   const resetForm = () => {
@@ -321,11 +389,30 @@
     form.topN = undefined
     form.rerankTopK = undefined
     form.rerankEnabled = true
+    form.keywordEnabled = true
   }
 
   const formatScore = (score: number | null | undefined): string => {
     if (score === null || score === undefined) return '-'
     return score.toFixed(4)
+  }
+
+  /** RRF 分值量级很小（约 0.008 ~ 0.033），需要更高的小数位才能看出差异。 */
+  const formatRrf = (score: number | null | undefined): string => {
+    if (score === null || score === undefined) return '-'
+    return score.toFixed(6)
+  }
+
+  const matchedByLabel = (matchedBy: string): string => {
+    if (matchedBy === 'both') return '双路'
+    if (matchedBy === 'keyword') return '关键词'
+    return '向量'
+  }
+
+  const matchedByTagType = (matchedBy: string): 'success' | 'warning' | 'primary' => {
+    if (matchedBy === 'both') return 'success'
+    if (matchedBy === 'keyword') return 'warning'
+    return 'primary'
   }
 
   const extractErrorMessage = (err: unknown): string => {
@@ -353,7 +440,8 @@
     const params: KnowledgeRetrievalSearchParams = {
       query: trimmedQuery,
       scope: form.scope,
-      rerankEnabled: form.rerankEnabled
+      rerankEnabled: form.rerankEnabled,
+      keywordEnabled: form.keywordEnabled
     }
 
     if (form.topN !== undefined && form.topN !== null) {
@@ -557,6 +645,23 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 12px;
     color: var(--el-text-color-placeholder);
+  }
+
+  .rank-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-end;
+  }
+
+  .rank-line {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    color: var(--el-text-color-regular);
+  }
+
+  .rank-rrf {
+    color: var(--el-text-color-secondary);
   }
 
   .content-preview-box {

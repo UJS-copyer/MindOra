@@ -438,6 +438,9 @@ export async function searchKnowledgeRetrieval(
   const topN = params.topN ?? 30
   const rerankTopK = params.rerankTopK ?? 8
   const rerankEnabled = params.rerankEnabled ?? true
+  const keywordEnabled = params.keywordEnabled ?? true
+  const keywordTopN = 30
+  const fusionTopM = 20
 
   const mockResults: KnowledgeRetrievalResultItem[] = [
     {
@@ -451,6 +454,10 @@ export async function searchKnowledgeRetrieval(
       codeLanguage: null,
       vectorScore: 0.8842,
       rerankScore: rerankEnabled ? 0.9521 : null,
+      rrfScore: 0.032787,
+      vectorRank: 1,
+      keywordRank: 1,
+      matchedBy: 'both',
       contentPreview:
         '在开始使用 MindOra 之前，请确保已安装 Node.js (>= 18.0.0) 和 pnpm (>= 8.0.0)。本项目采用 Turborepo 组织 monorepo 架构。',
       articleId: 'article-quick-start',
@@ -467,6 +474,10 @@ export async function searchKnowledgeRetrieval(
       codeLanguage: 'typescript',
       vectorScore: 0.8215,
       rerankScore: rerankEnabled ? 0.8934 : null,
+      rrfScore: 0.016393,
+      vectorRank: 2,
+      keywordRank: null,
+      matchedBy: 'vector',
       contentPreview:
         'const authHeader = req.headers.authorization;\nif (!authHeader?.startsWith("Bearer ")) {\n  throw new UnauthorizedException("Missing token");\n}',
       articleId: null,
@@ -483,6 +494,10 @@ export async function searchKnowledgeRetrieval(
       codeLanguage: null,
       vectorScore: 0.7654,
       rerankScore: rerankEnabled ? 0.8123 : null,
+      rrfScore: 0.014925,
+      vectorRank: null,
+      keywordRank: 2,
+      matchedBy: 'keyword',
       contentPreview:
         '本次更新引入了两阶段检索架构：第一阶段基于 Qdrant 向量索引进行召回，第二阶段利用 SiliconFlow BGE-Reranker-v2-m3 进行重排序，显著提高 Top-K 命中率。',
       articleId: null,
@@ -493,10 +508,17 @@ export async function searchKnowledgeRetrieval(
   return {
     scope: params.scope,
     topN,
+    keywordTopN,
+    fusionTopM,
     rerankTopK,
     rerankEnabled,
+    keywordEnabled,
+    vectorCandidates: topN,
+    keywordCandidates: keywordEnabled ? keywordTopN : 0,
     fallback: false,
     fallbackReason: null,
+    keywordFallback: false,
+    keywordFallbackReason: null,
     latencyMs: 142,
     results: mockResults
   }
