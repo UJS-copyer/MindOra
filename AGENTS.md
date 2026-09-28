@@ -14,12 +14,14 @@
 
 ## 现有约定索引
 
+- 设计文档：`docs/design-*.md`（最新为 `docs/design-10-keyword-retrieval-and-hybrid-fusion.md`：关键词索引与 Hybrid/RRF 融合契约）
 - 阶段路线与交付原则：`docs/design-07-implementation-roadmap.md`
 - 后端结构、包边界与本地开发规则：`docs/backend-development-rules-cn.md`
 - 项目状态、接口行为与现场联调记录：`docs/project-status-cn.md`
 - 各阶段任务清单与验收证据：`docs/stage-*-task-manifest-cn.md`
 - 环境启动（VM 基础设施 / 后端 / 前端）：`docs/development-startup-cn.md`
 - 本地环境变量模板：`docs/project-env-local.md`
+- **RAG 入门与本项目实现讲解（选型理由、代码地图、术语速查）：`docs/rag-guide-cn.md`**
 
 ## 分支与提交策略
 
