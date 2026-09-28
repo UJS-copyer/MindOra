@@ -24,7 +24,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
@@ -37,6 +39,7 @@ public class KnowledgeService {
     private final EmbeddingProviderPort embedding;
     private final KnowledgeAdapters.RerankProviderPort rerank;
     private final VectorStorePort vectors;
+    private final KnowledgeAdapters.KeywordIndexPort keywordIndex;
     private final AssetReferencePort assets;
     private final DocumentPublicationPort publication;
     private final SyncTaskExecutorPort taskExecutor;
@@ -76,6 +79,7 @@ public class KnowledgeService {
         this.embedding = embedding;
         this.rerank = KnowledgeService.unavailableRerank();
         this.vectors = vectors;
+        this.keywordIndex = unavailableKeywordIndex();
         this.assets = assets;
         this.publication = publication;
         this.taskExecutor = taskId -> executor.execute(() -> executeTask(taskId));
@@ -100,6 +104,7 @@ public class KnowledgeService {
         this.embedding = embedding;
         this.rerank = rerank;
         this.vectors = vectors;
+        this.keywordIndex = unavailableKeywordIndex();
         this.assets = assets;
         this.publication = publication;
         this.taskExecutor = taskId -> executor.execute(() -> executeTask(taskId));
@@ -166,12 +171,74 @@ public class KnowledgeService {
             MarkdownDocumentParser parser,
             MarkdownChunker chunker,
             Clock clock) {
+        this(dataSources, repository, gitee, embedding, rerank, vectors, unavailableKeywordIndex(), assets,
+                publication, taskExecutor, parser, chunker, clock);
+    }
+
+    /** 启用关键词索引、并以本地 Executor 派发同步任务时的装配入口。 */
+    public KnowledgeService(
+            DataSourceRepository dataSources,
+            KnowledgeRepository repository,
+            GiteeRepositoryPort gitee,
+            EmbeddingProviderPort embedding,
+            KnowledgeAdapters.RerankProviderPort rerank,
+            VectorStorePort vectors,
+            KnowledgeAdapters.KeywordIndexPort keywordIndex,
+            AssetReferencePort assets,
+            DocumentPublicationPort publication,
+            Executor executor) {
         this.dataSources = dataSources;
         this.repository = repository;
         this.gitee = gitee;
         this.embedding = embedding;
         this.rerank = rerank;
         this.vectors = vectors;
+        this.keywordIndex = keywordIndex;
+        this.assets = assets;
+        this.publication = publication;
+        this.taskExecutor = taskId -> executor.execute(() -> executeTask(taskId));
+        this.parser = new MarkdownDocumentParser();
+        this.chunker = new MarkdownChunker();
+        this.clock = Clock.systemUTC();
+    }
+
+    /** 启用了关键词索引时的装配入口。 */
+    public KnowledgeService(
+            DataSourceRepository dataSources,
+            KnowledgeRepository repository,
+            GiteeRepositoryPort gitee,
+            EmbeddingProviderPort embedding,
+            KnowledgeAdapters.RerankProviderPort rerank,
+            VectorStorePort vectors,
+            KnowledgeAdapters.KeywordIndexPort keywordIndex,
+            AssetReferencePort assets,
+            DocumentPublicationPort publication,
+            SyncTaskExecutorPort taskExecutor) {
+        this(dataSources, repository, gitee, embedding, rerank, vectors, keywordIndex, assets, publication,
+                taskExecutor, new MarkdownDocumentParser(), new MarkdownChunker(), Clock.systemUTC());
+    }
+
+    public KnowledgeService(
+            DataSourceRepository dataSources,
+            KnowledgeRepository repository,
+            GiteeRepositoryPort gitee,
+            EmbeddingProviderPort embedding,
+            KnowledgeAdapters.RerankProviderPort rerank,
+            VectorStorePort vectors,
+            KnowledgeAdapters.KeywordIndexPort keywordIndex,
+            AssetReferencePort assets,
+            DocumentPublicationPort publication,
+            SyncTaskExecutorPort taskExecutor,
+            MarkdownDocumentParser parser,
+            MarkdownChunker chunker,
+            Clock clock) {
+        this.dataSources = dataSources;
+        this.repository = repository;
+        this.gitee = gitee;
+        this.embedding = embedding;
+        this.rerank = rerank;
+        this.vectors = vectors;
+        this.keywordIndex = keywordIndex;
         this.assets = assets;
         this.publication = publication;
         this.taskExecutor = taskExecutor;
@@ -254,12 +321,38 @@ public class KnowledgeService {
 
     public KnowledgeDocument updateDocumentSettings(UUID id, boolean knowledgeEnabled, String visibility) {
         KnowledgeDocument document = getDocument(id);
-        return repository.saveDocument(new KnowledgeDocument(
+        KnowledgeDocument updated = repository.saveDocument(new KnowledgeDocument(
                 document.id(), document.sourceType(), document.sourceId(), document.sourcePath(), document.title(),
                 document.currentVersionId(), document.sourceHash(),
                 visibility == null || visibility.isBlank() ? document.visibility() : visibility,
                 knowledgeEnabled, document.publicArticleId(), document.status(), document.parseStatus(), document.indexStatus(),
                 document.indexFailureReason(), document.indexRetryCount(), document.createdAt(), clock.instant()));
+        syncIndexPermissions(updated);
+        return updated;
+    }
+
+    /**
+     * 把文档的可见性与知识库开关同步到两个派生索引。
+     *
+     * <p>索引里的权限字段是写入时固化的，不同步就会残留旧值。但**索引不是权限边界**：
+     * 检索时还会以 MySQL 中的文档状态为准再做一次校验（见 KnowledgeRetrievalService），
+     * 因此这里失败只影响索引新鲜度，不会造成越权命中——这也是为什么它可以尽力而为，
+     * 从而不让「文章发布 / 下线」这类业务流程依赖向量库或关键词索引是否可用。
+     */
+    private void syncIndexPermissions(KnowledgeDocument document) {
+        if (document.currentVersionId() == null) {
+            return;
+        }
+        try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("visibility", document.visibility());
+            payload.put("status", document.status().name().toLowerCase());
+            payload.put("knowledgeEnabled", document.knowledgeEnabled());
+            vectors.updatePayload(UUID.fromString(document.currentVersionId()), payload);
+            keywordIndex.replaceDocument(document.id(), keywordDocuments(document, listChunks(document.id())));
+        } catch (RuntimeException ignored) {
+            // 索引新鲜度可以稍后通过重建修复；权限隔离由检索时的 MySQL 校验兜底
+        }
     }
 
     public KnowledgeDocument publishDocument(UUID documentId) {
@@ -348,11 +441,13 @@ public class KnowledgeService {
                     KnowledgeEnums.DocumentStatus.ACTIVE, KnowledgeEnums.ParseStatus.PENDING,
                     KnowledgeEnums.IndexStatus.PENDING, null, 0, clock.instant(), clock.instant());
         }
-        return repository.saveDocument(new KnowledgeDocument(
+        KnowledgeDocument disabled = repository.saveDocument(new KnowledgeDocument(
                 existing.id(), existing.sourceType(), existing.sourceId(), existing.sourcePath(), existing.title(),
                 existing.currentVersionId(), existing.sourceHash(), existing.visibility(), false,
                 existing.publicArticleId(), existing.status(), existing.parseStatus(), existing.indexStatus(),
                 existing.indexFailureReason(), existing.indexRetryCount(), existing.createdAt(), clock.instant()));
+        syncIndexPermissions(disabled);
+        return disabled;
     }
 
     public KnowledgeDocument getDocument(UUID id) {
@@ -382,6 +477,36 @@ public class KnowledgeService {
         repository.archiveChunks(versionId);
         // 重建必须替换而不是追加：索引阶段会先清掉该版本在向量库中的旧点。
         indexVersion(document, versionId, versionId);
+    }
+
+    /** 文档被归档或移出知识库后，把它的切片从两个派生索引中移除，避免陈旧内容仍可被召回。 */
+    private void removeFromIndexes(KnowledgeDocument document) {
+        if (document.currentVersionId() != null) {
+            vectors.deleteByVersion(UUID.fromString(document.currentVersionId()));
+        }
+        keywordIndex.deleteDocument(document.id());
+    }
+
+    /**
+     * 全量重建关键词索引。
+     *
+     * <p>直接以 MySQL 中的当前切片为准，不调用 embedding，因此可在向量索引不动的前提下单独修复
+     * 关键词索引（Lucene 索引是纯派生数据，损坏或丢失都可由此恢复）。
+     *
+     * @return 写入索引的切片数
+     */
+    public int rebuildKeywordIndex() {
+        keywordIndex.deleteAll();
+        int total = 0;
+        for (KnowledgeDocument document : repository.listDocuments()) {
+            if (document.currentVersionId() == null) {
+                continue;
+            }
+            List<KnowledgeChunk> chunks = listChunks(document.id());
+            keywordIndex.replaceDocument(document.id(), keywordDocuments(document, chunks));
+            total += chunks.size();
+        }
+        return total;
     }
 
     public int rebuildDocuments(List<UUID> documentIds) {
@@ -502,6 +627,8 @@ public class KnowledgeService {
                     KnowledgeEnums.IndexStatus.VECTORIZING, null, null, null, 0, clock.instant()));
         }
         chunks.forEach(repository::saveChunk);
+        // 关键词索引与向量索引彼此独立：即使随后 embedding 失败，关键词侧仍可作为降级检索路径
+        keywordIndex.replaceDocument(document.id(), keywordDocuments(document, chunks));
         if (drafts.isEmpty()) {
             repository.saveDocument(document.index(KnowledgeEnums.IndexStatus.INDEXED, null, clock.instant()));
             return;
@@ -526,6 +653,27 @@ public class KnowledgeService {
             chunks.stream().map(chunk -> chunk.failed(reason)).forEach(repository::saveChunk);
             repository.saveDocument(document.index(KnowledgeEnums.IndexStatus.FAILED, reason, clock.instant()));
         }
+    }
+
+    /**
+     * 组装关键词索引条目：权限字段与向量 payload 使用同一套取值，保证两路召回隔离规则一致。
+     */
+    private List<KnowledgeAdapters.KeywordDocument> keywordDocuments(
+            KnowledgeDocument document, List<KnowledgeChunk> chunks) {
+        String status = document.status().name().toLowerCase();
+        return chunks.stream()
+                .map(chunk -> new KnowledgeAdapters.KeywordDocument(
+                        chunk.id(),
+                        document.id(),
+                        document.title(),
+                        chunk.headingPath(),
+                        chunk.blockType().name().toLowerCase(),
+                        chunk.codeLanguage(),
+                        chunk.content(),
+                        document.visibility(),
+                        status,
+                        document.knowledgeEnabled()))
+                .toList();
     }
 
     /**
@@ -567,7 +715,8 @@ public class KnowledgeService {
                     && source.id().toString().equals(document.sourceId())
                     && !seen.contains(document.sourcePath())
                     && document.status() == KnowledgeEnums.DocumentStatus.ACTIVE) {
-                repository.saveDocument(document.archived(clock.instant()));
+                KnowledgeDocument archivedDocument = repository.saveDocument(document.archived(clock.instant()));
+                removeFromIndexes(archivedDocument);
                 archived++;
             }
         }
@@ -595,6 +744,35 @@ public class KnowledgeService {
     private DataSource findDataSource(UUID id) {
         return dataSources.find(id)
                 .orElseThrow(() -> new BusinessException("knowledge_source_not_found", "Data source not found"));
+    }
+
+    /**
+     * 关键词索引未启用时的占位实现。
+     *
+     * <p>写入一律跳过（关键词索引是可选派生索引，其缺席不应让切片与向量索引失败），
+     * 检索则抛错，由检索编排层按 design-04 的降级策略退化为纯向量检索。
+     */
+    private static KnowledgeAdapters.KeywordIndexPort unavailableKeywordIndex() {
+        return new KnowledgeAdapters.KeywordIndexPort() {
+            @Override
+            public void replaceDocument(UUID documentId, List<KnowledgeAdapters.KeywordDocument> documents) {
+            }
+
+            @Override
+            public void deleteDocument(UUID documentId) {
+            }
+
+            @Override
+            public void deleteAll() {
+            }
+
+            @Override
+            public List<KnowledgeAdapters.KeywordHit> search(
+                    String query, int topN, Map<String, Object> exactMatchFilter) {
+                throw new BusinessException(
+                        "keyword_adapter_unavailable", "Keyword index is not configured in this runtime");
+            }
+        };
     }
 
     private static KnowledgeAdapters.RerankProviderPort unavailableRerank() {

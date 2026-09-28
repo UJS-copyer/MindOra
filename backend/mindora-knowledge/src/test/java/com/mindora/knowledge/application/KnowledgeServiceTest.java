@@ -13,6 +13,7 @@ import com.mindora.knowledge.domain.SyncTask;
 import com.mindora.knowledge.infrastructure.persistence.memory.InMemoryKnowledgeRepositories;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -230,6 +231,28 @@ class KnowledgeServiceTest {
         assertThat(document.indexStatus()).isEqualTo(KnowledgeEnums.IndexStatus.INDEXED);
     }
 
+    @Test
+    void syncsPermissionFieldsToBothIndexesWhenSettingsChange() {
+        Fixture fixture = new Fixture(List.of(new KnowledgeAdapters.RemoteFile(
+                "docs/a.md", null, "# A\nhello", "hash-perm", Map.of(), List.of())));
+        var source = fixture.service.createDataSource("obsidian", "https://gitee.com/x/y", "master", null, "", "private", true);
+        fixture.service.triggerSync(source.id(), KnowledgeEnums.SyncMode.INCREMENTAL, "trace-perm");
+        var document = fixture.service.listDocuments().getFirst();
+        fixture.payloadUpdatedVersions.clear();
+        fixture.updatedPayloads.clear();
+
+        fixture.service.updateDocumentSettings(document.id(), false, "public");
+
+        // 索引中的权限字段是写入时固化的：设置变更后必须回写，
+        // 否则把已索引为 public 的文档改为 private 后，公开检索仍会命中它（私有内容泄漏）
+        assertThat(fixture.payloadUpdatedVersions).containsExactly(UUID.fromString(document.currentVersionId()));
+        assertThat(fixture.updatedPayloads).hasSize(1);
+        assertThat(fixture.updatedPayloads.getFirst())
+                .containsEntry("visibility", "public")
+                .containsEntry("knowledgeEnabled", false)
+                .containsEntry("status", "active");
+    }
+
     private static final class Fixture {
         private final InMemoryKnowledgeRepositories.DataSources sources = new InMemoryKnowledgeRepositories.DataSources();
         private final KnowledgeRepositories.KnowledgeRepository repository =
@@ -242,6 +265,8 @@ class KnowledgeServiceTest {
         private int vectorCalls;
         private final List<KnowledgeAdapters.VectorRecord> upsertedPoints = new ArrayList<>();
         private final List<UUID> deletedVersions = new ArrayList<>();
+        private final List<UUID> payloadUpdatedVersions = new ArrayList<>();
+        private final List<Map<String, Object>> updatedPayloads = new ArrayList<>();
         private final List<Map<String, Object>> searchFilters = new ArrayList<>();
         private final UUID publishedArticleId = UUID.randomUUID();
         private final KnowledgeService service;
@@ -286,6 +311,12 @@ class KnowledgeServiceTest {
                                 throw new IllegalStateException("vector delete down");
                             }
                             deletedVersions.add(documentVersionId);
+                        }
+
+                        @Override
+                        public void updatePayload(UUID documentVersionId, Map<String, Object> payload) {
+                            payloadUpdatedVersions.add(documentVersionId);
+                            updatedPayloads.add(new LinkedHashMap<>(payload));
                         }
 
                         @Override

@@ -77,10 +77,17 @@ mindora:
       timeout-ms: ${MINDORA_RERANK_TIMEOUT_MS:3000}
     vector:
       enabled: ${MINDORA_VECTOR_ENABLED:true}
+    keyword:
+      enabled: ${MINDORA_KEYWORD_ENABLED:true}
+      index-path: ${MINDORA_KEYWORD_INDEX_PATH:${MINDORA_STORAGE_ROOT:/data/docker-data/mindora/storage}/lucene/keyword}
     retrieval:
       top-n: ${MINDORA_RETRIEVAL_TOP_N:30}
+      keyword-top-n: ${MINDORA_RETRIEVAL_KEYWORD_TOP_N:30}
+      fusion-top-m: ${MINDORA_RETRIEVAL_FUSION_TOP_M:20}
       rerank-top-k: ${MINDORA_RETRIEVAL_RERANK_TOP_K:8}
       rerank-enabled: ${MINDORA_RETRIEVAL_RERANK_ENABLED:true}
+      keyword-enabled: ${MINDORA_RETRIEVAL_KEYWORD_ENABLED:true}
+      rrf-k: ${MINDORA_RETRIEVAL_RRF_K:60}
       fallback-enabled: ${MINDORA_RETRIEVAL_FALLBACK_ENABLED:true}
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-long-random-stage0-secret}

@@ -21,5 +21,9 @@ mindora:
   knowledge:
     async: false
     dispatcher: executor
+    # 测试环境关闭关键词索引，避免在磁盘上创建 Lucene 索引目录；
+    # 关键词适配器由自身单测（LuceneKeywordIndexAdapterTest）覆盖
+    keyword:
+      enabled: false
   seed:
     enabled: false

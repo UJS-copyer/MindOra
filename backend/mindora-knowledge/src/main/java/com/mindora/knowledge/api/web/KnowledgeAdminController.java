@@ -161,6 +161,18 @@ public class KnowledgeAdminController {
         return success(service.rebuildDocuments(ids), traceId);
     }
 
+    /**
+     * 全量重建关键词索引。
+     *
+     * <p>关键词索引是 MySQL 切片的派生数据：丢失、损坏、或首次引入（历史数据尚未建索引）时
+     * 都可由此恢复。该操作直接读取数据库中的当前切片，**不调用 embedding**，因此不消耗额度。
+     */
+    @PostMapping("/keyword-index/rebuild")
+    public ApiResponse<Integer> rebuildKeywordIndex(
+            @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
+        return success(service.rebuildKeywordIndex(), traceId);
+    }
+
     @GetMapping("/config/chunking")
     public ApiResponse<KnowledgeViews.ChunkingConfigView> getChunking(
             @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
@@ -220,7 +232,8 @@ public class KnowledgeAdminController {
                         parseScope(request == null ? null : request.scope()),
                         request == null ? null : request.topN(),
                         request == null ? null : request.rerankTopK(),
-                        request == null ? null : request.rerankEnabled()));
+                        request == null ? null : request.rerankEnabled(),
+                        request == null ? null : request.keywordEnabled()));
         return success(retrievalResult(outcome), traceId);
     }
 
@@ -241,10 +254,17 @@ public class KnowledgeAdminController {
         return new RetrievalResultView(
                 outcome.scope(),
                 outcome.topN(),
+                outcome.keywordTopN(),
+                outcome.fusionTopM(),
                 outcome.rerankTopK(),
                 outcome.rerankEnabled(),
+                outcome.keywordEnabled(),
+                outcome.vectorCandidates(),
+                outcome.keywordCandidates(),
                 outcome.fallback(),
                 outcome.fallbackReason(),
+                outcome.keywordFallback(),
+                outcome.keywordFallbackReason(),
                 outcome.latencyMs(),
                 outcome.results().stream()
                         .map(hit -> new RetrievalHitView(
@@ -258,6 +278,10 @@ public class KnowledgeAdminController {
                                 hit.codeLanguage(),
                                 hit.vectorScore(),
                                 hit.rerankScore(),
+                                hit.rrfScore(),
+                                hit.vectorRank(),
+                                hit.keywordRank(),
+                                hit.matchedBy(),
                                 hit.contentPreview(),
                                 hit.articleId(),
                                 hit.articleSlug()))
@@ -307,16 +331,24 @@ public class KnowledgeAdminController {
             String scope,
             Integer topN,
             Integer rerankTopK,
-            Boolean rerankEnabled) {
+            Boolean rerankEnabled,
+            Boolean keywordEnabled) {
     }
 
     public record RetrievalResultView(
             String scope,
             int topN,
+            int keywordTopN,
+            int fusionTopM,
             int rerankTopK,
             boolean rerankEnabled,
+            boolean keywordEnabled,
+            int vectorCandidates,
+            int keywordCandidates,
             boolean fallback,
             String fallbackReason,
+            boolean keywordFallback,
+            String keywordFallbackReason,
             long latencyMs,
             List<RetrievalHitView> results) {
     }
@@ -330,8 +362,12 @@ public class KnowledgeAdminController {
             String headingPath,
             String blockType,
             String codeLanguage,
-            double vectorScore,
+            Double vectorScore,
             Double rerankScore,
+            Double rrfScore,
+            Integer vectorRank,
+            Integer keywordRank,
+            String matchedBy,
             String contentPreview,
             String articleId,
             String articleSlug) {

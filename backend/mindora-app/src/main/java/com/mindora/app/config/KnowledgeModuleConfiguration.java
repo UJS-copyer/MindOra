@@ -13,12 +13,14 @@ import com.mindora.knowledge.domain.KnowledgeDocument;
 import com.mindora.knowledge.domain.KnowledgeEnums;
 import com.mindora.knowledge.infrastructure.adapter.GiteeApiRepositoryAdapter;
 import com.mindora.knowledge.infrastructure.adapter.OpenAiCompatibleEmbeddingAdapter;
+import com.mindora.knowledge.infrastructure.adapter.LuceneKeywordIndexAdapter;
 import com.mindora.knowledge.infrastructure.adapter.QdrantVectorStoreAdapter;
 import com.mindora.knowledge.infrastructure.adapter.SiliconFlowRerankAdapter;
 import com.mindora.knowledge.infrastructure.adapter.UnavailableKnowledgeAdapters;
 import com.mindora.knowledge.infrastructure.persistence.jdbc.JdbcKnowledgeDataSourceRepository;
 import com.mindora.knowledge.infrastructure.persistence.jdbc.JdbcKnowledgeRepository;
 import com.mindora.knowledge.infrastructure.persistence.memory.InMemoryKnowledgeRepositories;
+import java.nio.file.Path;
 import java.util.concurrent.Executor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -123,6 +125,26 @@ public class KnowledgeModuleConfiguration {
         return new UnavailableKnowledgeAdapters.VectorStore();
     }
 
+    /**
+     * 关键词索引（进程内嵌入式 Lucene）。
+     *
+     * <p>默认落在存储根目录下的 {@code lucene/keyword}；索引是 MySQL 的派生数据，
+     * 损坏或丢失都可以通过「重建关键词索引」恢复。
+     */
+    @Bean(destroyMethod = "close")
+    @ConditionalOnProperty(name = "mindora.knowledge.keyword.enabled", havingValue = "true", matchIfMissing = true)
+    KnowledgeAdapters.KeywordIndexPort keywordIndexPort(
+            @Value("${mindora.knowledge.keyword.index-path:${mindora.storage.root:./data/storage}/lucene/keyword}")
+            String indexPath) {
+        return new LuceneKeywordIndexAdapter(Path.of(indexPath));
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    KnowledgeAdapters.KeywordIndexPort unavailableKeywordIndexPort() {
+        return new UnavailableKnowledgeAdapters.KeywordIndex();
+    }
+
     @Bean
     @ConditionalOnMissingBean
     KnowledgeAdapters.AssetReferencePort assetReferencePort() {
@@ -212,16 +234,23 @@ public class KnowledgeModuleConfiguration {
             KnowledgeAdapters.EmbeddingProviderPort embedding,
             KnowledgeAdapters.RerankProviderPort rerank,
             KnowledgeAdapters.VectorStorePort vectors,
+            KnowledgeAdapters.KeywordIndexPort keywordIndex,
             @Value("${mindora.knowledge.retrieval.top-n:30}") int topN,
+            @Value("${mindora.knowledge.retrieval.keyword-top-n:30}") int keywordTopN,
+            @Value("${mindora.knowledge.retrieval.fusion-top-m:20}") int fusionTopM,
             @Value("${mindora.knowledge.retrieval.rerank-top-k:8}") int rerankTopK,
             @Value("${mindora.knowledge.retrieval.rerank-enabled:true}") boolean rerankEnabled,
+            @Value("${mindora.knowledge.retrieval.keyword-enabled:true}") boolean keywordEnabled,
+            @Value("${mindora.knowledge.retrieval.rrf-k:60}") int rrfK,
             @Value("${mindora.knowledge.retrieval.fallback-enabled:true}") boolean fallbackEnabled) {
         return new KnowledgeRetrievalService(
                 repository,
                 embedding,
                 rerank,
                 vectors,
-                new KnowledgeRetrievalService.RetrievalSettings(topN, rerankTopK, rerankEnabled, fallbackEnabled));
+                keywordIndex,
+                new KnowledgeRetrievalService.RetrievalSettings(
+                        topN, keywordTopN, fusionTopM, rerankTopK, rerankEnabled, keywordEnabled, fallbackEnabled, rrfK));
     }
 
     @Bean
@@ -258,10 +287,12 @@ public class KnowledgeModuleConfiguration {
             KnowledgeAdapters.EmbeddingProviderPort embedding,
             KnowledgeAdapters.RerankProviderPort rerank,
             KnowledgeAdapters.VectorStorePort vectors,
+            KnowledgeAdapters.KeywordIndexPort keywordIndex,
             KnowledgeAdapters.AssetReferencePort assets,
             KnowledgeAdapters.DocumentPublicationPort publication,
             KnowledgeAdapters.SyncTaskExecutorPort taskExecutor) {
-        return new KnowledgeService(dataSources, repository, gitee, embedding, rerank, vectors, assets, publication, taskExecutor);
+        return new KnowledgeService(dataSources, repository, gitee, embedding, rerank, vectors, keywordIndex,
+                assets, publication, taskExecutor);
     }
 
     @Bean
@@ -273,9 +304,11 @@ public class KnowledgeModuleConfiguration {
             KnowledgeAdapters.EmbeddingProviderPort embedding,
             KnowledgeAdapters.RerankProviderPort rerank,
             KnowledgeAdapters.VectorStorePort vectors,
+            KnowledgeAdapters.KeywordIndexPort keywordIndex,
             KnowledgeAdapters.AssetReferencePort assets,
             KnowledgeAdapters.DocumentPublicationPort publication,
             Executor executor) {
-        return new KnowledgeService(dataSources, repository, gitee, embedding, rerank, vectors, assets, publication, executor);
+        return new KnowledgeService(dataSources, repository, gitee, embedding, rerank, vectors, keywordIndex,
+                assets, publication, executor);
     }
 }

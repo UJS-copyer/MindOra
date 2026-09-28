@@ -2,6 +2,7 @@ package com.mindora.knowledge.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 
 import com.mindora.common.exception.BusinessException;
 import com.mindora.knowledge.application.KnowledgeRetrievalService.RetrievalHit;
@@ -26,15 +27,19 @@ class KnowledgeRetrievalServiceTest {
     private static final UUID VERSION_ID = UUID.randomUUID();
     private static final UUID CHUNK_A = UUID.randomUUID();
     private static final UUID CHUNK_B = UUID.randomUUID();
+    private static final int RRF_K = 60;
 
     private final InMemoryKnowledgeRepositories.Knowledge repository = new InMemoryKnowledgeRepositories.Knowledge();
     private final List<Map<String, Object>> capturedFilters = new ArrayList<>();
+    private final List<Map<String, Object>> capturedKeywordFilters = new ArrayList<>();
     private final List<String> capturedRerankDocuments = new ArrayList<>();
 
     private boolean embeddingFails;
     private boolean vectorFails;
     private boolean rerankFails;
+    private boolean keywordFails;
     private List<KnowledgeAdapters.VectorHit> hits = List.of();
+    private List<KnowledgeAdapters.KeywordHit> keywordHits = List.of();
     private List<KnowledgeAdapters.RerankResult> rerankResults = List.of();
 
     // ------------------------------------------------------------------
@@ -72,7 +77,7 @@ class KnowledgeRetrievalServiceTest {
     void rejectsMissingScopeWithoutTouchingVectorStore() {
         seedDocument("public", true, KnowledgeEnums.DocumentStatus.ACTIVE, "blog:aqs-notes", "42");
 
-        assertThatThrownBy(() -> service(defaultSettings()).search(new RetrievalQuery("问题", null, null, null, null)))
+        assertThatThrownBy(() -> service(defaultSettings()).search(new RetrievalQuery("问题", null, null, null, null, null)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("scope");
 
@@ -82,9 +87,114 @@ class KnowledgeRetrievalServiceTest {
     @Test
     void rejectsBlankQuery() {
         assertThatThrownBy(() -> service(defaultSettings())
-                .search(new RetrievalQuery("   ", Scope.PUBLIC, null, null, null)))
+                .search(new RetrievalQuery("   ", Scope.PUBLIC, null, null, null, null)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("query");
+    }
+
+    // ------------------------------------------------------------------
+    // 双路召回与 RRF 融合
+    // ------------------------------------------------------------------
+
+    @Test
+    void fusesBothPathsAndRanksDoubleMatchedChunkFirst() {
+        seedDocument("public", true, KnowledgeEnums.DocumentStatus.ACTIVE, "blog:aqs-notes", "42");
+        hits = List.of(hit(CHUNK_A, 0.9), hit(CHUNK_B, 0.8));
+        keywordHits = List.of(keywordHit(CHUNK_B, 12.0));
+
+        var outcome = service(defaultSettings()).search(hybridQuery(Scope.ALL));
+
+        assertThat(outcome.vectorCandidates()).isEqualTo(2);
+        assertThat(outcome.keywordCandidates()).isEqualTo(1);
+        // CHUNK_B 被两路命中，RRF = 1/(k+2) + 1/(k+1)，必然高于只被向量命中的 CHUNK_A
+        RetrievalHit first = outcome.results().getFirst();
+        assertThat(first.chunkId()).isEqualTo(CHUNK_B.toString());
+        assertThat(first.matchedBy()).isEqualTo("both");
+        assertThat(first.vectorRank()).isEqualTo(2);
+        assertThat(first.keywordRank()).isEqualTo(1);
+        assertThat(first.rrfScore())
+                .isCloseTo(1.0 / (RRF_K + 2) + 1.0 / (RRF_K + 1), within(1e-9));
+    }
+
+    @Test
+    void keepsKeywordOnlyHitsAndMarksTheirSource() {
+        seedDocument("public", true, KnowledgeEnums.DocumentStatus.ACTIVE, "blog:aqs-notes", "42");
+        hits = List.of(hit(CHUNK_A, 0.9));
+        keywordHits = List.of(keywordHit(CHUNK_B, 12.0));
+
+        var outcome = service(defaultSettings()).search(hybridQuery(Scope.ALL));
+
+        RetrievalHit keywordOnly = outcome.results().stream()
+                .filter(result -> CHUNK_B.toString().equals(result.chunkId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(keywordOnly.matchedBy()).isEqualTo("keyword");
+        assertThat(keywordOnly.keywordRank()).isEqualTo(1);
+        assertThat(keywordOnly.vectorRank()).isNull();
+        // 仅关键词命中时没有向量分数，展示端需要能处理空值
+        assertThat(keywordOnly.vectorScore()).isNull();
+    }
+
+    @Test
+    void appliesSamePermissionFilterToKeywordRetrieval() {
+        seedDocument("public", true, KnowledgeEnums.DocumentStatus.ACTIVE, "blog:aqs-notes", "42");
+        hits = List.of(hit(CHUNK_A, 0.9));
+        keywordHits = List.of(keywordHit(CHUNK_B, 5.0));
+
+        service(defaultSettings()).search(hybridQuery(Scope.PUBLIC));
+
+        // 两路必须共用同一套隔离规则，否则融合结果会绕过权限
+        assertThat(capturedKeywordFilters).hasSize(1);
+        assertThat(capturedKeywordFilters.getFirst())
+                .isEqualTo(capturedFilters.getFirst())
+                .containsEntry("visibility", "public")
+                .containsEntry("status", "active")
+                .containsEntry("knowledgeEnabled", true);
+    }
+
+    @Test
+    void skipsKeywordRetrievalWhenDisabled() {
+        seedDocument("public", true, KnowledgeEnums.DocumentStatus.ACTIVE, "blog:aqs-notes", "42");
+        hits = List.of(hit(CHUNK_A, 0.9));
+
+        var outcome = service(defaultSettings()).search(query(Scope.ALL));
+
+        assertThat(capturedKeywordFilters).isEmpty();
+        assertThat(outcome.keywordEnabled()).isFalse();
+        assertThat(outcome.keywordCandidates()).isZero();
+        assertThat(outcome.results()).extracting(RetrievalHit::chunkId)
+                .containsExactly(CHUNK_A.toString());
+    }
+
+    @Test
+    void degradesToVectorOnlyWhenKeywordIndexUnavailable() {
+        seedDocument("public", true, KnowledgeEnums.DocumentStatus.ACTIVE, "blog:aqs-notes", "42");
+        hits = List.of(hit(CHUNK_A, 0.9));
+        keywordFails = true;
+
+        var outcome = service(defaultSettings()).search(hybridQuery(Scope.ALL));
+
+        // 关键词检索是质量特性：不可用时降级为纯向量检索，而不是让整次检索失败
+        assertThat(outcome.keywordFallback()).isTrue();
+        assertThat(outcome.keywordFallbackReason()).contains("keyword down");
+        assertThat(outcome.results()).extracting(RetrievalHit::chunkId)
+                .containsExactly(CHUNK_A.toString());
+    }
+
+    @Test
+    void respectsFusionTopMBeforeRerank() {
+        seedDocument("public", true, KnowledgeEnums.DocumentStatus.ACTIVE, "blog:aqs-notes", "42");
+        hits = List.of(hit(CHUNK_A, 0.9), hit(CHUNK_B, 0.8));
+        rerankResults = List.of(
+                new KnowledgeAdapters.RerankResult(0, 0.95, "a"),
+                new KnowledgeAdapters.RerankResult(1, 0.50, "b"));
+
+        // fusionTopM=1：只有融合后的第一条进入重排，避免对全部候选逐条打分
+        var outcome = service(new RetrievalSettings(10, 10, 1, 2, true, true, true, RRF_K))
+                .search(hybridQuery(Scope.ALL));
+
+        assertThat(capturedRerankDocuments).hasSize(1);
+        assertThat(outcome.results()).hasSize(1);
     }
 
     // ------------------------------------------------------------------
@@ -97,7 +207,7 @@ class KnowledgeRetrievalServiceTest {
         hits = List.of(hit(CHUNK_A, 0.9), hit(CHUNK_B, 0.8));
         rerankFails = true;
 
-        var outcome = service(new RetrievalSettings(10, 2, true, true)).search(query(Scope.ALL));
+        var outcome = service(rerankSettings(true)).search(query(Scope.ALL));
 
         assertThat(outcome.fallback()).isTrue();
         assertThat(outcome.fallbackReason()).contains("rerank down");
@@ -111,7 +221,7 @@ class KnowledgeRetrievalServiceTest {
         hits = List.of(hit(CHUNK_A, 0.9), hit(CHUNK_B, 0.8));
         rerankFails = true;
 
-        assertThatThrownBy(() -> service(new RetrievalSettings(10, 2, true, false)).search(query(Scope.ALL)))
+        assertThatThrownBy(() -> service(rerankSettings(false)).search(query(Scope.ALL)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Rerank service is temporarily unavailable");
     }
@@ -148,7 +258,7 @@ class KnowledgeRetrievalServiceTest {
                 new KnowledgeAdapters.RerankResult(1, 0.95, "b"),
                 new KnowledgeAdapters.RerankResult(0, 0.50, "a"));
 
-        var outcome = service(new RetrievalSettings(10, 2, true, true)).search(query(Scope.ALL));
+        var outcome = service(rerankSettings(true)).search(query(Scope.ALL));
 
         assertThat(outcome.fallback()).isFalse();
         assertThat(outcome.results()).extracting(RetrievalHit::chunkId)
@@ -175,6 +285,7 @@ class KnowledgeRetrievalServiceTest {
         assertThat(result.headingPath()).isEqualTo("章节");
         assertThat(result.blockType()).isEqualTo("paragraph");
         assertThat(result.vectorScore()).isEqualTo(0.9);
+        assertThat(result.matchedBy()).isEqualTo("vector");
         assertThat(result.contentPreview()).endsWith("…");
         assertThat(outcome.scope()).isEqualTo("public");
     }
@@ -201,21 +312,60 @@ class KnowledgeRetrievalServiceTest {
     }
 
     // ------------------------------------------------------------------
+    // 权限权威来源（MySQL 复核）
+    // ------------------------------------------------------------------
+
+    @Test
+    void dropsDocumentsThatAreNoLongerPermittedAccordingToDatabase() {
+        // 索引 payload 声称 public，但 MySQL 中该文档已是 private 且已退出知识库：
+        // 权限以数据库为准，必须被丢弃，否则会出现私有内容泄漏
+        seedDocument("private", false, KnowledgeEnums.DocumentStatus.ACTIVE, "docs/a.md", null);
+        hits = List.of(hit(CHUNK_A, 0.9));
+
+        var outcome = service(defaultSettings()).search(query(Scope.PUBLIC));
+
+        assertThat(outcome.results()).isEmpty();
+    }
+
+    @Test
+    void dropsArchivedDocumentsEvenWhenIndexStillReturnsThem() {
+        seedDocument("public", true, KnowledgeEnums.DocumentStatus.ARCHIVED, "docs/a.md", null);
+        hits = List.of(hit(CHUNK_A, 0.9));
+
+        assertThat(service(defaultSettings()).search(query(Scope.ALL)).results()).isEmpty();
+    }
+
+    // ------------------------------------------------------------------
     // 测试替身
     // ------------------------------------------------------------------
 
+    /** 默认关闭重排，便于直接观察 RRF 融合顺序。 */
     private RetrievalSettings defaultSettings() {
-        return new RetrievalSettings(10, 2, true, true);
+        return new RetrievalSettings(10, 10, 10, 2, false, true, true, RRF_K);
     }
 
+    private RetrievalSettings rerankSettings(boolean fallbackEnabled) {
+        return new RetrievalSettings(10, 10, 10, 2, true, true, fallbackEnabled, RRF_K);
+    }
+
+    /** 仅向量路径，保持既有用例聚焦。 */
     private RetrievalQuery query(Scope scope) {
-        return new RetrievalQuery("AQS 是什么", scope, null, null, null);
+        return new RetrievalQuery("AQS 是什么", scope, null, null, null, Boolean.FALSE);
+    }
+
+    /** 双路召回路径。 */
+    private RetrievalQuery hybridQuery(Scope scope) {
+        return new RetrievalQuery("AQS 是什么", scope, null, null, null, Boolean.TRUE);
     }
 
     private KnowledgeAdapters.VectorHit hit(UUID chunkId, double score) {
         return new KnowledgeAdapters.VectorHit(
                 chunkId, DOCUMENT_ID, VERSION_ID, score,
                 Map.of("chunkId", chunkId.toString(), "documentId", DOCUMENT_ID.toString()));
+    }
+
+    private KnowledgeAdapters.KeywordHit keywordHit(UUID chunkId, double score) {
+        return new KnowledgeAdapters.KeywordHit(chunkId, DOCUMENT_ID, score);
     }
 
     private void seedDocument(
@@ -296,6 +446,10 @@ class KnowledgeRetrievalServiceTest {
                     }
 
                     @Override
+                    public void updatePayload(UUID documentVersionId, Map<String, Object> payload) {
+                    }
+
+                    @Override
                     public List<KnowledgeAdapters.VectorHit> search(
                             List<Double> queryVector, int topN, Map<String, Object> exactMatchFilter) {
                         if (vectorFails) {
@@ -303,6 +457,29 @@ class KnowledgeRetrievalServiceTest {
                         }
                         capturedFilters.add(exactMatchFilter);
                         return hits;
+                    }
+                },
+                new KnowledgeAdapters.KeywordIndexPort() {
+                    @Override
+                    public void replaceDocument(UUID documentId, List<KnowledgeAdapters.KeywordDocument> documents) {
+                    }
+
+                    @Override
+                    public void deleteDocument(UUID documentId) {
+                    }
+
+                    @Override
+                    public void deleteAll() {
+                    }
+
+                    @Override
+                    public List<KnowledgeAdapters.KeywordHit> search(
+                            String query, int topN, Map<String, Object> exactMatchFilter) {
+                        if (keywordFails) {
+                            throw new IllegalStateException("keyword down");
+                        }
+                        capturedKeywordFilters.add(exactMatchFilter);
+                        return keywordHits;
                     }
                 },
                 settings);

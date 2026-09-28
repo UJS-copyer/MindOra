@@ -86,6 +86,14 @@ public final class KnowledgeAdapters {
         void deleteByVersion(UUID documentVersionId);
 
         /**
+         * 按版本更新已有向量点的 payload 字段，不重新计算向量。
+         *
+         * <p>用于文档可见性或知识库开关变更后的同步：payload 中的 visibility / knowledgeEnabled
+         * 是索引时写入的，若不回写就会残留旧值，导致权限隔离失效。
+         */
+        void updatePayload(UUID documentVersionId, Map<String, Object> payload);
+
+        /**
          * 向量相似度检索。
          *
          * @param queryVector      查询向量
@@ -96,6 +104,50 @@ public final class KnowledgeAdapters {
          *                         不泄漏到应用层。
          */
         List<VectorHit> search(List<Double> queryVector, int topN, Map<String, Object> exactMatchFilter);
+    }
+
+    /**
+     * 关键词索引中的一个切片。
+     *
+     * <p>权限字段（visibility / status / knowledgeEnabled）与向量 payload 保持一致，
+     * 确保两路召回使用同一套隔离规则，融合时不会泄漏私有内容。
+     */
+    public record KeywordDocument(
+            UUID chunkId,
+            UUID documentId,
+            String title,
+            String headingPath,
+            String blockType,
+            String codeLanguage,
+            String content,
+            String visibility,
+            String status,
+            boolean knowledgeEnabled) {
+    }
+
+    /** 关键词检索命中项；{@code score} 为 BM25 相关度分数。 */
+    public record KeywordHit(UUID chunkId, UUID documentId, double score) {
+    }
+
+    public interface KeywordIndexPort {
+        /**
+         * 以文档为单位原子替换其全部切片。
+         *
+         * <p>必须原子：重新切片时若先删后写之间存在窗口，或删除条件不精确，都会产生孤儿切片。
+         */
+        void replaceDocument(UUID documentId, List<KeywordDocument> documents);
+
+        void deleteDocument(UUID documentId);
+
+        /** 清空整个索引，用于全量重建。 */
+        void deleteAll();
+
+        /**
+         * 关键词检索。
+         *
+         * @param exactMatchFilter 与 {@link VectorStorePort#search} 同语义的字段精确匹配过滤（AND）
+         */
+        List<KeywordHit> search(String query, int topN, Map<String, Object> exactMatchFilter);
     }
 
     public interface AssetReferencePort {

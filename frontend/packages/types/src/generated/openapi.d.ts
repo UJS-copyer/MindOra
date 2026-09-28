@@ -305,6 +305,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/knowledge/keyword-index/rebuild": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rebuildKeywordIndex"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/knowledge/documents/{id}/reindex": {
         parameters: {
             query?: never;
@@ -997,6 +1013,7 @@ export interface components {
             /** Format: int32 */
             rerankTopK?: number;
             rerankEnabled?: boolean;
+            keywordEnabled?: boolean;
         };
         ApiResponseRetrievalResultView: {
             code?: string;
@@ -1019,6 +1036,13 @@ export interface components {
             vectorScore?: number;
             /** Format: double */
             rerankScore?: number;
+            /** Format: double */
+            rrfScore?: number;
+            /** Format: int32 */
+            vectorRank?: number;
+            /** Format: int32 */
+            keywordRank?: number;
+            matchedBy?: string;
             contentPreview?: string;
             articleId?: string;
             articleSlug?: string;
@@ -1028,10 +1052,21 @@ export interface components {
             /** Format: int32 */
             topN?: number;
             /** Format: int32 */
+            keywordTopN?: number;
+            /** Format: int32 */
+            fusionTopM?: number;
+            /** Format: int32 */
             rerankTopK?: number;
             rerankEnabled?: boolean;
+            keywordEnabled?: boolean;
+            /** Format: int32 */
+            vectorCandidates?: number;
+            /** Format: int32 */
+            keywordCandidates?: number;
             fallback?: boolean;
             fallbackReason?: string;
+            keywordFallback?: boolean;
+            keywordFallbackReason?: string;
             /** Format: int64 */
             latencyMs?: number;
             results?: components["schemas"]["RetrievalHitView"][];
@@ -1057,6 +1092,15 @@ export interface components {
             score?: number;
             document?: string;
         };
+        ApiResponseInteger: {
+            code?: string;
+            message?: string;
+            /** Format: int32 */
+            data?: number;
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
         ApiResponseVoid: {
             code?: string;
             message?: string;
@@ -1067,15 +1111,6 @@ export interface components {
         };
         BatchReindexRequest: {
             documentIds?: string[];
-        };
-        ApiResponseInteger: {
-            code?: string;
-            message?: string;
-            /** Format: int32 */
-            data?: number;
-            traceId?: string;
-            /** Format: date-time */
-            createdAt?: string;
         };
         ApiResponseAssetView: {
             code?: string;
@@ -2085,6 +2120,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListRerankResultView"];
+                };
+            };
+        };
+    };
+    rebuildKeywordIndex: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseInteger"];
                 };
             };
         };

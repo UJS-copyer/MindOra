@@ -113,6 +113,25 @@ public class QdrantVectorStoreAdapter implements KnowledgeAdapters.VectorStorePo
     }
 
     @Override
+    public void updatePayload(UUID documentVersionId, Map<String, Object> payload) {
+        if (payload == null || payload.isEmpty()) {
+            return;
+        }
+        ensureCollection();
+        RestClient.RequestBodySpec request = restClient.post()
+                .uri("/collections/{collection}/points/payload?wait=true", collection)
+                .contentType(MediaType.APPLICATION_JSON);
+        if (apiKey != null && !apiKey.isBlank()) {
+            request.header("api-key", apiKey);
+        }
+        request.body(Map.of(
+                        "payload", payload,
+                        "filter", qdrantFilter(Map.of("versionId", documentVersionId.toString()))))
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public List<KnowledgeAdapters.VectorHit> search(
             List<Double> queryVector, int topN, Map<String, Object> exactMatchFilter) {
