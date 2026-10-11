@@ -16,16 +16,17 @@
 
 ## Git 集成状态
 
-- 当前开发分支：`feature/stage-3.3-backend`（RAG 生成层，已实机验收，**待合并回 main**）
-- `main`：`87594d0`，领先 `origin/main` **8 个提交（未推送）**
+- `main`：`cdda506`（Stage 3.3 已压缩合并），领先 `origin/main` **9 个提交（未推送）**
 - 各阶段基线/交付提交：
   - Stage 1：`d5b160d`（后端内容）、`62a5cab`（前端内容 + 集成）
   - Stage 2：`b341a77`
   - Stage 3：`34e7697`（主线）、`e4a60df`（检索底座交付）
   - Stage 3.2：`08ec7b0`（关键词与融合）、`3c271e8`（检索调试页）、`67a2b67`（契约与联调记录）
-  - Stage 3.3：见 `docs/stage-3.3-task-manifest-cn.md`（16 个提交，尚未合并）
-- 保留中的分支：`main`、`feature/stage-3.3-backend`（本轮交付）、`feature/stage-4-frontend`（含未交付的前台问答原型：`AiChatView.vue` / `HomeView.vue` / `MindOra.personal-studio.html`）
-- 已完成阶段的分支（内容均已通过压缩合并进入 main）与空指针分支待清理，清单与建议见交付说明；清理需人工确认后执行
+  - Stage 3.3：`cdda506`（压缩合并；来源分支 `feature/stage-3.3-backend` 的 16 个提交按约定保留，仅供追溯）
+- 当前开发：
+  - 后端 Stage 3.4（公开问答闭环）待开工，见 `docs/stage-3.4-task-manifest-cn.md`
+  - 前端原型已收敛到 `feature/stage-3.4-frontend`（`bc5fc81`）：首页 `HomeView`、AI 问答 `AiChatView`、`App.vue` 路由接线、`SiteHeader` 导航、`docs/prototypes/` 下的个人工作台快照。**原 `feature/stage-4-frontend` 与 stash 中的同名文件已成为冗余副本**，内容与收敛结果逐字节一致
+- 已完成阶段的分支（内容均已通过压缩合并进入 main）与空指针分支待清理；清理需人工确认后执行
 - 工作区约定：前后端改动分属不同分支；不在同一工作区同时暂存前后端改动
 
 ## 启动入口
@@ -64,7 +65,7 @@
 | Stage 1 | 已完成 | 迁移到 Art Design Pro 方案并完成主要后台页面 |
 | Stage 2 | 已完成 | `admin-art` 知识库数据源、同步任务、文档、索引状态、失败重试、切片与模型配置页；mock 默认关闭 |
 | Stage 3 / 3.2 | 已完成 | `/knowledge/retrieval` 检索调试页（含「命中来源」「两路排名 / RRF」列与召回→融合→返回指标栏） |
-| Stage 3.3 | 未开始 | **无前端改动**：生成层只提供管理端接口，问答界面属 Stage 3.4 |
+| Stage 3.3 | 已交付 | 后端入库质量修复 + 323 条黄金集评测基线 + RAG 生成层（单次问答 + 引用定位 + 三段式拒答 + 生成侧降级）；已压缩合并进 main（`cdda506`）。**前端无改动** |
 | Stage 4 | 未开始 | 监控、告警、运维视图 |
 
 ## 当前检查结果
