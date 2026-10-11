@@ -1,5 +1,16 @@
 # Design 04: RAG and Intelligent Chat
 
+> **状态：部分被取代（2026-10-10 标注）**
+>
+> 本文是 RAG 与问答的**总体设计**。其中**检索策略、元数据、重排、生成作答、引用与拒答**的落地细节，
+> 已由 [design-09](design-09-chunk-metadata-and-vector-payload.md)、[design-10](design-10-keyword-retrieval-and-hybrid-fusion.md)、
+> [design-11](design-11-rag-answer-generation-layer.md) 细化为可执行契约——**这些部分以那三份为准**。
+>
+> 本文仍然有效、且**尚未实现**的部分（后续实现以此为需求来源）：公开问答权限模型、多轮记忆（Multi-Turn Memory）、
+> 流式输出（Streaming Output）、日志与质量分析、策略开关、资源感知的模块启停。
+>
+> 文档索引与单一事实来源声明见 [docs/README.md](README.md)。
+
 ## Purpose
 
 This document defines the retrieval-augmented generation system and intelligent

@@ -14,6 +14,8 @@ backend/**/*.gradle.kts
 backend/**/settings.gradle.kts
 *.log
 logs/
+# 脚本产出的文档生成物（评审清单/报表/dump）：见 AGENTS.md「文档创建规则」
+docs/generated/
 
 node_modules/
 dist/

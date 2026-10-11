@@ -175,3 +175,38 @@ http://localhost:8080
 ```
 
 停止开发时只需停止 IDEA、VS Code 中的本地服务；VM 基础容器保持 `unless-stopped` 即可。
+
+## 本地联调注意事项（VM 环境，2026-10 实测）
+
+### 端口：ufw 未放行 3306 / 6333，用 SSH 隧道
+
+VM 的 ufw 只放行 22 / 6379 / 8080 / 9876 / 10909-10912，宿主机直连 MySQL（3306）与 Qdrant（6333）会超时。两种做法：
+
+- **推荐（本次采用）**：SSH 隧道，不改 VM 防火墙：
+  ```powershell
+  ssh -N -L 13306:127.0.0.1:3306 -L 16333:127.0.0.1:6333 -L 16379:127.0.0.1:6379 user@192.168.222.128
+  ```
+  本地 3306 / 6379 已被宿主机自身的 mysqld / redis-server 占用，所以隧道端口落在 13306 / 16333 / 16379，并在启动后端时用环境变量覆盖：
+  ```powershell
+  $env:SPRING_DATASOURCE_URL='jdbc:mysql://127.0.0.1:13306/mindora?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true'
+  $env:SPRING_DATA_REDIS_HOST='127.0.0.1'
+  $env:SPRING_DATA_REDIS_PORT='16379'
+  $env:QDRANT_URL='http://127.0.0.1:16333'
+  ```
+- **直连**：在 VM 上执行 `sudo ufw allow 3306/tcp` 与 `sudo ufw allow 6333/tcp`（会扩大暴露面，仅在可信网络下使用）。
+
+### 容器端口全部超时？先看 Docker 网桥有没有 IPv4
+
+症状：`docker ps` 全部 Up、`docker exec` 正常，但宿主机连容器端口（含已放行的 6379）与容器 IP 全部超时。原因通常是自定义网桥（`br-<hash>`）丢失 IPv4 地址与路由。排查：
+
+```bash
+ip addr show br-<hash>   # 期望有 inet 172.19.0.1/16；若只有 IPv6 link-local 即为该问题
+ip route | grep 172
+sudo systemctl restart docker   # 修复；容器按 unless-stopped 自动拉起，数据卷不受影响
+```
+
+注意：`docker restart <单个容器>` 修不好这个问题，必须重启 daemon。
+
+### 单实例约束
+
+Lucene 关键词索引是单写者，**不能同时运行两个后端实例**，否则第二个实例启动失败（`Lock held by another program: .../lucene/keyword/write.lock`）。重启后端前先确认旧进程已退出。

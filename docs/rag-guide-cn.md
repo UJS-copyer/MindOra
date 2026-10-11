@@ -99,6 +99,8 @@ RAG（**R**etrieval-**A**ugmented **G**eneration，检索增强生成）就是�
 
 ## 第 2 章 业界成熟方案速览
 
+> **本章是学习向的综述。选型的权威结论以 [`rag-retrieval-improvement-survey-cn.md`](rag-retrieval-improvement-survey-cn.md)（含来源与「为什么不选」）与各 `design-NN` 契约为准**；若两者不一致，以那两份为准并回头订正本章。
+
 本章是"标准答案库"。**每一节末尾都会标注本项目是否采用**，以及判断理由。
 
 ### 2.1 分块策略（Chunking）
@@ -535,6 +537,8 @@ FlattenGraphFilter       →  【仅索引侧】把 token 图形展平后再入�
 ---
 
 ## 第 4 章 当前能力边界与后续路线
+
+> **本章会随阶段推进而过时。当前进度与下一步以 [`project-status-cn.md`](project-status-cn.md) 的「下一阶段建议」与当前 `stage-*-task-manifest-cn.md` 为准**；本章保留的是「与业界成熟方案相比还差什么」的学习视角。
 
 ### 4.1 已完成
 

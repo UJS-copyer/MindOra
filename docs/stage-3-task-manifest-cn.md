@@ -104,3 +104,54 @@
 - 向量库与数据库一致性：Qdrant points_count = 1988，MySQL index_status=indexed 切片数 = 1988，两侧一致，集合状态 green。
 - 重建后块类型分布：paragraph 1322、list 453、code 110、table 91、quote 12。
 - 重建后检索抽检（rerankEnabled=true）：fallback=false，延迟 441ms，返回真实 rerank 分 0.9003 / 0.8251 / 0.0123，命中切片带形如「负责的核心链路 > 支付后创建合同。」的章节路径。
+
+---
+
+## 接口与行为（2026-10-10 自 `project-status-cn.md` 迁入）
+
+- `POST /api/v1/admin/knowledge/retrieval/search`：管理端知识库检索调试接口。
+  - 请求参数：`query`（检索词）、`scope`（必填，`all` 或 `public`）、`topN`（候选切片数）、`rerankTopK`（重排返回切片数）、`rerankEnabled`（是否启用重排）。
+  - 响应参数：包含 `scope`、`topN`、`rerankTopK`、`rerankEnabled`、`fallback`、`fallbackReason`、`latencyMs` 以及 `results` 列表（切片项含 `chunkId`、`documentId`、`documentTitle`、`sourcePath`、`headingPath`、`blockType`、`vectorScore`、`rerankScore`、`contentPreview` 等）。
+- `GET /api/v1/admin/knowledge/documents/{id}/chunks`：切片列表接口响应新增 `headingPath`、`headingLevel`、`blockType`、`codeLanguage` 四个元数据字段。
+- 检索与模型超时配置：
+  - `mindora.knowledge.retrieval.top-n`：向量召回候选数。
+  - `mindora.knowledge.retrieval.rerank-top-k`：重排最终返回数。
+  - `mindora.knowledge.retrieval.rerank-enabled`：是否默认开启 rerank 重排。
+  - `mindora.knowledge.retrieval.fallback-enabled`：重排失败或异常时是否降级为纯向量相似度排序。
+  - `mindora.knowledge.embedding.timeout-ms`：Embedding 外部调用超时时间（毫秒）。
+  - `mindora.knowledge.rerank.timeout-ms`：Rerank 外部调用超时时间（毫秒）。
+
+## 数据边界（同上迁入）
+
+- 向量库目标已从 Qdrant Cloud 切换为 VM 本地 Qdrant（`http://192.168.222.128:6333`），集合为 `mindora_chunk`，named vector 使用 `dense`（1024 维，Cosine 相似度）。
+- 向量 payload 仅存储最小检索与权限字段（`chunkId`、`documentId`、`versionId`、`sequence`、`sourceType`、`sourceId`、`sourcePath`、`visibility`、`status`、`knowledgeEnabled`、`blockType`、`contentHash`、`articleId` 以及层级 `headingPath`），切片正文不存入 payload，检索召回后按 `chunkId` 回查 MySQL 组装正文与预览。
+- 权限隔离采用 fail-closed 策略：`PUBLIC` 检索范围在 Qdrant 侧强制过滤 `visibility=public` 且 `status=active` 且 `knowledgeEnabled=true`；若请求中的 `scope` 缺失或不合法，直接报错拒绝，杜绝越权召回私有切片。
+- 向量点生命周期与点 ID 修复：向量点 ID 与 MySQL 中 `knowledge_chunk.id` 保持一致，修复了此前 `vector_point_id` 记录 `documentId:index` 的错配；文档重建索引或版本更新时会先显式清理旧版本向量点，避免脏点残留与点堆积。
+- 索引重建要求：因切片嵌入文本（标题路径拼接正文）与 payload 结构变更，Stage 3 部署后必须执行一次全量重建索引，集合点数会从零重新累积。
+
+## 现场联调记录（同上迁入）
+
+- VM 基础服务（MySQL / Redis / Qdrant / RocketMQ）位于 192.168.222.128；Qdrant 目标已从被回收的 Qdrant Cloud 免费集群切换为 VM 本地 `http://192.168.222.128:6333`。
+- 后端 8080、后台前端 5175 均已运行；V6 迁移已应用，`knowledge_chunk` 新增 `heading_path` / `heading_level` / `block_type` / `code_language` / `content_hash` 五列。
+- Qdrant 集合 `mindora_chunk` 由后端按需创建，使用 named vector `dense`（1024 维，Cosine）。
+- 切片样本 payload 含 chunkId / documentId / versionId / sequence / sourceType / sourceId / sourcePath / visibility / status / knowledgeEnabled / blockType / contentHash / articleId；headingPath 已在 26 个切片上按「A > B > C」层级写入。
+- 向量点 ID 已与 chunkId 一致，修正了此前 `vector_point_id` 记录 `documentId:index` 的错配。
+- 管理端检索接口 `POST /api/v1/admin/knowledge/retrieval/search` 实测返回 200 与真实召回结果（含 documentTitle、sourcePath、headingPath、blockType、vectorScore、contentPreview）。
+- 实测 rerank 因 SiliconFlow 账户余额不足返回 402，服务按 `fallback-enabled=true` 降级为向量相似度顺序，并返回 `fallback=true` 与 `fallbackReason`，验证了 design-04 的降级链路。
+- 端到端联调发现并修复两个缺陷：
+  1. Qdrant `points/search` 的命名向量必须使用 `{name, vector}` 形式，此前沿用写入时的 `{name: [...]}` 映射会被 Qdrant 以 400 JSON 格式错误拒绝；
+  2. 段落紧邻围栏代码块且中间无空行时，围栏会被并入普通段落，导致 code 块与 blockType 丢失。两者均已补充回归测试。
+- 已知限制：超过 maximumSize 的代码块保持原子可能超限；Setext 仅识别紧邻的单行标题文本。
+- 切片器缺陷修复：支持 Setext 标题、剔除分隔线噪声切片、实现 FIXED_SIZE 策略，并按 spec/quality 评审意见修正了「FIXED_SIZE 跨章节切片一律套用首个章节元数据」与「连续分隔线被误判为标题」两个问题，均补充回归测试。
+
+### 全量重建与端到端验收（2026-09-19）
+
+- 全量重建：133 篇文档分 7 批执行，全部返回 200，总耗时约 66 秒。
+- 一致性：MySQL `index_status='indexed'` 切片 `2011` 条，Qdrant `mindora_chunk` `points_count` 同样为 `2011`，两侧完全对齐。
+- 元数据覆盖：`1521` 条切片带 `heading_path`（约 76%）；块类型分布为 paragraph 1344、list 454、code 110、table 91、quote 12。
+- 点生命周期：对同一文档连续两次重建，`points_count` 保持 `2011` 不变，确认重建为替换而非追加。
+- 权限隔离：语料为 132 篇 private + 1 篇 public；`scope=public` 的命中全部来自该唯一 public 文档，无私有内容泄漏。
+- fail-closed：缺少 `scope` 的请求返回 `retrieval_scope_required`（400），未被放行。
+- 降级可见：SiliconFlow 账户已充值，rerankEnabled=true 时 fallback=false 并返回真实 rerankScore，且排序相对向量序发生变化（向量分 0.573 的切片被重排到第 1 位 rerank 0.9012，向量分 0.682 的切片降到第 2 位 rerank 0.8242，无关切片 rerank 分接近 0 并沉到末尾）；rerankEnabled=false 时按向量分排序、rerankScore 为 null；降级路径仅在 rerank 不可用时触发。
+- 浏览器验证：`http://localhost:5175/#/knowledge/retrieval` 输入查询后返回 8 条真实结果，正确渲染耗时、命中条数、生效范围、重排状态、降级状态，以及文档标题、章节路径、来源路径、块类型、向量分与内容预览。
+- 检索质量抽样：查询「Java 项目 幂等 重试 补偿」在 `scope=all` 下命中「众安康项目」「JAVASE」「Redis-黑马点评项目笔记」等语义相关文档，其中 code 块带出 `项目结构 > 异常处理` 章节路径，延迟约 103 ms。

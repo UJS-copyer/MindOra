@@ -1,0 +1,65 @@
+{
+  "_readme": [
+    "MindOra 检索评测黄金集（标注模板）。",
+    "标注顺序：先写你真实想问的问题，再标答案锚点；不要拿切片反推问题。",
+    "expectedDocs：答案所在的文档标题（也可写 documentId）。必填。",
+    "keySpans：从原文复制的 10~30 字唯一片段，用于切片级命中判定（脚本会拉取切片全文做子串匹配）。强烈建议填。",
+    "type：fact | code | cross-section | vague | multi-doc | long-block | no-answer",
+    "noAnswer=true 表示知识库确实没有答案，用于验证熔断/拒答阈值。",
+    "scope / keywordEnabled 可选，用于针对单个用例做 A/B。",
+    "下面 7 条是真实语料上的示例，请替换为你自己的问题并扩到 30~50 条。"
+  ],
+  "cases": [
+    {
+      "id": "q01",
+      "question": "后台中转链接出现问题该怎么排查日志",
+      "type": "fact",
+      "expectedDocs": ["个人知识库开发记录"],
+      "keySpans": ["并且在后台的中转链接出现问题"]
+    },
+    {
+      "id": "q02",
+      "question": "MySql 索引合并 Index Merge 是什么",
+      "type": "fact",
+      "expectedDocs": ["MySql"],
+      "keySpans": ["索引合并是优化器的一种策略"]
+    },
+    {
+      "id": "q03",
+      "question": "Diff ACR 论文里核心技术新颖性怎么回答的",
+      "type": "cross-section",
+      "expectedDocs": ["初稿优化", "DIff ACR"],
+      "keySpans": ["核心技术新颖性时在冷扩散修复的基础上引入了FASA"]
+    },
+    {
+      "id": "q04",
+      "question": "项目里检索是怎么同时做向量和关键词的",
+      "type": "vague",
+      "expectedDocs": ["个人网站开发"],
+      "keySpans": ["同时支持向量语义检索与关键词检索"]
+    },
+    {
+      "id": "q05",
+      "question": "MySql 索引优化的最左前缀和覆盖索引怎么用",
+      "type": "cross-section",
+      "expectedDocs": ["MySql"],
+      "keySpans": ["最左前缀", "覆盖索引"]
+    },
+    {
+      "id": "q06",
+      "question": "红烧肉怎么做才好吃",
+      "type": "no-answer",
+      "noAnswer": true,
+      "expectedDocs": [],
+      "keySpans": []
+    },
+    {
+      "id": "q07",
+      "question": "2026 年世界杯冠军是哪支球队",
+      "type": "no-answer",
+      "noAnswer": true,
+      "expectedDocs": [],
+      "keySpans": []
+    }
+  ]
+}

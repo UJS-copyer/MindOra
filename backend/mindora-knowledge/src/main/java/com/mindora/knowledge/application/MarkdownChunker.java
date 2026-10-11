@@ -17,7 +17,8 @@ import java.util.List;
  *   <li>维护标题栈，为每个切片产出完整 {@code headingPath} 与 {@code headingLevel}，
  *       使切片带有从属章节上下文。</li>
  *   <li>连续文本块（段落/列表/引用）按 {@code chunkSize} 与 {@code overlap} 切分，
- *       末尾小于 {@code minimumSize} 的碎片并入前一块。</li>
+ *       末尾小于 {@code minimumSize} 的碎片并入前一块；只有累积了足够长文本的窗口才会
+ *       对齐到换行，避免「短行紧跟超长行」时推进量塌缩为逐字符、产出近重复切片。</li>
  * </ul>
  *
  * <p>支持的标题形式：ATX（{@code #} 前缀）与 Setext（{@code ===} / {@code ---} 下划线）。
@@ -37,6 +38,15 @@ import java.util.List;
 public class MarkdownChunker {
 
     private static final int MAX_FENCE_INDENT = 3;
+
+    /**
+     * 硬切窗口时允许在窗口末尾回退寻找「安全切点」的比例（末尾 1/5）。
+     * 找不到安全切点就按窗口边界硬切，优先保证推进量。
+     */
+    private static final int SAFE_CUT_LOOKBACK_DIVISOR = 5;
+
+    /** 安全切点候选：中英文常见标点；空白由 {@link Character#isWhitespace} 一并识别。 */
+    private static final String SAFE_CUT_CHARS = ",.;:!?)]}\"'\uFF0C\u3002\uFF1B\uFF1A\uFF01\uFF1F\u3001\uFF09\u3011\u300B\u300D\u300F";
 
     public List<ChunkDraft> chunk(String markdown, ChunkingConfig config) {
         ChunkingConfig effective = config == null ? ChunkingConfig.defaults() : config;
@@ -298,6 +308,18 @@ public class MarkdownChunker {
                 withMetadata ? codeLanguage : null));
     }
 
+    /**
+     * 按尺寸切分连续文本。
+     *
+     * <p>优先对齐到换行，但**只接受足够长的窗口**：若最近的换行离起点太近（典型情况是一条
+     * 短行后面紧跟一条超过 {@code chunkSize} 的长行），接受它会让 {@code end - overlap}
+     * 落在起点之前，推进量被兜成 1 个字符，于是产出大量「逐字符位移」的近重复切片——
+     * 它们会挤占召回名额、污染向量索引，并让重排面对高度同质的候选。此时改为按窗口边界
+     * 硬切，并尝试在窗口末尾回退到安全切点，尽量避免把单词从中间切断。
+     *
+     * <p>无论走哪条分支，单次推进量都不小于 {@code minAdvance}，因此循环必然终止，
+     * 且相邻切片不会出现近乎重复的内容。
+     */
     private List<Piece> splitText(String text, ChunkingConfig config) {
         List<Piece> pieces = new ArrayList<>();
         int target = config.chunkSize();
@@ -310,15 +332,22 @@ public class MarkdownChunker {
             }
             return pieces;
         }
+        int desiredAdvance = Math.max(1, target - overlap);
+        // 可接受的最小窗口：既要不小于 minimumSize，也要保证减去 overlap 后
+        // 仍保留至少一半的期望推进量，避免推进量退化为 0 或 1。
+        int minWindow = Math.max(config.minimumSize(), overlap + Math.max(1, desiredAdvance / 2));
+        int minAdvance = Math.max(1, minWindow - overlap);
         int start = 0;
         while (start < length) {
             int limit = Math.min(length, start + target);
             int end = limit;
             if (limit < length) {
                 int boundary = text.lastIndexOf('\n', limit);
-                if (boundary > start + config.minimumSize()) {
-                    end = boundary;
-                }
+                end = (boundary - start >= minWindow) ? boundary : safeCut(text, start, limit, minWindow);
+            }
+            if (end <= start) {
+                // 兜底：任何分支都必须产出非空窗口，杜绝原地打转
+                end = Math.min(length, start + target);
             }
             Piece piece = pieceAt(text.substring(start, end), start);
             if (!piece.text().isEmpty()) {
@@ -327,9 +356,28 @@ public class MarkdownChunker {
             if (end >= length) {
                 break;
             }
-            start = Math.max(start + 1, end - overlap);
+            start = Math.max(start + minAdvance, end - overlap);
         }
         return pieces;
+    }
+
+    /**
+     * 在窗口末尾回退寻找安全切点（标点或空白之后），尽量避免把英文单词、标识符从中间切断；
+     * 回退范围不会越过 {@code start + minWindow}，因此不会牺牲推进量。找不到就返回窗口边界。
+     */
+    private int safeCut(String text, int start, int limit, int minWindow) {
+        int lookback = Math.max(1, (limit - start) / SAFE_CUT_LOOKBACK_DIVISOR);
+        int earliest = Math.max(start + minWindow, limit - lookback);
+        for (int index = limit - 1; index >= earliest; index--) {
+            if (isSafeCut(text.charAt(index))) {
+                return index + 1;
+            }
+        }
+        return limit;
+    }
+
+    private boolean isSafeCut(char value) {
+        return Character.isWhitespace(value) || SAFE_CUT_CHARS.indexOf(value) >= 0;
     }
 
     /**

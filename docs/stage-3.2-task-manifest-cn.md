@@ -106,3 +106,42 @@
 - 检索评测集（`Hit@K` / `MRR`）——列为下一阶段优先项。
 - 查询改写（HyDE / Multi-Query / 拆解）、Contextual Retrieval、父子块检索、Agentic RAG / GraphRAG（理由见 `rag-guide-cn.md` 决策矩阵）。
 - 线上语料残留的极少数单字符 `-` 切片（已记录，暂不修）。
+
+---
+
+## 接口与行为（2026-10-10 自 `project-status-cn.md` 迁入）
+
+关键词检索与 Hybrid/RRF 融合。完整契约见 `docs/design-10-keyword-retrieval-and-hybrid-fusion.md`。
+
+- `POST /api/v1/admin/knowledge/retrieval/search` 请求新增 `keywordEnabled`：关闭后退化为纯向量检索，用于对比两路各自贡献了哪些结果。
+- 同接口响应新增 `keywordTopN`、`fusionTopM`、`keywordEnabled`、`vectorCandidates`、`keywordCandidates`、`keywordFallback`、`keywordFallbackReason`；`results[]` 新增 `rrfScore`、`vectorRank`、`keywordRank`、`matchedBy`（`vector` / `keyword` / `both`），且 `vectorScore` 变为**可空**（仅关键词命中时为 `null`）。
+- 新增 `POST /api/v1/admin/knowledge/keyword-index/rebuild`：以 MySQL 当前切片全量重建关键词索引，返回写入切片数，**不调用 embedding**，因此不消耗模型额度。
+- 检索链路：向量召回 30 + 关键词召回 30 → RRF（k=60）融合 → 前 20 进入重排 → 返回 8。
+- 关键词索引为进程内嵌入式 Lucene（9.12.3），目录 `<存储根>/lucene/keyword`，中文采用 CJK 二元分词并对代码标识符做拆分。
+- 新增配置：`mindora.knowledge.keyword.enabled`、`mindora.knowledge.keyword.index-path`、`mindora.knowledge.retrieval.keyword-enabled`、`mindora.knowledge.retrieval.keyword-top-n`、`mindora.knowledge.retrieval.fusion-top-m`、`mindora.knowledge.retrieval.rrf-k`。
+
+### 权限修复（重要）
+
+- **问题**：索引中的 `visibility`/`knowledgeEnabled` 是写入时固化的。文档在索引后被改为私密时，公开检索**仍会命中它**，构成私有内容泄漏（Stage 3.1 遗留缺陷）。
+- **修复**：① 设置变更时回写两个派生索引的权限字段（Qdrant 经 payload 更新，不需重算 embedding）；② 检索时按 **MySQL 中的文档当前状态**复核访问许可。
+- **结论**：**MySQL 是权限的权威来源，派生索引只用于缩小召回范围**。因此回写可以尽力而为，权限隔离不依赖索引新鲜度，文章发布/下线流程也不依赖索引可用性。
+
+## 现场联调记录（2026-09-27，同上迁入）
+
+关键词索引重建与 Hybrid/RRF 端到端验收，语料为真实笔记 158 篇。
+
+- 关键词索引重建：`POST /api/v1/admin/knowledge/keyword-index/rebuild` 写入 **2195** 切片，耗时 3925ms，不调用 embedding。
+- 三方一致性：MySQL 有效切片 2195 = Lucene 索引 2195 = Qdrant `points_count` 2195。
+- 排查过程中的一处口径纠正：初次统计得到 MySQL 5801 条，与 Qdrant 2195 相差 3606，看似大量切片未写入向量库。核实后发现 `archiveChunks` 采用软删除（`failure_reason='archived'`），先前统计未排除历史代次的归档切片；补上该过滤条件后两侧完全一致，**不存在数据不一致缺陷**。
+- 索引持久化：后端重启后关键词召回仍返回 30 条候选，检索结果逐条一致。
+- 双路对比（查询「怎么把公司 NAS 挂载成本地盘符」）：
+  - 双路：向量候选 30 / 关键词候选 30，出现**仅关键词命中**的结果（`matchedBy=keyword`、`vectorRank=null`）；
+  - 关闭关键词：关键词候选 0，该结果消失，其余顺序基本不变。
+- RRF 分值核算（抽样，与代码公式逐条吻合）：`both, vRank=5, kRank=1` → `1/65 + 1/61 = 0.031778`；`both, vRank=1, kRank=2` → `1/61 + 1/62 = 0.032522`；`vector, vRank=6` → `1/66 = 0.015152`；`both, vRank=8, kRank=1` → `1/68 + 1/61 = 0.031099`。
+- 重排确实在重排：存在 RRF 分更高（0.0325）但因重排分低（0.0752）而排在第 3 的结果，符合「融合定候选、重排定序」。
+- 权限隔离（最强证据）：库中仅 1 篇 public 文档。同一查询在 `scope=public` 下只返回该文档且**关键词候选为 0**，在 `scope=all` 下返回私有笔记（重排分 0.99）——证明是过滤生效，而非无匹配。
+- 检索耗时：冷启动约 900ms（Lucene 首次打开索引），预热后约 400ms。
+- 质量信号可用于拒答（**该推论已于 Stage 3.3 被数据证伪，见 `docs/stage-3.3-task-manifest-cn.md`**）：查询语料中不存在的内容时，全部结果重排分落在 0.0001~0.0021；真实命中为 0.80~0.99。
+- 前端联调：`http://localhost:5175/#/knowledge/retrieval` 经真实后端返回 8 条结果，正确渲染新增的「命中来源」「两路排名 / RRF」列，以及「召回 → 融合 → 返回：30 → 20 → 8」指标栏。
+- 运行约束复现：重启后端时因旧进程未退出，新实例因 Lucene 写锁（`write.lock`）启动失败，确认了单实例约束。
+- 联调方式说明：前端通过应用自身的 Pinia store 注入会话后整页重载，未修改任何账号凭据；后端使用应用默认 JWT 密钥，既有登录会话保持有效。

@@ -25,5 +25,10 @@ mindora:
     # 关键词适配器由自身单测（LuceneKeywordIndexAdapterTest）覆盖
     keyword:
       enabled: false
+  rag:
+    # 测试环境关闭对话模型：注入 Unavailable 适配器，问答走「只给检索片段」的降级路径，
+    # 既不需要真实密钥，也不会让上下文加载失败（对话适配器由自身单测覆盖）
+    chat:
+      enabled: false
   seed:
     enabled: false

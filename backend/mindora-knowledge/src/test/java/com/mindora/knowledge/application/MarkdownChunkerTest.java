@@ -331,4 +331,59 @@ class MarkdownChunkerTest {
         assertThat(chunker.chunk("   \n\n  ", ChunkingConfig.defaults())).isEmpty();
         assertThat(chunker.chunk(null, ChunkingConfig.defaults())).isEmpty();
     }
+
+    @Test
+    void doesNotEmitNearDuplicateChunksWhenShortLinePrecedesLongLine() {
+        MarkdownChunker chunker = new MarkdownChunker();
+        // 回归用例：一条约 110 字符的短行，紧跟一条远超 chunkSize 的长行。
+        // 修复前「最近换行」会紧贴起点，推进量被兜成 1 个字符，于是产出上百个逐字符位移的
+        // 近重复切片（实库中 1857 字符的笔记曾因此产生 83 个切片）。
+        String shortLine = "随手记下的零散结论。".repeat(11);
+        // 长行内容必须逐段唯一：若用同一个字符重复填充，任意两块都会互相包含，
+        // 「近重复」判断就失去意义
+        String longLine = java.util.stream.IntStream.range(0, 200)
+                .mapToObj(index -> "seg" + index)
+                .collect(java.util.stream.Collectors.joining("-"));
+
+        List<ChunkDraft> drafts = chunker.chunk(shortLine + "\n" + longLine, config(800, 120, 40, 1600));
+
+        assertThat(drafts).hasSizeLessThanOrEqualTo(3);
+        assertThat(drafts).extracting(ChunkDraft::content).doesNotHaveDuplicates();
+        assertThat(drafts).allSatisfy(draft -> assertThat(draft.content().length()).isGreaterThanOrEqualTo(40));
+        for (int index = 1; index < drafts.size(); index++) {
+            String previous = drafts.get(index - 1).content();
+            String current = drafts.get(index).content();
+            assertThat(previous.contains(current) || current.contains(previous))
+                    .as("切片 %d 与 %d 疑似近重复", index - 1, index)
+                    .isFalse();
+        }
+    }
+
+    @Test
+    void keepsChunkCountBoundedForUnbrokenLongText() {
+        MarkdownChunker chunker = new MarkdownChunker();
+        // 长行本身超过 chunkSize 时必须按窗口边界硬切，而不是原地打转
+        String text = "这是一段完全没有换行的长文本，用来模拟随手粘贴的一大段记录。".repeat(60);
+
+        List<ChunkDraft> drafts = chunker.chunk(text, config(800, 120, 40, 1600));
+
+        // 单次推进量不小于 (chunkSize - overlap) 的一半，因此切片数远小于字符数
+        assertThat(drafts).hasSizeLessThanOrEqualTo(text.length() / 340 + 2);
+        assertThat(drafts).allSatisfy(draft -> assertThat(draft.content().length()).isGreaterThanOrEqualTo(40));
+    }
+
+    @Test
+    void stillSplitsNormalNotesIntoFewChunksWithHeadingContext() {
+        MarkdownChunker chunker = new MarkdownChunker();
+        String body = String.join(
+                "\n",
+                java.util.stream.IntStream.range(0, 40)
+                        .mapToObj(index -> "第" + index + "行：一条长度稳定的笔记内容，用来确认正常输入不受影响。")
+                        .toList());
+
+        List<ChunkDraft> drafts = chunker.chunk("# 我的笔记\n" + body, config(800, 120, 40, 1600));
+
+        assertThat(drafts).hasSizeLessThanOrEqualTo(3);
+        assertThat(drafts).allSatisfy(draft -> assertThat(draft.headingPath()).isEqualTo("我的笔记"));
+    }
 }
