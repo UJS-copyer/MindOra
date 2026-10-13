@@ -16,7 +16,7 @@
 
 ## Git 集成状态
 
-- `main`：`d7125df`（Stage 3.4 后端已压缩合并 `d44fb62`，其后为环境复测记录），领先 `origin/main`（未推送）
+- `main`：`d6b071d`（含 T5 前台问答页压缩合并 `bd67327`、eslint 本地目录忽略修复），领先 `origin/main`（未推送）
 - 各阶段基线/交付提交：
   - Stage 1：`d5b160d`（后端内容）、`62a5cab`（前端内容 + 集成）
   - Stage 2：`b341a77`
@@ -24,11 +24,11 @@
   - Stage 3.2：`08ec7b0`（关键词与融合）、`3c271e8`（检索调试页）、`67a2b67`（契约与联调记录）
   - Stage 3.3：`cdda506`（压缩合并；来源分支 `feature/stage-3.3-backend` 的 16 个提交按约定保留，仅供追溯）
   - Stage 3.4（后端）：`d44fb62`（压缩合并；来源分支 `feature/stage-3.4-backend` 的 8 个提交按约定保留，仅供追溯）
-  - Stage 3.4（前端 T5）：`feature/stage-3.4-frontend` 的 `21f7a83`（传输层）→ `e3611f8`（状态机）→ `070a323`（页面接线）→ `608f170`（类型改用生成契约）→ `b0dd5da`（章节级回链），**待真机验收后合并**
+  - Stage 3.4（前端 T5）：`bd67327`（压缩合并；来源分支 `feature/stage-3.4-frontend` 的 10 个提交按约定保留，仅供追溯；真机验收已通过）
 - 当前开发：
   - 后端 Stage 3.4 后端闭环已交付，T6 会话历史顺延 Stage 3.5，见 `docs/stage-3.4-task-manifest-cn.md`
-  - 前端原型已收敛到 `feature/stage-3.4-frontend`（`bc5fc81`）：首页 `HomeView`、AI 问答 `AiChatView`、`App.vue` 路由接线、`SiteHeader` 导航、`docs/prototypes/` 下的个人工作台快照。**原 `feature/stage-4-frontend` 与 stash 中的同名文件已成为冗余副本**，内容与收敛结果逐字节一致
-  - **T5 前台问答页已实现**（同一分支 `b0dd5da`）：真实 SSE 消费、引用章节级回链、拒答替换/降级/限流冷却/中断态；**唯一待办是真机端到端验收**（需后端与 VM 隧道在运行）
+  - 前端原型已收敛到 `feature/stage-3.4-frontend`（`bc5fc81`，已随 T5 一并进 main）：首页 `HomeView`、AI 问答 `AiChatView`、`App.vue` 路由接线、`SiteHeader` 导航、`docs/prototypes/` 下的个人工作台快照。**原 `feature/stage-4-frontend` 与 stash 中的同名文件已成为冗余副本**，内容与收敛结果逐字节一致
+  - **T5 前台问答页已在 main**：真实 SSE 消费、引用章节级回链、拒答替换/降级/限流冷却/中断态；真机验收 A–F 全通（§11.3）。剩余：浏览器视觉确认、降级态真机复现、后端修 §11.7 的 403 缺陷
 - 已完成阶段的分支（内容均已通过压缩合并进入 main）与空指针分支待清理；清理需人工确认后执行
 - 工作区约定：前后端改动分属不同分支；不在同一工作区同时暂存前后端改动
 
