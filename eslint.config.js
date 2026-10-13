@@ -22,7 +22,9 @@ export default [
       '**/.vite/**',
       '.worktrees/**',
       'reference/**',
-      '.codex-chrome-stage2-profile/**',
+      // 本地 CDP 浏览器配置目录（已被 .gitignore 忽略）：只忽略旧目录会让新增的同类目录
+      // 被 `eslint .` 全量扫描（实测 19k+ no-undef 噪声）。
+      '.codex-chrome-*/**',
       'backend/**',
       'data/**',
       'deploy/**',
