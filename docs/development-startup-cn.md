@@ -178,34 +178,40 @@ http://localhost:8080
 
 ## 本地联调注意事项（VM 环境，2026-10 实测）
 
-### 端口：ufw 未放行 3306 / 6333，用 SSH 隧道
+### 端口：**可直连**（Docker 发布端口会绕过 ufw）
 
-VM 的 ufw 只放行 22 / 6379 / 8080 / 9876 / 10909-10912，宿主机直连 MySQL（3306）与 Qdrant（6333）会超时。两种做法：
+2026-10-13 实测订正：宿主机**可以直连** VM 的 3306 / 6379 / 6333，`mindora-local.yml` 里用的就是 `192.168.222.128` 直连地址。
 
-- **推荐（本次采用）**：SSH 隧道，不改 VM 防火墙：
+- **为什么 ufw 列表里没有 3306/6333 却仍可访问**：Docker 在 `nat`/`FORWARD` 链写自己的 iptables 规则（DNAT 到容器），而 ufw 的规则作用在 `INPUT` 链上，因此**发布端口默认绕过 ufw**（Docker 的已知行为）。
+- 因此此前「直连超时、必须走隧道」的判断是**误判**：真正原因是 Docker 网桥丢失 IPv4（见下一节），与防火墙无关。
+- **安全提醒**：这意味着 MySQL / Qdrant / Redis 对同网段是开放的。若确实要关闭，需在 compose 里把端口绑定到回环（`127.0.0.1:3306:3306`）或加 `DOCKER-USER` 链规则；仅加 ufw 规则**不起作用**。
+- **SSH 隧道仍是可选备选**（远程访问、或已按上面方式真正关闭端口时）：
   ```powershell
-  ssh -N -L 13306:127.0.0.1:3306 -L 16333:127.0.0.1:6333 -L 16379:127.0.0.1:6379 user@192.168.222.128
+  ssh -N -L 13306:127.0.0.1:3306 -L 16333:127.0.0.1:6333 -L 16379:127.0.0.1:6379 root@192.168.222.128
   ```
-  本地 3306 / 6379 已被宿主机自身的 mysqld / redis-server 占用，所以隧道端口落在 13306 / 16333 / 16379，并在启动后端时用环境变量覆盖：
+  本地 3306 / 6379 可能已被宿主机自身的 mysqld / redis-server 占用，故隧道端口落在 13306 / 16333 / 16379；此时需用环境变量覆盖：
   ```powershell
   $env:SPRING_DATASOURCE_URL='jdbc:mysql://127.0.0.1:13306/mindora?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true'
   $env:SPRING_DATA_REDIS_HOST='127.0.0.1'
   $env:SPRING_DATA_REDIS_PORT='16379'
   $env:QDRANT_URL='http://127.0.0.1:16333'
   ```
-- **直连**：在 VM 上执行 `sudo ufw allow 3306/tcp` 与 `sudo ufw allow 6333/tcp`（会扩大暴露面，仅在可信网络下使用）。
 
-### 容器端口全部超时？先看 Docker 网桥有没有 IPv4
+### 容器端口全部超时？先看 Docker 网桥有没有 IPv4（已复现三次）
 
-症状：`docker ps` 全部 Up、`docker exec` 正常，但宿主机连容器端口（含已放行的 6379）与容器 IP 全部超时。原因通常是自定义网桥（`br-<hash>`）丢失 IPv4 地址与路由。排查：
+症状：`docker ps` 全部 Up、`docker exec` 正常，但宿主机连容器端口全部超时（注意：**`3306` 的 TCP 连接可能仍能建立**，因为 docker-proxy 在监听，只是到容器的转发路径断了）。根因是自定义网桥（`br-<hash>`）在运行期丢失 IPv4 地址与路由。排查与修复：
 
 ```bash
-ip addr show br-<hash>   # 期望有 inet 172.19.0.1/16；若只有 IPv6 link-local 即为该问题
-ip route | grep 172
-sudo systemctl restart docker   # 修复；容器按 unless-stopped 自动拉起，数据卷不受影响
+ip -4 -br addr show br-<hash>   # 期望有 inet 172.19.0.1/16；只有 IPv6 link-local 即为该问题
+ip route | grep 172             # 期望有 172.19.0.0/16
+# 首选修复（最小侵入，不用重启容器）：
+sudo ip addr add 172.19.0.1/16 dev br-<hash>     # /16 路由随地址自动出现
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:6333/readyz   # 期望 200
+# 备选（网桥状态更乱时）：重启 daemon，容器按 unless-stopped 自动拉起
+sudo systemctl restart docker
 ```
 
-注意：`docker restart <单个容器>` 修不好这个问题，必须重启 daemon。
+注意：`docker restart <单个容器>` 修不好这个问题；该故障是在 docker 未重启的情况下于运行期发生的（已排除 NetworkManager / systemd-networkd，触发者仍未定位——根治需加看门狗）。
 
 ### 单实例约束
 

@@ -321,7 +321,7 @@ T7（质量收尾）独立，可并行
 
 `npm run format:check` 在 main 上对约 **297** 个文件为红，其中包含 `.prettierrc`、根 `package.json`、`frontend/packages/utils/*` 等本次修改**完全未触及**的文件（与 Windows CRLF 及历史未格式化有关），因此它不是一个当前有效的门禁。本任务只对**新增文件**执行 `prettier --write`（`8b2ed70`），不重排既有文件——否则会在 `ArticleReader.vue`、`App.vue` 等文件里引入与 T5 无关的整段格式改动。
 
-### 11.7 真机验收发现的跨端缺陷：预检错误被吞成 403（前端已绕开，后端待修）
+### 11.7 真机验收发现的跨端缺陷：预检错误被吞成 403（**已修复**，`9e27590`）
 
 **现象**（可复现，`POST /api/v1/public/rag/answer/stream`）：
 
@@ -338,4 +338,15 @@ T7（质量收尾）独立，可并行
 
 **前端处置**（`1537b49`）：按内容协商的正确做法同时声明 `Accept: text/event-stream, application/json`，两条路径都能协商成功；不改动对后端的依赖。
 
-**建议的后端修法**（择一，属 Stage 3.4 后端范围）：① 放行错误分派，例如 `authorize.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()` 或 `/error` 加进 `permitAll` 列表；② 让错误响应显式设置 `content-type: application/json`（显式类型可跳过协商），例如在 `GlobalExceptionHandler` 的 `ResponseEntity` 上 `.contentType(APPLICATION_JSON)`。
+**后端修复**（`9e27590`，两条建议都采纳，外加一条语义修正）：
+
+1. `GlobalExceptionHandler` 的错误响应加 `.contentType(APPLICATION_JSON)`——显式具体类型会跳过内容协商，因此只接受 `text/event-stream` 的客户端也能拿到 JSON 错误体；
+2. `SecurityConfiguration` 的 `permitAll` 列表加入 `/error`——这一条不只影响 SSE：实测**匿名请求任何进入 `/error` 的错误（例如访问不存在的 public 路径）此前同样被改写成 403 空体**；
+3. `@PostMapping(value = "/answer/stream", produces = TEXT_EVENT_STREAM_VALUE)`——SSE 端点的正确语义（只接受 `application/json` 的客户端得到 406，而不是一个坏掉的流）。
+
+**修复验证**：
+
+- 单测（`mindora-app` 42 全绿，新增 3 个回归用例）：仅接受事件流的预检返回 JSON `400`；限流预检在同样 Accept 下返回 JSON `429`；`/error` 不再落进认证链（状态非 401/403）。
+- 真机（另起 8081 实例 + 独立存储目录，避开 Lucene 写锁）：`Accept: text/event-stream` + 1 字 query → **400 JSON**；匿名访问不存在的 public 路径 → **404 JSON**；SSE 正常路径仍 `delta → citation → done`。
+
+**前端可以回退绕开写法**（把 `Accept` 改回单一 `text/event-stream`）——后端已能正常返回错误码；保留双值也无害。

@@ -75,7 +75,7 @@
 ## 当前检查结果
 
 - 后端全量测试：11 个模块 `BUILD SUCCESS`（Stage 3.4 交付时实测）
-- `mindora-rag` 定向测试 **85** 个通过（适配器 11 / 组装器 10 / 校验器 17 / 编排 20 / SecretGuard 6 / 流式密钥窗口 6 / answer 抽取器 12 / 限流适配器 7）；`mindora-app` **39** 个（含公开端点 5 + 限流 4 + SSE 6 + 契约 1）
+- `mindora-rag` 定向测试 **85** 个通过（适配器 11 / 组装器 10 / 校验器 17 / 编排 20 / SecretGuard 6 / 流式密钥窗口 6 / answer 抽取器 12 / 限流适配器 7）；`mindora-app` **42** 个（含公开端点 5 + 限流 4 + SSE 6 + 契约 1，以及 §11.7 缺陷的 3 个回归用例）
 - 实机联调（真实模型 + 2028 切片语料）：
   - 管理端回归（REPEAT=3）：正例 **15/15**（流式重构无回归）、负例 27/30（唯一失败为 Kafka 边界用例）
   - 公开端点：公开文档 2/2 作答且**引用只来自 public**；负例 2/2 拒答；**私有内容 2/2 零召回**
@@ -86,7 +86,8 @@
 - `npm run api:sync` / `api:generate` / `api:check` 通过（公开问答三端点已进 OpenAPI 与生成的 TS 类型）
 - **前台问答页（T5，`feature/stage-3.4-frontend`）**：`npm test --workspace=@mindora/site` **38 passed**（传输层 20 / 状态机 10 / 锚点 8）；`npm run typecheck`（7 工作区）0 错误；`npm run lint` 0 错误（顺带修掉主线自 `cdda506` 起 `scripts/rag-eval/run.mjs` 缺 `fetch`/`Buffer` 全局的 2 个 lint 错误）；`npm run build --workspace=@mindora/site` 通过（134.5 kB / gzip 46.5 kB）
 - **T5 真机验收（2026-10-13，真实后端 + 真实模型，用前端传输层与状态机直打端点）**：正例 `delta×18 → citation×1 → done`（`latencyMs=3720`、引用只来自 public 文档）；负例 `refused` 且已流出文字被标准拒答文案替换；私有内容零召回；限流（后端额度压到 2）实测 `200,200,429,429,429,429` 且状态机进入 `rate_limited` + 60s 冷却。**未做**：降级态真机复现、浏览器视觉确认（本机缺 bsk）
-- **真机验收发现的后端缺陷（待修，前端已绕开）**：公开问答 SSE 端点若只收到 `Accept: text/event-stream`，其**预检错误**（400/429）会退化成 **403 + 空响应体**（错误响应无法完成内容协商 → ERROR 分派到 `/error` 被鉴权拦截）。详见 `docs/stage-3.4-task-manifest-cn.md` §11.7；前端已改为 `Accept: text/event-stream, application/json`
+- **真机验收发现的后端缺陷（已修复，`9e27590`）**：公开问答 SSE 端点若只收到 `Accept: text/event-stream`，其**预检错误**（400/429）曾退化成 **403 + 空响应体**（错误响应无法完成内容协商 → ERROR 分派到 `/error` 被鉴权拦截）。修复：错误响应显式声明 `application/json`（跳过协商）+ 放行 `/error` + SSE 端点声明 `produces`。同上修复还覆盖了「匿名访问不存在的 public 路径」这类错误分派被改写成 403 的情况。前端原先的绕开写法（`Accept: text/event-stream, application/json`，`1537b49`）可保留也可回退。详见 `docs/stage-3.4-task-manifest-cn.md` §11.7
+- **真机验收发现的降级根因（已修复，`9e27590`）**：本地 `mindora-local.yml` 只配了 `mindora.knowledge.*` 密钥，`mindora.rag.chat.api-key` 默认空 → 正常本地启动必然 `degradedReason=rag_chat_api_key_missing`（现象只是「对话模型不可用」）。修复：密钥兜底链 `${RAG_CHAT_API_KEY:${mindora.knowledge.rerank.api-key:}}` + 启动期 WARN。实测（不设 env、local profile）公开问答 `degraded=false`、模型 `Qwen/Qwen3-30B-A3B-Instruct-2507`
 - **开发环境畅通性复测（2026-10-13，main `d44fb62`）**：全量 11 模块 `BUILD SUCCESS`；后端启动后检索「向量 30 + 关键词 30 → 融合 20 → 返回 8」（1037ms，说明 MySQL/Qdrant/Lucene 均通）；管理端问答 5 条引用（真实模型）；公开端点 1 条引用；SSE `delta → citation → done`（`latencyMs=2340`）；限流后端无 fail-open 告警（Redis 通）。测试前修复了 VM 网桥丢 IPv4（见下方运行约束）
 - `git diff --check` 通过（仅有 Windows `LF will be replaced by CRLF` 提示）
 - 浏览器验证：`/#/knowledge/retrieval` 返回真实结果并正确渲染；`/#/500`、404/403 页面正常
@@ -121,6 +122,8 @@
 
 - **单实例**：Lucene 关键词索引是单写者，**本地不能同时运行两个后端实例**（第二个实例会因 `write.lock` 启动失败）。详见 `docs/stage-3.2-task-manifest-cn.md` 与 `docs/design-10-keyword-retrieval-and-hybrid-fusion.md`。
 - **VM 端口**：本机兜底方案是 SSH 隧道（`13306→3306`、`16333→6333`、`16379→6379`），命令与覆盖用的环境变量见 `docs/development-startup-cn.md`。**2026-10-13 T5 真机验收实测宿主机可直连** `192.168.222.128` 的 3306/6333/6379/9876（`backend/mindora-app/config/mindora-local.yml` 也是直连配置，验收时未启隧道）；若某天直连超时，按 `development-startup-cn.md` 起隧道并用环境变量覆盖。
+  - 为什么 ufw 列表里没有 3306/6333 却仍可直连：**Docker 的发布端口会绕过 ufw**（Docker 在 `nat`/`FORWARD` 链写 DNAT 规则，ufw 只管 `INPUT`）。此前判断的「ufw 拦截」是误判，真正原因是下面的网桥故障。
+  - **安全提醒**：这意味着 MySQL / Qdrant / Redis 对同网段开放。要真正关闭需在 compose 里把端口绑定到回环（`127.0.0.1:3306:3306`）或加 `DOCKER-USER` 链规则——**只加 ufw 规则不起作用**。
 - **VM Docker 网桥易丢失 IPv4（已复现三次，运行期发生、非重启导致）**：症状是「VM 上 3306 的 TCP 可连（docker-proxy 在听）但到容器不通」→ 后端报 `Communications link failure`、Qdrant `readyz` 返回 `000`。判断：`ip -4 -br addr show br-ff83ebfa1109` 无 IPv4。**首选修法（无需重启容器，2026-10-13 实测有效）**：`ip addr add 172.19.0.1/16 dev br-ff83ebfa1109`；备选 `systemctl restart docker`。触发者未定位（networkd 未接管、docker 未重启），根治需看门狗。详见 `docs/stage-3.4-task-manifest-cn.md` §10.3。
 - **本地鉴权**：不设 `MINDORA_JWT_SECRET` 时后端使用默认密钥，与本机既有登录会话一致；联调令牌只在本地使用，不入库。
 
