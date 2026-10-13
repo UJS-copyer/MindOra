@@ -233,7 +233,15 @@ T7（质量收尾）独立，可并行
 
 ### 10.3 本轮踩到的两个环境/工程坑（已解决，供下次参考）
 
-1. **VM Docker 网桥再次丢失 IPv4**：`br-ff83ebfa1109` 只剩 IPv6 link-local，表现为「VM 上 3306 显示 OPEN 但 `docker-proxy` 到容器不通」→ 后端 `Communications link failure`。修复：`systemctl restart docker`（容器 `unless-stopped` 自动恢复，`172.19.0.1/16` 回归）。这是该故障第二次复现，处置过程与个人笔记库《经验01》一致。
+1. **VM Docker 网桥丢失 IPv4（已复现三次，且是运行期发生、非重启导致）**：症状是「VM 上 `3306` 的 TCP 连接可建立（docker-proxy 在听）但到容器不通」→ 后端 `Communications link failure`；`curl http://127.0.0.1:6333/readyz` 返回 `000`。判断依据：`ip -4 -br addr show br-ff83ebfa1109` 无 IPv4、`ip route` 无 `172.19.0.0/16`。
+   - **首选修法（最小侵入，2026-10-13 实测有效，无需重启容器）**：
+     ```bash
+     ip addr add 172.19.0.1/16 dev br-ff83ebfa1109   # /16 路由随地址自动出现
+     curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:6333/readyz   # 应为 200
+     ```
+   - 备选修法（网桥状态更乱时）：`systemctl restart docker`（容器 `unless-stopped` 自动恢复，但有短暂停机）。
+   - **排除项**：`networkctl status` 显示该网桥 `unmanaged`（NetworkManager 未安装、systemd-networkd 未接管），docker 服务 `NRestarts=0`——即 IPv4 是在 docker 未重启、容器持续运行 37 小时的情况下于运行期被抹掉的；**具体触发者仍未定位**（疑似宿主网络事件或外部 docker 命令）。根治需加看门狗（定时检查并补回地址），本轮未做，记为待办。
+
 2. **两个 Spring 装配坑**：① rag 模块缺 `spring-webmvc`（`SseEmitter` 所在），已按最小改动补依赖；② 直接注册 `ThreadPoolTaskExecutor` Bean 会让 knowledge 装配中未加限定的 `Executor` 注入点出现「2 个候选」，故包成 `RagStreamTaskExecutor` 独立类型。
 
 ### 10.4 已知限制（本轮未做）

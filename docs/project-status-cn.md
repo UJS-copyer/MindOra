@@ -81,6 +81,7 @@
   - 降级：对话模型不可用时 JSON 与 SSE 均 `degraded=true`，**非 500**
   - 语料凭据扫描：全量 158 篇 6 处高置信命中（均在私有文档）；**public 暴露面 0 命中**
 - `npm run api:sync` / `api:generate` / `api:check` 通过（公开问答三端点已进 OpenAPI 与生成的 TS 类型）
+- **开发环境畅通性复测（2026-10-13，main `d44fb62`）**：全量 11 模块 `BUILD SUCCESS`；后端启动后检索「向量 30 + 关键词 30 → 融合 20 → 返回 8」（1037ms，说明 MySQL/Qdrant/Lucene 均通）；管理端问答 5 条引用（真实模型）；公开端点 1 条引用；SSE `delta → citation → done`（`latencyMs=2340`）；限流后端无 fail-open 告警（Redis 通）。测试前修复了 VM 网桥丢 IPv4（见下方运行约束）
 - `git diff --check` 通过（仅有 Windows `LF will be replaced by CRLF` 提示）
 - 浏览器验证：`/#/knowledge/retrieval` 返回真实结果并正确渲染；`/#/500`、404/403 页面正常
 - 权限控制：当前后端管理接口仍以 `SUPER_ADMIN` 为主，动态后端权限模式尚未切换到 `VITE_ACCESS_MODE=backend`
@@ -110,7 +111,7 @@
 
 - **单实例**：Lucene 关键词索引是单写者，**本地不能同时运行两个后端实例**（第二个实例会因 `write.lock` 启动失败）。详见 `docs/stage-3.2-task-manifest-cn.md` 与 `docs/design-10-keyword-retrieval-and-hybrid-fusion.md`。
 - **VM 端口**：VM 的 ufw 未放行 3306/6333，本机通过 SSH 隧道（13306/16333/16379）访问；命令与覆盖的环境变量见 `docs/development-startup-cn.md`。
-- **VM Docker 网桥易丢失 IPv4（已复现两次）**：症状是「VM 上 3306 显示 OPEN 但 `docker-proxy` 到容器不通」→ 后端报 `Communications link failure`。判断依据 `ip -br addr show br-*` 只有 IPv6；修复 `systemctl restart docker`（容器 `unless-stopped` 自动恢复）。详见 `docs/stage-3.4-task-manifest-cn.md` §10.3。
+- **VM Docker 网桥易丢失 IPv4（已复现三次，运行期发生、非重启导致）**：症状是「VM 上 3306 的 TCP 可连（docker-proxy 在听）但到容器不通」→ 后端报 `Communications link failure`、Qdrant `readyz` 返回 `000`。判断：`ip -4 -br addr show br-ff83ebfa1109` 无 IPv4。**首选修法（无需重启容器，2026-10-13 实测有效）**：`ip addr add 172.19.0.1/16 dev br-ff83ebfa1109`；备选 `systemctl restart docker`。触发者未定位（networkd 未接管、docker 未重启），根治需看门狗。详见 `docs/stage-3.4-task-manifest-cn.md` §10.3。
 - **本地鉴权**：不设 `MINDORA_JWT_SECRET` 时后端使用默认密钥，与本机既有登录会话一致；联调令牌只在本地使用，不入库。
 
 ## 下一阶段建议
