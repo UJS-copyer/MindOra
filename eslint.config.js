@@ -36,7 +36,9 @@ export default [
     files: ['*.js', '*.mjs', 'scripts/**/*.mjs'],
     languageOptions: {
       globals: {
+        Buffer: 'readonly',
         console: 'readonly',
+        fetch: 'readonly',
         process: 'readonly',
         URL: 'readonly'
       }
@@ -81,7 +83,15 @@ export default [
         URL: 'readonly',
         URLSearchParams: 'readonly',
         NodeJS: 'readonly',
-        VNode: 'readonly'
+        VNode: 'readonly',
+        AbortController: 'readonly',
+        AbortSignal: 'readonly',
+        DOMException: 'readonly',
+        Headers: 'readonly',
+        Response: 'readonly',
+        ReadableStream: 'readonly',
+        TextDecoder: 'readonly',
+        TextEncoder: 'readonly'
       }
     },
     rules: {

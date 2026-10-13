@@ -1,21 +1,14 @@
 import type { ArticleTocItem } from '@mindora/types';
 import { onBeforeUnmount, ref } from 'vue';
+import { anchorIdFromText } from '../utils/anchor';
 
 export function useArticleToc() {
   const toc = ref<ArticleTocItem[]>([]);
   const activeId = ref('');
   let scrollListener: (() => void) | null = null;
 
-  function slugify(text: string): string {
-    return (
-      text
-        .toLowerCase()
-        .replace(/<[^>]+>/g, '')
-        .trim()
-        .replace(/[^\w\u4e00-\u9fa5-]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'heading'
-    );
-  }
+  // 与 ArticleReader 写进正文的标题 id 同源（见 utils/anchor），确保目录项能定位到真实节点。
+  const slugify = anchorIdFromText;
 
   function parseMarkdown(markdown: string) {
     const lines = markdown.replace(/\r\n/g, '\n').split('\n');

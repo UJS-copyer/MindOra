@@ -170,7 +170,7 @@ T7（质量收尾）独立，可并行
 | T3 | 契约同步 | **DONE** | `a25b5ba` | 三个端点进契约，`api:check` 通过 |
 | T4 | SSE 流式 | **DONE** | `442e2c7`、`2722edc`、`7d4958f` | 事件契约 delta→citation→done；实机事件序验证通过 |
 | T7 | 质量收尾（日志部分） | **部分** | `7d4958f` | `RagAccessLog` 结构化日志已上线；**DB 日志表与告警归 Stage 4**（design-07 的运维范围）；黄金集人工复审待本人 |
-| T5 | 前台问答页 | **顺延 Stage 3.5** | — | 依赖 T2/T3/T4 已就绪；原型三处收敛待本人指定基准 |
+| T5 | 前台问答页 | **已实现**（真机验收通过） | `21f7a83`、`e3611f8`、`070a323`、`608f170`、`b0dd5da`、`8b2ed70`、`1537b49` | 分支 `feature/stage-3.4-frontend`；38 个单测 + typecheck/lint/build 全绿；真机 A–F 六项用例全通（见 §11.3）；浏览器视觉验证仍待补 |
 | T6 | 会话历史 | **顺延 Stage 3.5** | — | 多轮记忆需独立设计与评测（design-04：`chat_context_turns=4`、`max_history_tokens=3000`） |
 
 ## 9. 约束
@@ -251,3 +251,91 @@ T7（质量收尾）独立，可并行
 - **访问日志只落文件**：`rag_chat_log` 表、额度报表与降级告警归 Stage 4（design-07 运维范围）。
 - **限流阈值（6/20 每分钟）是初始保守值**：需按 T7 日志观察到的真实分布再调；`getRemoteAddr()` 是直连地址，置于反代后需按可信代理解析 `X-Forwarded-For`。
 
+
+---
+
+## 11. 交付记录（2026-10-13，T5 前台问答页）
+
+分支 `feature/stage-3.4-frontend`（独立 worktree `.worktrees/stage3.4-frontend`），基线为已合并 Stage 3.4 后端的 `main`（`d7125df`，其中 `d44fb62` 为后端压缩合并）。提交序列（每提交 = 代码 + 定向测试绿）：
+
+| 提交 | 内容 |
+| --- | --- |
+| `21f7a83` | 传输层：SSE 手工切帧/事件分派/预检分流/abort（19 单测）；site 工作区接入 vitest；eslint 补 DOM 全局并修掉主线既有 lint 失败 |
+| `e3611f8` | 状态机 `useRagChat`：拒答替换、降级兜底、限流冷却、abort/传输中断/网络失败（10 单测） |
+| `070a323` | 页面接线：`ChatMessage` / `CitationCard`，删掉本地 mock，改为真实 SSE |
+| `608f170` | 引用与请求类型改用生成契约（`components['schemas']`） |
+| `b0dd5da` | 引用回链定位到原文所在章节（共享锚点实现 + 8 单测） |
+| `8b2ed70` | 本任务新增文件按仓库 prettier 配置格式化（不动既有文件格式，理由见 §11.6） |
+| `1537b49` | 真机验收发现并修掉「预检错误被吞成 403」（见 §11.7） |
+
+### 11.1 交付物
+
+| 文件 | 职责 |
+| --- | --- |
+| `frontend/apps/site/src/api/rag.ts` | 传输层：`fetch` + `ReadableStream` 手工切帧、按 JSON `type` 分派、预检 4xx 分流为 `RagApiError`、`done`/`error` 终态即停 |
+| `frontend/apps/site/src/composables/useRagChat.ts` | 状态机：视图零业务逻辑，T6 多轮只需扩展此文件 |
+| `frontend/apps/site/src/components/chat/{ChatMessage,CitationCard}.vue` | 气泡状态徽标、流式指示、引用卡（标题/标题路径/逐字核验徽标/`sequence`/摘录） |
+| `frontend/apps/site/src/views/AiChatView.vue` | 页面：停止按钮、限流倒计时、仅持久化了结的问答 |
+| `frontend/apps/site/src/utils/anchor.ts` | 标题 → 锚点 id 的唯一实现（正文渲染 / 阅读大纲 / 引用回链三处同源） |
+
+### 11.2 与契约的对齐（design-11 §12.1 的三条约束）
+
+1. 未使用 `EventSource`（端点是 POST），改为 `fetch` + `response.body.getReader()` 自行按空行切帧、剥 `data:` 前缀、按 `type` 分派；
+2. 预检失败先判状态码与 `content-type`：`rag_rate_limited`(429) / `validation_error`(400) / `rag_public_disabled`(404) 一律按普通 JSON 错误体解析，不进入 SSE 解析；
+3. 429 无 `Retry-After`，前端按 `window-seconds` 默认值给出 60s 冷却并在冷却期内不再发请求。
+
+另落实 **§12 的「已流出文字随后被判定为拒答」**：`done{refused=true}` 时用标准拒答文案整体替换已显示内容并清空引用；降级（无 delta）补提示语且保留引用；`error`(`server_busy`) 与传输中断分别给出明确文案，不出现空白页。
+
+### 11.3 验证证据
+
+单测与静态门禁：
+
+- `npm test --workspace=@mindora/site`：**38 passed**（传输层 20 / 状态机 10 / 锚点 8）
+- `npm run typecheck`（7 个工作区）：0 错误；`npm run lint`：0 错误 0 警告；`npm run api:check`：通过
+- `npm run build --workspace=@mindora/site`：通过（`index.js` 134.5 kB / gzip 46.5 kB）
+
+**真机端到端（2026-10-13，真实后端 + 真实模型）**：后端由本机以 `main` 编译产物启动（工作目录 `backend/`，`MINDORA_STORAGE_ROOT` 指向既有 Lucene 索引），VM 的 MySQL/Redis/Qdrant/RocketMQ 直连（3306/6333/6379/9876 均通，未使用 SSH 隧道）。验收**用前端自己的传输层与状态机**打真实端点（临时 vitest 文件，验完删除）：
+
+| 用例 | 结果 |
+| --- | --- |
+| A 正例（传输层） | `delta×18 → citation×1 → done`，`latencyMs=3720`、`firstDeltaMs=2442`、模型 `Qwen/Qwen3-30B-A3B-Instruct-2507`；引用 `documentTitle=阅读线路`（唯一 public 文档），`chunkId` 为 32 位无连字符 |
+| B 正例（状态机） | `status=done`、引用 1 条、`articleSlug=null`（该知识文档未发布为博客文章，引用卡按设计展示为不可点） |
+| C 负例（状态机） | `status=refused`、`refusalReason=model_refused`、引用清空、**已流出文字被标准拒答文案替换**（内容不含原问题关键词） |
+| D 权限隔离 | 仅私有文档才有的问题：`refused=true`、**零引用** |
+| E 限流（后端额度压到 2） | 连打 6 次得 `200,200,429,429,429,429`，前端拿到 `rag_rate_limited` 与中文文案（不是 500/空白） |
+| F 限流状态机 | `status=rate_limited`、`cooldown=60s`、冷却期内再次发送**不发请求** |
+
+### 11.4 未验证项与已知限制
+
+- **浏览器视觉/交互未验证**：本机缺 bsk 浏览器工具，无截图证据；替代手段是单测 + 真机数据路径（A–F）覆盖，**渲染与点击手感仍未经真人确认**。
+- **降级路径未在真机触发**：需要把对话模型指向不可用端点后重启后端才能复现 `degraded=true`；本次未做（前端侧的分支已由单测覆盖）。
+- **定位粒度到章节**：公开侧没有按 `chunkId` 取切片的接口、博客正文也不按 chunk 切分，因此引用回链定位到 `headingPath` 末段对应的小节；`chunkId` 对应的 `sequence` 与 `headingPath` 在引用卡内展示供人工核对。
+- **限流窗口是前端常量**：`RATE_LIMIT_WINDOW_SECONDS = 60` 与后端 `mindora.rag.public.window-seconds` 默认值一致；若后端改配置，前端需同步（契约里没有把窗口值下发）。
+- **匿名单桶**：前台无登录态，因此始终按 IP 分桶（6/分）；「带 JWT 提升额度（20/分）」需要前台登录流程，不在 T5 范围。
+
+### 11.5 顺带修复
+
+主线自 `cdda506` 起 `npm run lint` 为红：`scripts/rag-eval/run.mjs` 使用 `fetch`/`Buffer` 但 eslint 未声明这两个 Node 全局（2 errors）。已在 `21f7a83` 补声明，使 `npm run lint` 恢复 0 错误。
+
+### 11.6 格式化口径
+
+`npm run format:check` 在 main 上对约 **297** 个文件为红，其中包含 `.prettierrc`、根 `package.json`、`frontend/packages/utils/*` 等本次修改**完全未触及**的文件（与 Windows CRLF 及历史未格式化有关），因此它不是一个当前有效的门禁。本任务只对**新增文件**执行 `prettier --write`（`8b2ed70`），不重排既有文件——否则会在 `ArticleReader.vue`、`App.vue` 等文件里引入与 T5 无关的整段格式改动。
+
+### 11.7 真机验收发现的跨端缺陷：预检错误被吞成 403（前端已绕开，后端待修）
+
+**现象**（可复现，`POST /api/v1/public/rag/answer/stream`）：
+
+| 请求头 | 触发 | 响应 |
+| --- | --- | --- |
+| `Accept: text/event-stream` | query 1 字（`validation_error`） | **403**，`Content-Type` 空、响应体长度 0 |
+| `Accept: text/event-stream` | 超出限流额度（`rag_rate_limited`） | **403**，空响应体 |
+| `Accept: text/event-stream, application/json` | 同上两种 | 正常 `400` / `429` + JSON 错误体 |
+| 无 `Accept` / `*/*` / `application/json` | 同上两种 | 正常 `400` / `429` + JSON 错误体 |
+
+**根因**（只读自查后端 `main`）：`PublicRagController` 的 `/answer/stream` 未声明 `produces`，预检失败抛 `BusinessException` 由 `GlobalExceptionHandler` 以 `application/json` 返回；请求只接受 `text/event-stream` 时该响应无法完成内容协商 → ERROR 分派到 `/error` → `SecurityConfiguration` 只 `permitAll` 了 `/api/v1/public/**` 等，`/error` 落进 `anyRequest().authenticated()` → **403 且空体**。
+
+**影响**：任何按 HTTP 惯例发送 `Accept: text/event-stream` 的客户端（包括正式的前端实现与通用 SSE 客户端）都拿不到 `rag_rate_limited` / `validation_error` 错误码，限流提示与冷却失效——与 design-11 §12.1-2「预检失败返回普通 JSON 4xx」不符。
+
+**前端处置**（`1537b49`）：按内容协商的正确做法同时声明 `Accept: text/event-stream, application/json`，两条路径都能协商成功；不改动对后端的依赖。
+
+**建议的后端修法**（择一，属 Stage 3.4 后端范围）：① 放行错误分派，例如 `authorize.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()` 或 `/error` 加进 `permitAll` 列表；② 让错误响应显式设置 `content-type: application/json`（显式类型可跳过协商），例如在 `GlobalExceptionHandler` 的 `ResponseEntity` 上 `.contentType(APPLICATION_JSON)`。

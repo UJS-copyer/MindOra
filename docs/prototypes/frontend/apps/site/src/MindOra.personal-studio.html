@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MindOra · 个人数字工坊 (Digital Atelier & Copilot)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts: Inter, JetBrains Mono, Zen Kaku Gothic New (日文优雅字阶) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            accent: {
+              DEFAULT: '#059669',
+              light: '#10b981',
+              neon: '#00f2fe',
+              purple: '#8b5cf6',
+              soft: 'rgba(16, 185, 129, 0.08)'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'Zen Kaku Gothic New', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'PingFang SC', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Menlo', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* ================= 赛博禅意 (Cyber-Zen) 毛玻璃与透光描边 ================= */
+    .glass-card {
+      background-color: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .dark .glass-card {
+      background-color: rgba(14, 14, 18, 0.78);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.6);
+    }
+
+    /* 不规则流体与多边形遮罩 (Organic & Polygon Silhouette) */
+    .clip-hero-poly {
+      clip-path: polygon(0 0, 100% 0, 96% 92%, 4% 100%);
+    }
+    .clip-cyber-slant {
+      clip-path: polygon(0 0, 100% 4%, 100% 96%, 0 100%);
+    }
+    .clip-organic-blob {
+      clip-path: ellipse(85% 70% at 50% 45%);
+    }
+
+    /* 悬浮微光斑点与破框景深 */
+    .char-focal-glow {
+      filter: drop-shadow(0 0 45px rgba(16, 185, 129, 0.35));
+    }
+    .dark .char-focal-glow {
+      filter: drop-shadow(0 0 55px rgba(16, 185, 129, 0.5));
+    }
+
+    .glass-header {
+      background-color: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    .dark .glass-header {
+      background-color: rgba(9, 9, 12, 0.82);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    /* 悬停微升与霓虹发丝高光 */
+    .hover-lift:hover {
+      transform: translateY(-2px);
+      border-color: rgba(16, 185, 129, 0.4);
+      box-shadow: 0 14px 34px -4px rgba(16, 185, 129, 0.08);
+    }
+    .dark .hover-lift:hover {
+      border-color: rgba(16, 185, 129, 0.5);
+      box-shadow: 0 14px 38px -4px rgba(16, 185, 129, 0.2);
+    }
+
+    /* 动漫光环微动效 */
+    .cyber-ring {
+      position: relative;
+    }
+    .cyber-ring::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, #10b981, #00f2fe, #8b5cf6);
+      opacity: 0.6;
+      z-index: -1;
+      animation: rotate-ring 6s linear infinite;
+    }
+    @keyframes rotate-ring {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* 极光流光环境背景 */
+    .bg-aurora-light {
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.12) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(168, 85, 247, 0.08) 0px, transparent 50%);
+    }
+    .bg-aurora-dark {
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.16) 0px, transparent 55%),
+        radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.14) 0px, transparent 55%),
+        radial-gradient(at 50% 100%, rgba(168, 85, 247, 0.12) 0px, transparent 55%);
+    }
+
+    .bg-grid {
+      background-size: 28px 28px;
+      background-image: radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px);
+    }
+    .dark .bg-grid {
+      background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+    }
+
+    /* 呼吸脉冲微标 */
+    .status-pulse {
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+      animation: pulse-green 2s infinite;
+    }
+    @keyframes pulse-green {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+      70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    /* 悬浮微动画 */
+    @keyframes float-slow {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-8px) rotate(0.5deg); }
+    }
+    .animate-float {
+      animation: float-slow 7s ease-in-out infinite;
+    }
+
+    /* 自定义滚动条 */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.25); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(150, 150, 150, 0.45); }
+  </style>
+</head>
+<body class="bg-[#fcfcfd] dark:bg-[#09090c] text-zinc-800 dark:text-zinc-200 transition-colors duration-300 antialiased min-h-screen flex flex-col text-sm relative selection:bg-emerald-500/20 selection:text-emerald-500">
+
+  <!-- ================= 背景环境层 ================= -->
+  <div id="wallpaper-layer" class="fixed inset-0 pointer-events-none z-0 bg-aurora-light dark:bg-aurora-dark transition-all duration-700"></div>
+
+  <!-- ================= 顶栏导航中枢 (Universal Header Bar) ================= -->
+  <header class="sticky top-0 z-50 glass-header">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+      
+      <!-- 品牌标识与日文微标 -->
+      <div class="flex items-center gap-6">
+        <div class="flex items-center gap-3 cursor-pointer group" onclick="switchView('home')">
+          <div class="w-8 h-8 rounded-lg bg-emerald-600 dark:bg-emerald-500 flex items-center justify-center text-white font-bold text-sm tracking-tight shadow-md shadow-emerald-500/25 group-hover:scale-105 transition-transform">
+            M
+          </div>
+          <div class="flex flex-col">
+            <div class="flex items-baseline gap-2">
+              <span class="font-bold text-base text-zinc-900 dark:text-zinc-50 tracking-tight">MindOra</span>
+              <span class="text-[11px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium">v2.5</span>
+            </div>
+            <span class="text-[10px] text-zinc-400 font-sans tracking-wide">「思考と実装の庭」</span>
+          </div>
+        </div>
+
+        <!-- 核心导航切换器 (首页 / 博客 / AI智能问答) -->
+        <nav class="hidden sm:flex items-center gap-1.5 p-1 rounded-xl glass-card text-xs">
+          <button id="nav-btn-home" onclick="switchView('home')" class="px-3.5 py-1.5 rounded-lg font-medium transition-all bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold shadow-xs">
+            主页 · Atelier
+          </button>
+          <button id="nav-btn-blog" onclick="switchView('blog')" class="px-3.5 py-1.5 rounded-lg font-medium transition-all text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">
+            博客 · Notes
+          </button>
+          <button id="nav-btn-chat" onclick="switchView('chat')" class="px-3.5 py-1.5 rounded-lg font-medium transition-all text-zinc-600 dark:text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-purple-500 status-pulse"></span>
+            AI 问答 · Copilot
+          </button>
+        </nav>
+      </div>
+
+      <!-- 右侧：背景调色盘 + ⌘K搜索 + 亮暗切换 -->
+      <div class="flex items-center gap-3">
+        
+        <!-- 背景风格快捷切换微胶囊 -->
+        <div class="hidden lg:flex items-center gap-1 p-1 rounded-lg glass-card text-xs text-zinc-500">
+          <span class="text-[10px] px-1 text-zinc-400">Atmosphere:</span>
+          <button onclick="setAtmosphere('aurora')" id="atm-btn-aurora" class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-medium">极光</button>
+          <button onclick="setAtmosphere('mountain')" id="atm-btn-mountain" class="px-2 py-0.5 rounded hover:text-zinc-800 dark:hover:text-zinc-200">雪山(模糊)</button>
+          <button onclick="setAtmosphere('grid')" id="atm-btn-grid" class="px-2 py-0.5 rounded hover:text-zinc-800 dark:hover:text-zinc-200">点阵微网格</button>
+        </div>
+
+        <!-- ⌘K 语义搜索入口 -->
+        <button onclick="toggleSearchModal(true)" class="h-9 px-3.5 rounded-lg glass-card text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center gap-3 transition-colors cursor-pointer">
+          <i data-lucide="search" class="w-4 h-4 text-zinc-400"></i>
+          <span class="hidden md:inline">搜索知识与灵感...</span>
+          <kbd class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200/70 dark:bg-zinc-800 text-zinc-500 font-mono">⌘K</kbd>
+        </button>
+
+        <!-- 亮暗模式切换 -->
+        <button onclick="toggleTheme()" class="w-9 h-9 rounded-lg glass-card flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer" title="切换模式">
+          <i id="theme-icon" data-lucide="moon" class="w-4 h-4 text-zinc-500"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= 主内容容器 ================= -->
+  <main class="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+    <!-- ========================================================================= -->
+    <!-- 视图 1：个人主页 (人物视觉中心 × 不规则形状画布 · 彻底告别卡片堆叠)               -->
+    <!-- ========================================================================= -->
+    <div id="view-home" class="space-y-12 animate-in fade-in duration-500 pb-16">
+      
+      <!-- ================= 顶部：候选大图与视觉风格实时讨论器 ================= -->
+      <section class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl border border-dashed border-emerald-500/40 bg-emerald-500/5 text-xs">
+        <div class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-mono">
+          <i data-lucide="image" class="w-4 h-4"></i>
+          <span class="font-bold uppercase tracking-wider">[视觉中心讨论] 候选人物大图与风格切换:</span>
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <button onclick="selectHeroPersona('cyber')" id="p-btn-cyber" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-medium text-xs cursor-pointer shadow-xs transition-all">
+            方案 A: 赛博机能极客
+          </button>
+          <button onclick="selectHeroPersona('shinkai')" id="p-btn-shinkai" class="px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer transition-all">
+            方案 B: 新海诚苍穹少年
+          </button>
+          <button onclick="selectHeroPersona('manga')" id="p-btn-manga" class="px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer transition-all">
+            方案 C: 极简黑白漫画破色
+          </button>
+          <button onclick="selectHeroPersona('nomad')" id="p-btn-nomad" class="px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer transition-all">
+            方案 D: 全息数字游民
+          </button>
+        </div>
+      </section>
+
+      <!-- ================= 核心画布：以人物为视觉中心的不规则形状展台 ================= -->
+      <!-- 无任何传统卡片约束，开放式视觉融合 -->
+      <section class="relative min-h-[640px] sm:min-h-[720px] flex items-center justify-center overflow-hidden select-none">
+        
+        <!-- 背景层 1：巨大极简镂空排版文字 (置于人物身后，形成前后景深穿插) -->
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+          <span id="hero-bg-text" class="text-[15vw] sm:text-[16vw] font-black font-mono tracking-tighter text-zinc-900/[0.03] dark:text-white/[0.04] leading-none whitespace-nowrap transition-all duration-700">
+            MINDORA
+          </span>
+        </div>
+
+        <!-- 背景层 2：不规则有机多边形流体光晕 (随风格变化切换形状与色调) -->
+        <div id="hero-aura-shape" class="absolute w-[360px] sm:w-[540px] h-[360px] sm:h-[540px] rounded-full bg-gradient-to-tr from-emerald-500/20 via-teal-400/20 to-purple-500/20 blur-3xl pointer-events-none transition-all duration-1000"></div>
+
+        <!-- ================= 核心主角：人物视觉中心展台 ================= -->
+        <div class="relative z-10 flex flex-col items-center justify-center w-full max-w-4xl mx-auto py-8">
+          
+          <!-- 人物立绘容器：带不规则形状遮罩 (Clip-Path) 与光影呼吸动效 -->
+          <div class="relative group cursor-pointer" onclick="switchView('blog')">
+            
+            <!-- 人物背景发丝霓虹光圈 (Cyber Aura Ring) -->
+            <div id="hero-ring-glow" class="absolute -inset-4 rounded-full bg-gradient-to-r from-emerald-500/40 via-cyan-400/30 to-purple-500/40 blur-xl opacity-70 group-hover:opacity-100 transition-opacity duration-700 animate-float"></div>
+
+            <!-- 人物主画面：非矩形不规则几何/流体剪裁 (非传统 Card 盒子) -->
+            <div 
+              id="hero-char-mask"
+              class="relative w-[280px] sm:w-[380px] h-[380px] sm:h-[480px] overflow-hidden clip-hero-poly transition-all duration-700 char-focal-glow bg-zinc-900/10 dark:bg-black/30"
+            >
+              <!-- 人物高清大图 -->
+              <img 
+                id="hero-persona-img" 
+                src="https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1200&q=85" 
+                alt="MindOra Persona" 
+                class="w-full h-full object-cover object-center group-hover:scale-108 transition-transform duration-1000 ease-out"
+              >
+              
+              <!-- 人物底部柔和渐变融合，避免生硬切底 -->
+              <div class="absolute inset-0 bg-gradient-to-t from-[#fcfcfd] dark:from-[#09090c] via-transparent to-transparent opacity-80 dark:opacity-90"></div>
+            </div>
+
+            <!-- ================= 随人物视线/姿态延伸出的【浮动交互节点】 ================= -->
+            <!-- 节点 1：右上方思想笔记入口 (随着人物视线浮现) -->
+            <div 
+              class="absolute -top-3 -right-6 sm:-right-12 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/85 dark:bg-zinc-900/85 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-700 shadow-xl hover:scale-105 transition-transform"
+              onclick="event.stopPropagation(); switchView('blog')"
+            >
+              <span class="w-2 h-2 rounded-full bg-emerald-500 status-pulse"></span>
+              <span class="text-xs font-mono font-semibold text-zinc-900 dark:text-zinc-100">14 ESSAYS</span>
+              <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">/ BLOG ↗</span>
+            </div>
+
+            <!-- 节点 2：左侧 AI 伴读与检索入口 (紧贴人物身旁) -->
+            <div 
+              class="absolute top-1/2 -left-6 sm:-left-16 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/85 dark:bg-zinc-900/85 backdrop-blur-md border border-zinc-200/80 dark:border-zinc-700 shadow-xl hover:scale-105 transition-transform"
+              onclick="event.stopPropagation(); switchView('chat')"
+            >
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-500"></i>
+              <span class="text-xs font-mono text-zinc-900 dark:text-zinc-100">RAG COPILOT</span>
+              <span class="text-[10px] text-purple-500 font-mono">QDRANT ↗</span>
+            </div>
+
+            <!-- 节点 3：右下角日文极简印记 (营造动漫轻小说质感) -->
+            <div class="absolute -bottom-2 right-4 z-20 hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 text-white backdrop-blur-md text-[11px] font-serif tracking-[0.2em]">
+              <span>「思考と実装」</span>
+            </div>
+          </div>
+
+          <!-- 人物正下方：极简无框文字引导 (不设任何 Card) -->
+          <div class="mt-6 text-center space-y-2 max-w-lg z-10">
+            <h2 id="hero-persona-title" class="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+              Alex · 数字思维工坊
+            </h2>
+            <p id="hero-persona-desc" class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-mono">
+              全栈架构演进 // 知识中枢向量化 // 深度伴读问答
+            </p>
+          </div>
+
+          <!-- 底部无框药丸交互坞 (浮动无界) -->
+          <div class="mt-6 flex items-center gap-3 z-10">
+            <button 
+              onclick="switchView('blog')" 
+              class="px-6 py-2.5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 text-xs font-medium hover:opacity-90 transition-all shadow-md flex items-center gap-2 cursor-pointer group/btn"
+            >
+              <span>翻开思想账本</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition-transform"></i>
+            </button>
+
+            <button 
+              onclick="switchView('chat')" 
+              class="px-6 py-2.5 rounded-full bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-800 text-xs font-medium hover:border-purple-500/60 transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+            >
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-500"></i>
+              <span>唤醒伴读 AI</span>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- 装饰性 HUD 极客刻度线 (沿画面四周延展) -->
+        <div class="absolute bottom-4 left-4 text-[10px] font-mono text-zinc-400 flex items-center gap-2 pointer-events-none">
+          <span>COORDS: 31.23°N, 121.47°E</span>
+          <span>//</span>
+          <span class="text-emerald-500">MINDORA CORE ONLINE</span>
+        </div>
+
+        <div class="absolute bottom-4 right-4 text-[10px] font-mono text-zinc-400 pointer-events-none hidden sm:block">
+          FRAME: 01_NEURAL_CANVAS
+        </div>
+      </section>
+
+      <!-- ================= 底部极简无框提问条 ================= -->
+      <section class="flex justify-center pt-2">
+        <div class="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl border border-zinc-200/80 dark:border-zinc-800 shadow-md text-xs">
+          <i data-lucide="sparkles" class="w-4 h-4 text-purple-500"></i>
+          <input 
+            type="text" 
+            id="quick-chat-input" 
+            placeholder="向全站知识库即时提问..." 
+            class="bg-transparent border-0 outline-none text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 w-56 sm:w-80"
+            onkeydown="if(event.key === 'Enter') triggerQuickChat()"
+          >
+          <button onclick="triggerQuickChat()" class="px-3.5 py-1 rounded-full bg-purple-600 hover:bg-purple-500 text-white font-medium text-[11px] transition-colors cursor-pointer">
+            Ask
+          </button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 视图 2：博客系统 (Editorial Blog Feed)                                    -->
+    <!-- ========================================================================= -->
+    <div id="view-blog" class="hidden space-y-6 animate-in fade-in duration-300">
+      
+      <!-- 顶部滑动分类胶囊与筛选 -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="p-1 rounded-xl glass-card flex items-center gap-1 overflow-x-auto max-w-full">
+          <button onclick="filterBlog('all')" id="blog-tab-all" class="px-4 py-1.5 rounded-lg text-xs font-medium transition-all bg-white dark:bg-zinc-800 text-emerald-600 dark:text-emerald-400 shadow-sm">
+            全部文章 (14)
+          </button>
+          <button onclick="filterBlog('arch')" id="blog-tab-arch" class="px-4 py-1.5 rounded-lg text-xs font-medium transition-all text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
+            架构与系统 (6)
+          </button>
+          <button onclick="filterBlog('ai')" id="blog-tab-ai" class="px-4 py-1.5 rounded-lg text-xs font-medium transition-all text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
+            AI 与 RAG (5)
+          </button>
+          <button onclick="filterBlog('ui')" id="blog-tab-ui" class="px-4 py-1.5 rounded-lg text-xs font-medium transition-all text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200">
+            设计与美学 (3)
+          </button>
+        </div>
+
+        <div class="text-xs text-zinc-400 flex items-center gap-2">
+          <span>共收录 14 篇深度笔记</span>
+          <span>·</span>
+          <span>按发布时间倒序</span>
+        </div>
+      </div>
+
+      <!-- 博客卡片列表与右侧挂件布局 -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- 主文章流 (8列) -->
+        <div class="lg:col-span-8 space-y-4">
+          
+          <article class="glass-card hover-lift p-6 rounded-2xl cursor-pointer group" onclick="openArticle('rag-pipeline-architecture')">
+            <div class="flex items-center justify-between text-xs text-zinc-400 mb-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-[11px]">架构与系统</span>
+                <span>·</span>
+                <span>8.4k 字 · 约 18 分钟</span>
+              </div>
+              <time>2026.07.12</time>
+            </div>
+            <h3 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-50 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors mb-2">
+              从 0 到 1 构建高可靠 RAG 混合检索：分块策略、Qdrant 向量空间与重排实战
+            </h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed mb-3">
+              深入剖析个人知识库在处理海量技术笔记时的切片幻觉难题，结合滑动窗口与 BGE-Large 打造企业级混合检索流水线。
+            </p>
+            <div class="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
+              <span class="text-zinc-400 font-mono text-[11px]">#RAG #Qdrant #VectorSearch</span>
+              <span class="text-emerald-600 font-medium flex items-center gap-1 group-hover:translate-x-1 transition-transform">阅读全文 →</span>
+            </div>
+          </article>
+
+          <article class="glass-card hover-lift p-6 rounded-2xl cursor-pointer group" onclick="openArticle('cyber-zen-aesthetic')">
+            <div class="flex items-center justify-between text-xs text-zinc-400 mb-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono text-[11px]">设计与美学</span>
+                <span>·</span>
+                <span>4.2k 字 · 约 9 分钟</span>
+              </div>
+              <time>2026.07.08</time>
+            </div>
+            <h3 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-50 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors mb-2">
+              超越模板化：如何在现代前端中打造兼具「极客感」与「书卷气」的个人风格
+            </h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed mb-3">
+              告别死板的传统粗边框，运用 1px 发丝透光描边、物理缓动分段胶囊与新海诚天空意境，重塑技术独立网站的视觉呼吸感。
+            </p>
+            <div class="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
+              <span class="text-zinc-400 font-mono text-[11px]">#UI/UX #DesignSystem</span>
+              <span class="text-emerald-600 font-medium flex items-center gap-1 group-hover:translate-x-1 transition-transform">阅读全文 →</span>
+            </div>
+          </article>
+
+          <article class="glass-card hover-lift p-6 rounded-2xl cursor-pointer group" onclick="openArticle('rag-pipeline-architecture')">
+            <div class="flex items-center justify-between text-xs text-zinc-400 mb-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-mono text-[11px]">AI 与 RAG</span>
+                <span>·</span>
+                <span>5.1k 字 · 约 11 分钟</span>
+              </div>
+              <time>2026.06.29</time>
+            </div>
+            <h3 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-50 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors mb-2">
+              向量检索中的 Token 边界陷阱与滑动窗口切片演进
+            </h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed mb-3">
+              固定字符切片破坏代码块与语义段落完整性的案例分析，以及如何设计鲁棒的 Markdown 章节级分块器。
+            </p>
+            <div class="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
+              <span class="text-zinc-400 font-mono text-[11px]">#Markdown #Chunking</span>
+              <span class="text-emerald-600 font-medium flex items-center gap-1 group-hover:translate-x-1 transition-transform">阅读全文 →</span>
+            </div>
+          </article>
+
+        </div>
+
+        <!-- 右侧挂件 (4列) -->
+        <div class="lg:col-span-4 space-y-5">
+          <!-- 挂件 1：最近阅读历史 -->
+          <div class="glass-card p-5 rounded-xl">
+            <div class="flex items-center justify-between pb-3 mb-3 border-b border-zinc-200/50 dark:border-zinc-800">
+              <span class="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">最近阅读进度</span>
+              <span class="text-[11px] font-mono text-zinc-400">2 篇</span>
+            </div>
+            <div class="space-y-3">
+              <div class="cursor-pointer group" onclick="openArticle('rag-pipeline-architecture')">
+                <div class="flex items-center justify-between text-xs mb-1">
+                  <span class="font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-emerald-600 truncate max-w-[190px]">从 0 到 1 构建高可靠 RAG...</span>
+                  <span class="font-mono text-[11px] text-emerald-500 font-semibold">68%</span>
+                </div>
+                <div class="w-full bg-zinc-200/60 dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                  <div class="h-full bg-emerald-500 rounded-full" style="width: 68%;"></div>
+                </div>
+              </div>
+              <div class="cursor-pointer group" onclick="openArticle('cyber-zen-aesthetic')">
+                <div class="flex items-center justify-between text-xs mb-1">
+                  <span class="font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-emerald-600 truncate max-w-[190px]">超越模板化：前端风格探索</span>
+                  <span class="font-mono text-[11px] text-zinc-400 font-semibold">24%</span>
+                </div>
+                <div class="w-full bg-zinc-200/60 dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                  <div class="h-full bg-emerald-500 rounded-full" style="width: 24%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 挂件 2：热门标签云 -->
+          <div class="glass-card p-5 rounded-xl">
+            <div class="flex items-center justify-between pb-3 mb-3 border-b border-zinc-200/50 dark:border-zinc-800">
+              <span class="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">知识主题云</span>
+              <span class="text-[11px] font-mono text-zinc-400">TAGS</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="px-2.5 py-1 rounded-md text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono">#RAG</span>
+              <span class="px-2.5 py-1 rounded-md text-xs bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono">#Qdrant</span>
+              <span class="px-2.5 py-1 rounded-md text-xs bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono">#DeepSeek</span>
+              <span class="px-2.5 py-1 rounded-md text-xs bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono">#Vue3</span>
+              <span class="px-2.5 py-1 rounded-md text-xs bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono">#SpringAI</span>
+              <span class="px-2.5 py-1 rounded-md text-xs bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-mono">#DesignSystem</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 视图 3：AI 智能问答 (DeepSeek / ChatGPT 级独立问答画布)                   -->
+    <!-- ========================================================================= -->
+    <div id="view-chat" class="hidden h-[calc(100vh-8.5rem)] flex gap-4 animate-in fade-in duration-300">
+      
+      <!-- 左侧对话抽屉 (可折叠) -->
+      <aside id="chat-sidebar" class="w-64 glass-card rounded-2xl p-4 flex flex-col justify-between hidden md:flex transition-all duration-300">
+        <div>
+          <!-- 新建对话按钮 -->
+          <button onclick="newConversation()" class="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-colors flex items-center justify-center gap-2 mb-4 shadow-sm cursor-pointer">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>开启新会话</span>
+          </button>
+
+          <!-- 历史对话会话列表 -->
+          <div class="space-y-1">
+            <div class="text-[10px] font-mono uppercase tracking-wider text-zinc-400 px-2 mb-2">History Threads</div>
+            <button class="w-full text-left px-3 py-2 rounded-lg text-xs bg-zinc-200/60 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-medium truncate flex items-center gap-2">
+              <i data-lucide="message-square" class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0"></i>
+              <span class="truncate">MindOra 的 RAG 流水线架构...</span>
+            </button>
+            <button class="w-full text-left px-3 py-2 rounded-lg text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 truncate flex items-center gap-2">
+              <i data-lucide="message-square" class="w-3.5 h-3.5 opacity-50 flex-shrink-0"></i>
+              <span class="truncate">Qdrant 向量索引维度配置</span>
+            </button>
+            <button class="w-full text-left px-3 py-2 rounded-lg text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 truncate flex items-center gap-2">
+              <i data-lucide="message-square" class="w-3.5 h-3.5 opacity-50 flex-shrink-0"></i>
+              <span class="truncate">Markdown 切片重叠率优化</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 底部模型与底座状态 -->
+        <div class="pt-3 border-t border-zinc-200/50 dark:border-zinc-800 text-[11px] text-zinc-400 space-y-1">
+          <div class="flex items-center justify-between">
+            <span>Model:</span>
+            <span class="font-mono text-zinc-700 dark:text-zinc-300 font-medium">DeepSeek-R1</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>RAG Engine:</span>
+            <span class="font-mono text-emerald-500 font-medium">Qdrant v1.5</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 右侧主问答画布 -->
+      <section class="flex-1 glass-card rounded-2xl flex flex-col overflow-hidden relative">
+        
+        <!-- 对话区顶栏 -->
+        <div class="px-6 py-3.5 border-b border-zinc-200/60 dark:border-zinc-800 flex items-center justify-between flex-shrink-0 bg-white/40 dark:bg-zinc-900/40">
+          <div class="flex items-center gap-3">
+            <button onclick="toggleChatSidebar()" class="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 md:hidden">
+              <i data-lucide="menu" class="w-4 h-4"></i>
+            </button>
+            <div>
+              <div class="font-semibold text-xs text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
+                MindOra 知识中枢 RAG Copilot
+                <span class="text-[10px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-mono font-medium">Deep Thinking Enabled</span>
+              </div>
+              <div class="text-[11px] text-zinc-400">基于个人知识库与技术博客切片的真实语义推理</div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="clearChat()" class="text-xs px-2.5 py-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors">
+              清空
+            </button>
+          </div>
+        </div>
+
+        <!-- 消息流容器 -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-6">
+          
+          <!-- AI 欢迎气泡 -->
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-xl bg-purple-600 text-white flex-shrink-0 flex items-center justify-center font-bold text-xs shadow-md shadow-purple-500/20">
+              AI
+            </div>
+            <div class="max-w-[85%] space-y-2">
+              <div class="glass-card p-4 rounded-2xl rounded-tl-xs text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                你好！我是 MindOra 的知识中枢伴读 AI。我已经索引了站内所有公开的技术架构、深度博客与设计笔记。<br>
+                你可以随意向我提问关于本站的技术方案，我将模拟 DeepSeek R1 进行深度推理，并附带引用来源卡片。
+              </div>
+
+              <!-- 预设问题胶囊 -->
+              <div class="flex flex-wrap gap-2 pt-1">
+                <button onclick="sendPrompt('MindOra 的 RAG 检索流水线是如何设计的？')" class="px-3 py-1.5 rounded-lg glass-card hover:border-purple-500/50 text-xs text-zinc-600 dark:text-zinc-300 transition-all text-left">
+                  "MindOra 的 RAG 检索流水线是如何设计的？"
+                </button>
+                <button onclick="sendPrompt('如何解决 Markdown 切片破坏代码块完整性的问题？')" class="px-3 py-1.5 rounded-lg glass-card hover:border-purple-500/50 text-xs text-zinc-600 dark:text-zinc-300 transition-all text-left">
+                  "如何解决 Markdown 切片破坏代码块完整性的问题？"
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 用户消息示例 -->
+          <div class="flex gap-3 justify-end">
+            <div class="max-w-[75%] bg-emerald-600 text-white p-4 rounded-2xl rounded-br-xs text-xs leading-relaxed shadow-sm">
+              MindOra 的 RAG 检索流水线是如何设计的？它和普通的向量检索有什么区别？
+            </div>
+            <div class="w-8 h-8 rounded-xl bg-zinc-800 text-white flex-shrink-0 flex items-center justify-center font-bold text-xs">
+              我
+            </div>
+          </div>
+
+          <!-- AI 回答 (包含 DeepSeek 标志性折叠思考过程 + 引用卡片) -->
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-xl bg-purple-600 text-white flex-shrink-0 flex items-center justify-center font-bold text-xs shadow-md shadow-purple-500/20">
+              AI
+            </div>
+            <div class="max-w-[85%] space-y-3">
+              
+              <!-- DeepSeek 标志性折叠思考过程 (Thought Process) -->
+              <div class="rounded-xl border border-purple-500/20 bg-purple-500/5 dark:bg-purple-950/20 p-3.5 text-xs">
+                <div class="flex items-center justify-between cursor-pointer select-none font-mono text-purple-600 dark:text-purple-400 font-semibold" onclick="toggleThinking()">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="brain-circuit" class="w-4 h-4"></i>
+                    <span>深度思考过程 (Thinking Process · 2.1s)</span>
+                  </div>
+                  <i id="thinking-arrow" data-lucide="chevron-up" class="w-4 h-4 transition-transform"></i>
+                </div>
+                <div id="thinking-content" class="mt-2.5 pt-2.5 border-t border-purple-500/15 text-[11px] text-zinc-600 dark:text-zinc-400 font-mono space-y-1.5 leading-relaxed">
+                  <p>1. 解析用户意图：询问 MindOra 系统的 RAG 流水线架构及与普通向量检索的区别。</p>
+                  <p>2. 执行 Qdrant 密集向量召回 (Dense Retrieval) + Lucene 关键词精准检索 (Keyword Retrieval)。</p>
+                  <p>3. 召回切片：命中《从 0 到 1 构建高可靠 RAG 混合检索》章节 2.3 与 3.1（得分 0.94）。</p>
+                  <p>4. Reranker 交叉编码器重排打分，过滤低于 0.7 阈值的噪声切片。</p>
+                  <p>5. 组织上下文并生成结构化回答，准备引用来源挂载。</p>
+                </div>
+              </div>
+
+              <!-- AI 回答正文 -->
+              <div class="glass-card p-5 rounded-2xl rounded-tl-xs text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed space-y-3">
+                <p>
+                  MindOra 的 RAG 体系摒弃了单纯依靠单一向量相似度的粗糙方案，采用<strong>「5 步递进式混合检索流水线」</strong>：
+                </p>
+                <ol class="list-decimal pl-5 space-y-1.5">
+                  <li><strong>文档解析与语义分块 (Chunking)</strong>：保留 Markdown 标题路径作为前缀上下文，杜绝代码块断裂；</li>
+                  <li><strong>双路并行检索 (Hybrid Search)</strong>：同时发起 Lucene 倒排索引与 Qdrant 1536 维 Cosine 向量检索；</li>
+                  <li><strong>RRF (Reciprocal Rank Fusion) 倒数排名融合</strong>：平衡稀疏关键词命中与语义泛化召回；</li>
+                  <li><strong>BGE-Large 交叉编码重排 (Rerank)</strong>：对 Top-20 候选切片进行精准语义对齐打分，取 Top-3 注入上下文；</li>
+                  <li><strong>带引用的增强生成</strong>：生成回答并强制关联真实的切片 Point ID。</li>
+                </ol>
+              </div>
+
+              <!-- 引用来源卡片 (Citations) -->
+              <div class="space-y-1.5">
+                <div class="text-[11px] font-mono font-semibold text-zinc-400 flex items-center gap-1.5">
+                  <i data-lucide="bookmark" class="w-3.5 h-3.5 text-emerald-500"></i>
+                  <span>知识库切片引用 (Citations)</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div class="p-3 rounded-xl border border-zinc-200/60 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/70 hover:border-emerald-500/50 transition-colors cursor-pointer group" onclick="openArticle('rag-pipeline-architecture')">
+                    <div class="flex items-center justify-between text-[11px] mb-1">
+                      <span class="font-semibold text-zinc-800 dark:text-zinc-200 group-hover:text-emerald-600 truncate max-w-[180px]">
+                        从 0 到 1 构建高可靠 RAG...
+                      </span>
+                      <span class="text-emerald-600 font-mono text-[10px]">94% 匹配</span>
+                    </div>
+                    <div class="text-[11px] text-zinc-400 line-clamp-1">
+                      第二章：双路并行检索与 RRF 融合算法细节...
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 底部输入框 -->
+        <div class="p-4 border-t border-zinc-200/60 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50">
+          <div class="flex items-center gap-2 max-w-4xl mx-auto">
+            <input type="text" id="chat-input" placeholder="输入你想探讨的技术问题，按 Enter 发送..." class="flex-1 px-4 py-3 rounded-xl glass-card border-0 outline-none text-xs text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 focus:ring-1 focus:ring-purple-500">
+            <button onclick="sendChatMessage()" class="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm flex-shrink-0">
+              <span>发送</span>
+              <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+      </section>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 视图 4：沉浸式深度阅读器 + 单篇伴读 Copilot (Zen Reader with Copilot)       -->
+    <!-- ========================================================================= -->
+    <div id="view-reader" class="hidden relative animate-in fade-in duration-300">
+      
+      <!-- 顶部阅读进度条 -->
+      <div class="fixed top-0 left-0 right-0 h-0.5 z-[60] bg-transparent">
+        <div id="reading-progress" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-150 ease-out" style="width: 35%;"></div>
+      </div>
+
+      <div class="flex items-start gap-6">
+        
+        <!-- 左侧 TOC 章节大纲树 (260px) -->
+        <aside class="w-64 flex-shrink-0 hidden xl:block sticky top-20 h-[calc(100vh-6rem)]">
+          <div class="glass-card rounded-2xl p-4 flex flex-col h-full">
+            <div class="flex items-center justify-between pb-3 mb-3 border-b border-zinc-200/50 dark:border-zinc-800">
+              <span class="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">大纲章节 (TOC)</span>
+              <button onclick="switchView('blog')" class="text-[11px] text-emerald-600 hover:underline">← 返回博客</button>
+            </div>
+            <nav class="space-y-1 overflow-y-auto pr-1 flex-1 text-xs">
+              <a href="#section-1" class="block px-2.5 py-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 border-l-2 border-emerald-500">
+                1. 传统向量检索的现实困境
+              </a>
+              <a href="#section-2" class="block px-2.5 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40">
+                2. 5 步混合检索流水线设计
+              </a>
+              <a href="#section-3" class="block px-2.5 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 pl-5 text-[11px]">
+                2.1 滑动窗口切片算法
+              </a>
+              <a href="#section-4" class="block px-2.5 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 pl-5 text-[11px]">
+                2.2 RRF 排名加权融合
+              </a>
+              <a href="#section-5" class="block px-2.5 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40">
+                3. Qdrant 生产环境落地上线
+              </a>
+            </nav>
+          </div>
+        </aside>
+
+        <!-- 中间正文阅读区 -->
+        <article class="flex-1 min-w-0 glass-card rounded-2xl p-6 sm:p-10 relative">
+          <!-- 面包屑 -->
+          <div class="flex items-center justify-between pb-6 mb-6 border-b border-zinc-200/50 dark:border-zinc-800 text-xs text-zinc-400">
+            <div class="flex items-center gap-2">
+              <span class="cursor-pointer hover:text-zinc-800 dark:hover:text-zinc-200" onclick="switchView('blog')">博客</span>
+              <span>/</span>
+              <span>架构与系统</span>
+              <span>/</span>
+              <span class="text-zinc-700 dark:text-zinc-300">从 0 到 1 构建高可靠 RAG 混合检索</span>
+            </div>
+            <button onclick="toggleArticleCopilot()" class="px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 font-medium flex items-center gap-1.5 hover:bg-purple-500/20 transition-colors">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span>本文伴读 AI</span>
+            </button>
+          </div>
+
+          <header class="mb-8">
+            <h1 class="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight leading-snug mb-3">
+              从 0 到 1 构建高可靠 RAG 混合检索：分块策略、Qdrant 向量空间与重排实战
+            </h1>
+            <div class="flex items-center gap-3 text-xs text-zinc-400">
+              <span>8.4k 字 · 约 18 分钟阅读</span>
+              <span>·</span>
+              <span>发布于 2026.07.12</span>
+              <span>·</span>
+              <span class="text-emerald-600 font-mono">Qdrant Indexed</span>
+            </div>
+          </header>
+
+          <!-- 正文 Markdown 模拟内容 -->
+          <div class="prose max-w-none text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed space-y-5">
+            <p>
+              在构建个人知识库或企业知识问答系统时，最容易遭遇的误区是“将全部文本一股脑切为 500 字符丢入向量数据库”。这种简化的做法在面对真实的技术笔记、代码块和跨小节上下文时，会迅速暴露出切片断裂、关键词召回无力等致命缺陷。
+            </p>
+
+            <h2 id="section-1" class="text-lg font-bold text-zinc-900 dark:text-zinc-50 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+              1. 传统向量检索的现实困境
+            </h2>
+            <p>
+              纯向量检索依赖 Embedding 模型的全局语义对齐，但在处理具体的技术类专属术语（如 `AQS`、`epoll`、`ThreadLocal`）时，由于高维空间距离被稀释，往往难以精确召回包含精准代码实现的段落。
+            </p>
+
+            <!-- 代码块展示 (暗色磨砂 + 一键复制) -->
+            <div class="my-5 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-[#121216]">
+              <div class="flex items-center justify-between px-4 py-2 bg-zinc-900/80 border-b border-zinc-800 text-xs text-zinc-400">
+                <span class="font-mono text-[11px]">java · SlidingWindowChunker.java</span>
+                <button onclick="copyCode(this)" class="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] transition-colors cursor-pointer">
+                  复制
+                </button>
+              </div>
+              <pre class="p-4 overflow-x-auto font-mono text-xs text-zinc-200 leading-relaxed"><code>public List&lt;ChunkDraft&gt; splitMarkdown(String markdown) {
+    // 保护代码块不被截断，按章节层级追加上下文路径
+    MarkdownAst ast = parser.parse(markdown);
+    return ast.buildSlidingWindows(512 /* chunkSize */, 64 /* overlap */);
+}</code></pre>
+            </div>
+
+            <h2 id="section-2" class="text-lg font-bold text-zinc-900 dark:text-zinc-50 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+              2. 5 步混合检索流水线设计
+            </h2>
+            <p>
+              为了解决上述问题，MindOra 设计了双路召回与重排机制。通过将 Lucene 的 BM25 稀疏特征与 Qdrant 的密集特征打通，综合召回率提升了 38.6%。
+            </p>
+          </div>
+        </article>
+
+        <!-- 右侧：可折叠【单篇伴读 AI 抽屉】(Article Copilot Drawer) -->
+        <aside id="article-copilot-drawer" class="w-80 flex-shrink-0 hidden lg:flex flex-col glass-card rounded-2xl p-4 sticky top-20 h-[calc(100vh-6rem)]">
+          <div class="flex items-center justify-between pb-3 mb-3 border-b border-zinc-200/50 dark:border-zinc-800">
+            <div class="flex items-center gap-2">
+              <i data-lucide="sparkles" class="w-4 h-4 text-purple-500"></i>
+              <span class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">单篇伴读 Copilot</span>
+            </div>
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 font-medium">Focused RAG</span>
+          </div>
+
+          <!-- 伴读快捷动作 -->
+          <div class="space-y-1.5 mb-4">
+            <div class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">Quick Actions</div>
+            <button onclick="copilotAction('summarize')" class="w-full text-left p-2 rounded-lg bg-zinc-100/70 dark:bg-zinc-800/50 hover:bg-purple-500/10 hover:text-purple-600 transition-colors text-xs flex items-center gap-1.5 cursor-pointer">
+              <span>⚡</span>
+              <span>30秒提炼全文核心要点</span>
+            </button>
+            <button onclick="copilotAction('explain')" class="w-full text-left p-2 rounded-lg bg-zinc-100/70 dark:bg-zinc-800/50 hover:bg-purple-500/10 hover:text-purple-600 transition-colors text-xs flex items-center gap-1.5 cursor-pointer">
+              <span>💡</span>
+              <span>解释文中的 RRF 融合机制</span>
+            </button>
+          </div>
+
+          <!-- 伴读对话记录 -->
+          <div id="copilot-thread" class="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
+            <div class="p-3 rounded-xl bg-purple-500/5 border border-purple-500/10 text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              👋 我是这篇文章的专属伴读 AI。你可以针对当前阅读的内容向我提问，或点击上方按钮快速总结。
+            </div>
+          </div>
+
+          <!-- 伴读输入 -->
+          <div class="pt-3 border-t border-zinc-200/50 dark:border-zinc-800">
+            <div class="flex items-center gap-1.5">
+              <input type="text" id="copilot-input" placeholder="提问本文细节..." class="flex-1 px-3 py-2 rounded-lg glass-card text-xs border-0 outline-none focus:ring-1 focus:ring-purple-500">
+              <button onclick="sendCopilotQuestion()" class="p-2 rounded-lg bg-purple-600 text-white cursor-pointer hover:bg-purple-500">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </aside>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ================= ⌘K 全站语义搜索弹窗 ================= -->
+  <div id="search-modal" class="fixed inset-0 z-[100] flex items-start justify-center pt-24 px-4 bg-black/40 backdrop-blur-sm hidden" onclick="if(event.target === this) toggleSearchModal(false)">
+    <div class="glass-card w-full max-w-xl rounded-2xl p-4 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div class="flex items-center gap-3 px-3 py-2 border-b border-zinc-200/60 dark:border-zinc-800">
+        <i data-lucide="search" class="w-4 h-4 text-zinc-400"></i>
+        <input type="text" placeholder="搜索个人博客、技术架构、向量切片..." class="flex-1 bg-transparent border-0 outline-none text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400">
+        <kbd class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-500 font-mono">ESC</kbd>
+      </div>
+      <div class="mt-3 max-h-72 overflow-y-auto space-y-1">
+        <div class="p-3 rounded-xl hover:bg-zinc-100/70 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer" onclick="toggleSearchModal(false); openArticle('rag-pipeline-architecture')">
+          <div class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">从 0 到 1 构建高可靠 RAG 混合检索</div>
+          <div class="text-[11px] text-zinc-400">分块策略、Qdrant 向量空间与重排实战...</div>
+        </div>
+        <div class="p-3 rounded-xl hover:bg-zinc-100/70 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer" onclick="toggleSearchModal(false); openArticle('cyber-zen-aesthetic')">
+          <div class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">超越模板化：现代前端中的个人风格</div>
+          <div class="text-[11px] text-zinc-400">极客感与书卷气的平衡设计...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 原型驱动交互脚本 ================= -->
+  <script>
+    // 初始化图标
+    lucide.createIcons();
+
+    // 视图切换
+    function switchView(viewName) {
+      const views = ['home', 'blog', 'chat', 'reader'];
+      views.forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        if (el) el.classList.add('hidden');
+      });
+
+      const target = document.getElementById(`view-${viewName}`);
+      if (target) target.classList.remove('hidden');
+
+      // 更新导航按钮状态
+      ['home', 'blog', 'chat'].forEach(v => {
+        const btn = document.getElementById(`nav-btn-${v}`);
+        if (!btn) return;
+        if (v === viewName) {
+          btn.className = "px-3.5 py-1.5 rounded-lg font-medium transition-all bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold shadow-xs";
+        } else {
+          btn.className = "px-3.5 py-1.5 rounded-lg font-medium transition-all text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100";
+        }
+      });
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // 打开文章并切换至深度阅读器
+    function openArticle(slug) {
+      switchView('reader');
+    }
+
+    // 亮暗模式切换
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      const icon = document.getElementById('theme-icon');
+      if (icon) {
+        icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+        lucide.createIcons();
+      }
+    }
+
+    // 背景氛围切换
+    function setAtmosphere(mode) {
+      const layer = document.getElementById('wallpaper-layer');
+      if (!layer) return;
+      
+      layer.className = "fixed inset-0 pointer-events-none z-0 transition-all duration-700";
+      if (mode === 'aurora') {
+        layer.classList.add('bg-aurora-light', 'dark:bg-aurora-dark');
+      } else if (mode === 'mountain') {
+        layer.style.backgroundImage = "url('https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1920&q=80')";
+        layer.style.backgroundSize = "cover";
+        layer.style.backgroundPosition = "center";
+        layer.style.filter = "blur(24px)";
+        layer.style.opacity = "0.75";
+      } else if (mode === 'grid') {
+        layer.classList.add('bg-grid');
+      }
+    }
+
+    // ⌘K 搜索弹窗控制
+    function toggleSearchModal(show) {
+      const modal = document.getElementById('search-modal');
+      if (modal) {
+        if (show) modal.classList.remove('hidden');
+        else modal.classList.add('hidden');
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        const modal = document.getElementById('search-modal');
+        toggleSearchModal(modal.classList.contains('hidden'));
+      }
+      if (e.key === 'Escape') {
+        toggleSearchModal(false);
+      }
+    });
+
+    // 折叠 DeepSeek 思考过程
+    function toggleThinking() {
+      const content = document.getElementById('thinking-content');
+      const arrow = document.getElementById('thinking-arrow');
+      if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        arrow.style.transform = 'rotate(0deg)';
+      } else {
+        content.classList.add('hidden');
+        arrow.style.transform = 'rotate(180deg)';
+      }
+    }
+
+    // 发送问题示例
+    function sendPrompt(text) {
+      const input = document.getElementById('chat-input');
+      if (input) {
+        input.value = text;
+        sendChatMessage();
+      }
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chat-input');
+      const q = input.value.trim();
+      if (!q) return;
+
+      const container = document.getElementById('chat-messages');
+      // 追加用户气泡
+      const userHtml = `
+        <div class="flex gap-3 justify-end animate-in fade-in duration-200">
+          <div class="max-w-[75%] bg-emerald-600 text-white p-4 rounded-2xl rounded-br-xs text-xs leading-relaxed shadow-sm">
+            ${q}
+          </div>
+          <div class="w-8 h-8 rounded-xl bg-zinc-800 text-white flex-shrink-0 flex items-center justify-center font-bold text-xs">我</div>
+        </div>
+      `;
+      container.insertAdjacentHTML('beforeend', userHtml);
+      input.value = '';
+      container.scrollTop = container.scrollHeight;
+
+      // 模拟 AI 回答
+      setTimeout(() => {
+        const aiHtml = `
+          <div class="flex gap-3 animate-in fade-in duration-300">
+            <div class="w-8 h-8 rounded-xl bg-purple-600 text-white flex-shrink-0 flex items-center justify-center font-bold text-xs shadow-md shadow-purple-500/20">AI</div>
+            <div class="max-w-[85%] space-y-2">
+              <div class="glass-card p-4 rounded-2xl rounded-tl-xs text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                针对问题「${q}」，系统已在 Qdrant 知识切片库中完成检索。MindOra 将代码块保护机制和 Markdown AST 章节路径深度耦合，确保大模型获得高纯度的上下文召回。
+              </div>
+            </div>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', aiHtml);
+        container.scrollTop = container.scrollHeight;
+      }, 600);
+    }
+
+    function triggerQuickChat() {
+      const val = document.getElementById('quick-chat-input').value;
+      switchView('chat');
+      if (val) {
+        setTimeout(() => sendPrompt(val), 300);
+      }
+    }
+
+    // 单篇伴读 Copilot 快捷动作
+    function copilotAction(type) {
+      const thread = document.getElementById('copilot-thread');
+      let reply = '';
+      if (type === 'summarize') {
+        reply = '📌 <strong>30秒速读要点</strong>：<br>1. 传统 RAG 切片常截断代码与术语；<br>2. 采用滑动窗口保持 64 Token 重叠度；<br>3. 引入 BGE-Large 交叉编码重排显著降低误判。';
+      } else {
+        reply = '💡 <strong>RRF (Reciprocal Rank Fusion)</strong>：一种无需归一化分数的排序融合算法。计算公式为 <code>RRF = 1 / (60 + rank_dense) + 1 / (60 + rank_sparse)</code>，能有效平衡语义泛化与关键字精准命中。';
+      }
+      const bubble = `
+        <div class="p-3 rounded-xl bg-white/80 dark:bg-zinc-800/80 border border-zinc-200/60 dark:border-zinc-700/60 text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed animate-in fade-in duration-200">
+          ${reply}
+        </div>
+      `;
+      thread.insertAdjacentHTML('beforeend', bubble);
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    function sendCopilotQuestion() {
+      const input = document.getElementById('copilot-input');
+      const val = input.value.trim();
+      if (!val) return;
+      const thread = document.getElementById('copilot-thread');
+      thread.insertAdjacentHTML('beforeend', `<div class="text-right text-[11px] text-emerald-600 font-medium">${val}</div>`);
+      input.value = '';
+      setTimeout(() => {
+        thread.insertAdjacentHTML('beforeend', `<div class="p-2.5 rounded-lg bg-white/70 dark:bg-zinc-800/70 text-[11px] text-zinc-700 dark:text-zinc-300">基于本文内容：${val} 的核心结论在第 2.2 小节有详细数学推演。</div>`);
+        thread.scrollTop = thread.scrollHeight;
+      }, 400);
+    }
+
+    // 极客工坊终端控制台交互
+    function runTerminalCmd(cmd) {
+      const output = document.getElementById('terminal-output');
+      const tabs = ['whoami', 'arsenal', 'rag'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`term-tab-${t}`);
+        if (!btn) return;
+        if (t === cmd) {
+          btn.className = "px-2.5 py-1 rounded bg-zinc-800 text-emerald-400 text-[11px] hover:bg-zinc-700 transition-colors cursor-pointer font-semibold";
+        } else {
+          btn.className = "px-2.5 py-1 rounded text-zinc-400 text-[11px] hover:bg-zinc-800 transition-colors cursor-pointer";
+        }
+      });
+
+      if (cmd === 'whoami') {
+        output.innerHTML = `
+          <div class="text-zinc-500 text-[11px]">// Executing query: $ whoami</div>
+          <div>
+            <span class="text-emerald-400">alex@mindora:~$</span>
+            <span class="text-zinc-100 font-bold ml-1.5">Alex</span>
+            <span class="text-zinc-400 ml-2">/ 思考与实现者 / Digital Craftsman</span>
+          </div>
+          <p class="text-zinc-400 text-[11px] leading-relaxed pl-4 border-l-2 border-emerald-500/50">
+            专注于知识架构治理、Spring Boot & Spring AI 企业级实践、Vue3 沉浸交互、Qdrant 向量空间拓扑调优。致力于把复杂的系统逻辑转化为兼具诗意与秩序的数字化产物。
+          </p>
+          <div class="text-zinc-500 text-[10px] pt-1 font-mono">
+            STATUS: READY // 14 ARTICLES PUBLISHED // RAG ACCURACY: 94.2%
+          </div>
+        `;
+      } else if (cmd === 'arsenal') {
+        output.innerHTML = `
+          <div class="text-zinc-500 text-[11px]">// Executing query: $ stack --inspect --level=expert</div>
+          <div class="space-y-1.5 font-mono text-[11px]">
+            <div><span class="text-blue-400 font-semibold">[BACKEND]</span>   Java 21 · Spring Boot 3.4 · Spring AI 1.0 · Lucene 9.12</div>
+            <div><span class="text-purple-400 font-semibold">[VECTOR/DB]</span> Qdrant (1536-dim Cosine, HNSW) · MySQL 8 · Redis 7</div>
+            <div><span class="text-emerald-400 font-semibold">[FRONTEND]</span>  Vue 3.5 · Vite 7 · Tailwind CSS v4 · TypeScript 5.8</div>
+            <div><span class="text-amber-400 font-semibold">[AI / RAG]</span>  DeepSeek-R1 · BGE-Large (Rerank) · SlidingWindowChunker</div>
+          </div>
+          <div class="text-emerald-400 text-[10px] pt-1 font-mono">
+            LOADOUT HEALTH: ALL SUBNETS ONLINE [OK]
+          </div>
+        `;
+      } else if (cmd === 'rag') {
+        output.innerHTML = `
+          <div class="text-zinc-500 text-[11px]">// Executing query: $ rag.stat --telemetry</div>
+          <div class="space-y-1 font-mono text-[11px]">
+            <div><span class="text-zinc-400">[INDEX POOL]</span>  14 Documents · 328 Active Chunks · Overlap: 64 Tokens</div>
+            <div><span class="text-zinc-400">[LATENCY]</span>     Dense Recall: 12ms · Sparse Keyword: 4ms · Rerank: 22ms (P95: 42ms)</div>
+            <div><span class="text-zinc-400">[DIMENSION]</span>   1536-dim normalized vector space · Cosine metric</div>
+            <div><span class="text-zinc-400">[PIPELINE]</span>    CRAWL ➔ PARSE ➔ CHUNK ➔ EMBED ➔ QDRANT INDEX</div>
+          </div>
+          <div class="text-emerald-400 text-[10px] pt-1 font-mono">
+            RAG ACCURACY: 94.2% · TOP-3 HIT RATE: 98.1%
+          </div>
+        `;
+      }
+    }
+
+    function showLedgerPreview(type) {
+      // 可以在账本悬停时触发微音效或微视觉高光
+    }
+
+    // 候选人物大图与视觉风格切换器 (供讨论挑选)
+    const personaConfigs = {
+      cyber: {
+        img: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1200&q=85',
+        title: 'Alex · 赛博机能工坊',
+        desc: '全栈架构演进 // 知识中枢向量化 // 深度伴读问答',
+        bgText: 'MINDORA',
+        maskClass: 'clip-hero-poly',
+        auraGradient: 'bg-gradient-to-tr from-emerald-500/25 via-teal-400/20 to-purple-500/20'
+      },
+      shinkai: {
+        img: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=85',
+        title: 'Alex · 苍穹与思维之庭',
+        desc: '新海诚天空意境 // 澄澈思考记录 // 知识花园生长',
+        bgText: 'ETHEREAL',
+        maskClass: 'clip-organic-blob',
+        auraGradient: 'bg-gradient-to-tr from-sky-500/25 via-blue-400/20 to-amber-300/15'
+      },
+      manga: {
+        img: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=1200&q=85',
+        title: 'Alex · 极简漫画分镜',
+        desc: '黑白线稿分镜 // 严谨工程哲学 // 破框视觉张力',
+        bgText: 'MONOCHROME',
+        maskClass: 'clip-cyber-slant',
+        auraGradient: 'bg-gradient-to-tr from-zinc-500/20 via-red-500/15 to-emerald-500/20'
+      },
+      nomad: {
+        img: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=1200&q=85',
+        title: 'Alex · 全息数字游民',
+        desc: '数字游民终局 // Qdrant 全息向量索引 // 神经共生系统',
+        bgText: 'CYBER·ZEN',
+        maskClass: 'clip-hero-poly',
+        auraGradient: 'bg-gradient-to-tr from-purple-600/30 via-pink-500/20 to-cyan-400/25'
+      }
+    };
+
+    function selectHeroPersona(key) {
+      const conf = personaConfigs[key];
+      if (!conf) return;
+
+      // 更新按钮状态
+      ['cyber', 'shinkai', 'manga', 'nomad'].forEach(k => {
+        const btn = document.getElementById(`p-btn-${k}`);
+        if (!btn) return;
+        if (k === key) {
+          btn.className = "px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-medium text-xs cursor-pointer shadow-xs transition-all";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-lg text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer transition-all";
+        }
+      });
+
+      // 更新大图
+      const img = document.getElementById('hero-persona-img');
+      if (img) img.src = conf.img;
+
+      // 更新遮罩形状
+      const mask = document.getElementById('hero-char-mask');
+      if (mask) {
+        mask.className = `relative w-[280px] sm:w-[380px] h-[380px] sm:h-[480px] overflow-hidden ${conf.maskClass} transition-all duration-700 char-focal-glow bg-zinc-900/10 dark:bg-black/30`;
+      }
+
+      // 更新背景大字
+      const bgText = document.getElementById('hero-bg-text');
+      if (bgText) bgText.innerText = conf.bgText;
+
+      // 更新光晕渐变
+      const aura = document.getElementById('hero-aura-shape');
+      if (aura) {
+        aura.className = `absolute w-[360px] sm:w-[540px] h-[360px] sm:h-[540px] rounded-full ${conf.auraGradient} blur-3xl pointer-events-none transition-all duration-1000`;
+      }
+
+      // 更新标题和描述
+      const title = document.getElementById('hero-persona-title');
+      if (title) title.innerText = conf.title;
+      const desc = document.getElementById('hero-persona-desc');
+      if (desc) desc.innerText = conf.desc;
+    }
+
+    // 复制代码微动效
+    function copyCode(btn) {
+      btn.innerText = '已复制!';
+      btn.classList.add('bg-emerald-600', 'text-white');
+      setTimeout(() => {
+        btn.innerText = '复制';
+        btn.classList.remove('bg-emerald-600', 'text-white');
+      }, 1600);
+    }
+  </script>
+</body>
+</html>

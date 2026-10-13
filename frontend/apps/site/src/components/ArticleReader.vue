@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { BlogArticle, BlogCategory } from '@mindora/types';
+import { anchorIdFromText } from '../utils/anchor';
 
 const props = defineProps<{
   article: BlogArticle;
@@ -10,6 +11,8 @@ const props = defineProps<{
   onNavigateArticle: (slug: string) => void;
   prevArticle?: BlogArticle | null;
   nextArticle?: BlogArticle | null;
+  /** 由引用回链带过来的目标章节锚点（`anchorIdFromHeadingPath` 的结果）。 */
+  anchorId?: string | null;
 }>();
 
 const readingProgress = ref(0);
@@ -114,12 +117,7 @@ function renderMarkdown(markdown: string) {
       const level = heading[1].length;
       const rawTitle = heading[2].trim();
       const title = renderInlineMarkdown(rawTitle);
-      const slug = rawTitle
-        .toLowerCase()
-        .replace(/<[^>]+>/g, '')
-        .trim()
-        .replace(/[^\w\u4e00-\u9fa5-]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'heading';
+      const slug = anchorIdFromText(rawTitle);
 
       if (level === 1) {
         blocks.push(`<h1 id="${slug}" class="text-2xl font-bold mt-8 mb-4 text-zinc-900 dark:text-zinc-50 tracking-tight scroll-mt-20">${title}</h1>`);
@@ -200,6 +198,15 @@ function attachCodeCopyButtons() {
   });
 }
 
+/** 引用回链：滚动到引文所在章节；找不到对应标题时静默停在文首（不回退成报错）。 */
+function scrollToAnchor(anchorId: string | null | undefined) {
+  if (!anchorId) return;
+  void nextTick(() => {
+    const target = document.getElementById(anchorId);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
 watch(
   () => props.article.slug,
   () => {
@@ -211,11 +218,17 @@ watch(
   }
 );
 
+// 同一篇文章内重复点引用时 slug 不变，靠 anchorId 变化触发定位。
+watch(() => [props.article.slug, props.anchorId], () => {
+  scrollToAnchor(props.anchorId);
+});
+
 onMounted(() => {
   window.addEventListener('scroll', handleScroll, { passive: true });
   void nextTick(() => {
     attachCodeCopyButtons();
   });
+  scrollToAnchor(props.anchorId);
 });
 
 onBeforeUnmount(() => {

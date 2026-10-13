@@ -7,6 +7,7 @@
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "vue-tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
     "@vitejs/plugin-vue": "^6.0.1",
     "tailwindcss": "^4.1.14",
     "vite": "^7.0.6",
+    "vitest": "^3.2.4",
     "vue-tsc": "^2.2.12"
   }
 }
