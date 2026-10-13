@@ -16,19 +16,19 @@
 
 ## Git 集成状态
 
-- `main`：`d6b071d`（含 T5 前台问答页压缩合并 `bd67327`、eslint 本地目录忽略修复），领先 `origin/main`（未推送）
+- `main`：`ce9ef1a`（T5 压缩合并 `bd67327` → SSE 预检 403 修复 `9e27590` → eslint 忽略与注释订正；本文档提交紧随其后），领先 `origin/main`（未推送）
 - 各阶段基线/交付提交：
   - Stage 1：`d5b160d`（后端内容）、`62a5cab`（前端内容 + 集成）
   - Stage 2：`b341a77`
   - Stage 3：`34e7697`（主线）、`e4a60df`（检索底座交付）
   - Stage 3.2：`08ec7b0`（关键词与融合）、`3c271e8`（检索调试页）、`67a2b67`（契约与联调记录）
   - Stage 3.3：`cdda506`（压缩合并；来源分支 `feature/stage-3.3-backend` 的 16 个提交按约定保留，仅供追溯）
-  - Stage 3.4（后端）：`d44fb62`（压缩合并；来源分支 `feature/stage-3.4-backend` 的 8 个提交按约定保留，仅供追溯）
-  - Stage 3.4（前端 T5）：`bd67327`（压缩合并；来源分支 `feature/stage-3.4-frontend` 的 10 个提交按约定保留，仅供追溯；真机验收已通过）
+  - Stage 3.4（后端）：`d44fb62`（压缩合并；来源分支 `feature/stage-3.4-backend` 的 8 个提交按约定保留，仅供追溯）；`9e27590`（公开问答 SSE 预检 403 修复，见 §11.7）
+  - Stage 3.4（前端 T5）：`bd67327`（压缩合并；来源分支 `feature/stage-3.4-frontend` 的 10 个提交按约定保留，仅供追溯；真机与浏览器验收均已通过）
 - 当前开发：
   - 后端 Stage 3.4 后端闭环已交付，T6 会话历史顺延 Stage 3.5，见 `docs/stage-3.4-task-manifest-cn.md`
   - 前端原型已收敛到 `feature/stage-3.4-frontend`（`bc5fc81`，已随 T5 一并进 main）：首页 `HomeView`、AI 问答 `AiChatView`、`App.vue` 路由接线、`SiteHeader` 导航、`docs/prototypes/` 下的个人工作台快照。**原 `feature/stage-4-frontend` 与 stash 中的同名文件已成为冗余副本**，内容与收敛结果逐字节一致
-  - **T5 前台问答页已在 main**：真实 SSE 消费、引用章节级回链、拒答替换/降级/限流冷却/中断态；真机验收 A–F 全通（§11.3）。剩余：浏览器视觉确认、降级态真机复现、后端修 §11.7 的 403 缺陷
+  - **T5 前台问答页已在 main**：真实 SSE 消费、引用章节级回链、拒答替换/降级/限流冷却/中断态；真机 A–F 与浏览器交互验收全通（§11.3、§11.8）。剩余：降级态真机复现；**引用回链在现有公开语料上不可触发**（唯一 public 文档是 Gitee 来源，`articleSlug` 恒为 null，需一篇 BLOG 来源的公开文档，见 §11.8-F1）；客户端长度校验的「出错了」徽标待改中性文案（§11.8-F2）
 - 已完成阶段的分支（内容均已通过压缩合并进入 main）与空指针分支待清理；清理需人工确认后执行
 - 工作区约定：前后端改动分属不同分支；不在同一工作区同时暂存前后端改动
 
@@ -69,7 +69,7 @@
 | Stage 2 | 已完成 | `admin-art` 知识库数据源、同步任务、文档、索引状态、失败重试、切片与模型配置页；mock 默认关闭 |
 | Stage 3 / 3.2 | 已完成 | `/knowledge/retrieval` 检索调试页（含「命中来源」「两路排名 / RRF」列与召回→融合→返回指标栏） |
 | Stage 3.3 | 已交付 | 后端入库质量修复 + 323 条黄金集评测基线 + RAG 生成层（单次问答 + 引用定位 + 三段式拒答 + 生成侧降级）；已压缩合并进 main（`cdda506`）。**前端无改动** |
-| Stage 3.4（T5） | **已实现**（真机验收通过） | 前台问答页 `/chat`：真实 SSE 流式（`delta → citation → done`）、引用回链定位到原文章节、拒答文案替换、降级/限流/中断态；38 个单测 + `typecheck`/`lint`/`build` 全绿，真机 A–F 用例全通。见 `docs/stage-3.4-task-manifest-cn.md` §11 |
+| Stage 3.4（T5） | **已实现**（真机 + 浏览器验收通过） | 前台问答页 `/chat`：真实 SSE 流式（`delta → citation → done`）、引用回链定位到原文章节、拒答文案替换、降级/限流/中断态；38 个单测 + `typecheck`/`lint`/`build` 全绿，真机 A–F 用例与真实 Chromium 交互验收全通。见 `docs/stage-3.4-task-manifest-cn.md` §11 |
 | Stage 4 | 未开始 | 监控、告警、运维视图 |
 
 ## 当前检查结果
@@ -85,7 +85,8 @@
   - 语料凭据扫描：全量 158 篇 6 处高置信命中（均在私有文档）；**public 暴露面 0 命中**
 - `npm run api:sync` / `api:generate` / `api:check` 通过（公开问答三端点已进 OpenAPI 与生成的 TS 类型）
 - **前台问答页（T5，`feature/stage-3.4-frontend`）**：`npm test --workspace=@mindora/site` **38 passed**（传输层 20 / 状态机 10 / 锚点 8）；`npm run typecheck`（7 工作区）0 错误；`npm run lint` 0 错误（顺带修掉主线自 `cdda506` 起 `scripts/rag-eval/run.mjs` 缺 `fetch`/`Buffer` 全局的 2 个 lint 错误）；`npm run build --workspace=@mindora/site` 通过（134.5 kB / gzip 46.5 kB）
-- **T5 真机验收（2026-10-13，真实后端 + 真实模型，用前端传输层与状态机直打端点）**：正例 `delta×18 → citation×1 → done`（`latencyMs=3720`、引用只来自 public 文档）；负例 `refused` 且已流出文字被标准拒答文案替换；私有内容零召回；限流（后端额度压到 2）实测 `200,200,429,429,429,429` 且状态机进入 `rate_limited` + 60s 冷却。**未做**：降级态真机复现、浏览器视觉确认（本机缺 bsk）
+- **T5 真机验收（2026-10-13，真实后端 + 真实模型，用前端传输层与状态机直打端点）**：正例 `delta×18 → citation×1 → done`（`latencyMs=3720`、引用只来自 public 文档）；负例 `refused` 且已流出文字被标准拒答文案替换；私有内容零召回；限流（后端额度压到 2）实测 `200,200,429,429,429,429` 且状态机进入 `rate_limited` + 60s 冷却
+- **T5 浏览器验收（2026-10-13，真实 Chromium，视口 1929×992）**：`/chat` 正例流式（正文逐字追加 → 输入框 `disabled`、按钮变「停止」→ 完成显示 `Qwen/Qwen3-30B-A3B-Instruct-2507 · 4670 ms · 首字 2605 ms`、1 张引用卡）；负例拒答（`已拒答` + 标准文案整体替换 + **无引用卡**）；1 字问题被本地拦截（网络面板 **0 请求**）；两次交换各 `OPTIONS 200` + `POST 200`，无 4xx/5xx；控制台仅浏览器扩展噪声；路由与硬刷新后的 `localStorage` 恢复均正常。**发现**：① 引用回链在现有公开语料上不可触发（唯一 public 文档是 Gitee 来源，`articleSlug` 恒为 `null`，需一篇 BLOG 来源的公开文档）；② 客户端长度校验复用 `error` 状态，渲染成红色「出错了」徽标偏重。详见 `docs/stage-3.4-task-manifest-cn.md` §11.8
 - **真机验收发现的后端缺陷（已修复，`9e27590`）**：公开问答 SSE 端点若只收到 `Accept: text/event-stream`，其**预检错误**（400/429）曾退化成 **403 + 空响应体**（错误响应无法完成内容协商 → ERROR 分派到 `/error` 被鉴权拦截）。修复：错误响应显式声明 `application/json`（跳过协商）+ 放行 `/error` + SSE 端点声明 `produces`。同上修复还覆盖了「匿名访问不存在的 public 路径」这类错误分派被改写成 403 的情况。前端原先的绕开写法（`Accept: text/event-stream, application/json`，`1537b49`）可保留也可回退。详见 `docs/stage-3.4-task-manifest-cn.md` §11.7
 - **真机验收发现的降级根因（已修复，`9e27590`）**：本地 `mindora-local.yml` 只配了 `mindora.knowledge.*` 密钥，`mindora.rag.chat.api-key` 默认空 → 正常本地启动必然 `degradedReason=rag_chat_api_key_missing`（现象只是「对话模型不可用」）。修复：密钥兜底链 `${RAG_CHAT_API_KEY:${mindora.knowledge.rerank.api-key:}}` + 启动期 WARN。实测（不设 env、local profile）公开问答 `degraded=false`、模型 `Qwen/Qwen3-30B-A3B-Instruct-2507`
 - **开发环境畅通性复测（2026-10-13，main `d44fb62`）**：全量 11 模块 `BUILD SUCCESS`；后端启动后检索「向量 30 + 关键词 30 → 融合 20 → 返回 8」（1037ms，说明 MySQL/Qdrant/Lucene 均通）；管理端问答 5 条引用（真实模型）；公开端点 1 条引用；SSE `delta → citation → done`（`latencyMs=2340`）；限流后端无 fail-open 告警（Redis 通）。测试前修复了 VM 网桥丢 IPv4（见下方运行约束）
@@ -132,7 +133,7 @@
 **Stage 3.4 后端闭环已交付**（公开端点 + 限流 + 密钥兜底 + SSE + 契约同步 + 访问日志），完整证据见 **`docs/stage-3.4-task-manifest-cn.md` §10**。下一步（Stage 3.5）按优先级：
 
 1. **完成 T1 语料凭据处置（公开暴露前硬门禁，本人操作）**：核实 → **轮换密钥** → 源文件脱敏 → 全量重建索引 → `node scripts/security/scan-corpus-secrets.mjs` 复扫为 0 命中。当前基线：全量 6 处（5 篇私有文档），public 暴露面 0。
-2. **T5 前台问答页**：代码已交付且**真机验收通过**（`feature/stage-3.4-frontend`，见 §11）；**剩余**：① 浏览器视觉确认；② 后端修掉 §11.7 的「预检错误被吞成 403」（放行 `/error` 错误分派或让错误响应显式 `content-type`）；③ 降级态的真机复现。
+2. **T5 前台问答页**：代码已交付，**真机（A–F）与浏览器交互验收均通过**（`bd67327`，见 §11.3、§11.8）；**剩余**：① 降级态真机复现（把对话模型指向不可用端点）；② 引用回链需一篇 BLOG 来源的公开文档才能在真机上验证（§11.8-F1，属数据运营动作）；③ 客户端长度校验的中性文案（§11.8-F2，前端小改）。
 3. **T6 会话历史**：登录用户落库 `conversationId`，多轮记忆按 design-04（`chat_context_turns=4`、`max_history_tokens=3000`）实现并补评测。
 4. **公开前决策**：公开语料当前仅 1 篇（《阅读线路》）——公开问答要有实用价值，需要先扩充公开内容（本人内容运营决策）；限流阈值（6/20 每分钟）按访问日志的真实分布调整。
 5. **Stage 4 运维增强**：RAG 请求落库（`rag_chat_log`）、额度报表、降级告警、同步/索引失败面可视化。
