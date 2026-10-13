@@ -50,7 +50,7 @@
 | [stage-3-task-manifest-cn.md](stage-3-task-manifest-cn.md) | Stage 3 检索底座 | 已交付（含接口行为 / 数据边界 / 联调记录） |
 | [stage-3.2-task-manifest-cn.md](stage-3.2-task-manifest-cn.md) | Stage 3.2 关键词与融合 | 已交付（含接口行为 / 权限修复 / 联调记录 / 运行约束） |
 | [stage-3.3-task-manifest-cn.md](stage-3.3-task-manifest-cn.md) | Stage 3.3 入库质量 + 评测基线 + 生成层 | 生成层待合并回 main（含接口行为 / 联调记录 / 归因方法） |
-| [stage-3.4-task-manifest-cn.md](stage-3.4-task-manifest-cn.md) | Stage 3.4 公开问答闭环 | **当前阶段**：计划与台账合一 |
+| [stage-3.4-task-manifest-cn.md](stage-3.4-task-manifest-cn.md) | Stage 3.4 公开问答闭环 | **后端闭环已交付**（T1 待本人处置凭据；T5 前台问答页、T6 会话历史顺延 Stage 3.5）。接口行为与实机联调记录见其 §10 |
 
 阶段执行计划在执行完毕后进 [archive/](archive/)。**当前阶段**的计划与任务清单见上表最后一行（计划与台账合一，不再另建计划文档）。
 
@@ -92,7 +92,7 @@
 
 | 问题 | 证据 | 处置 |
 | --- | --- | --- |
-| **超长文档** | `design-06` 798、`rag-guide-cn` 706、`design-05` 539、`design-04` 495、`design-07` 420、`design-03` 399、`stage-3.3-task-manifest-cn` ≈440、`stage-3.2-task-manifest-cn` ≈150 | 规则：新建 ≤ 300 行、涨到 500 行必须拆分。**不专项重构**，按「下次因业务需要改到该文档时顺手拆分」处理，`design-06` 与 `stage-3.3-task-manifest-cn` 优先 |
+| **超长文档** | `design-06` 798、`rag-guide-cn` 706、`design-05` 539、`design-04` 495、`design-07` 420、`design-03` 399、**`design-11` 323（Stage 3.4 增补公开端点/SecretGuard/SSE 契约后）**、`stage-3.3-task-manifest-cn` ≈440、`stage-3.2-task-manifest-cn` ≈150 | 规则：新建 ≤ 300 行、涨到 500 行必须拆分。**不专项重构**，按「下次因业务需要改到该文档时顺手拆分」处理，`design-06` 与 `stage-3.3-task-manifest-cn` 优先；`design-11` 下次修订时把 §10–§13（公开端点/密钥兜底/SSE/日志）拆成 `design-12-public-qa-and-streaming.md` |
 | 生成物混在 `docs/` 根目录 | [stage-3.3-candidate-questions-cn.md](stage-3.3-candidate-questions-cn.md) 单文件约 299 KB，是脚本生成的候选问题评审清单 | 迁至 `docs/generated/`（已加入 `.gitignore`）。**该文件正在被编辑，暂缓执行**；Stage 3.4 T7 会用到它 |
 | 主题重复叙述 | [rag-guide-cn.md](rag-guide-cn.md) 第 2 章「业界成熟方案速览」与调研文档重复；第 4 章「能力边界」与 project-status 重复 | 内容保留（学习价值独立），已加指针声明「结论以 design/survey 为准」 |
 | 原始设计与落地契约并存 | [design-04](design-04-rag-and-chat.md) 的检索/生成章节已被 design-09/10/11 细化 | 已标注状态，明确哪部分仍以 design-04 为准 |

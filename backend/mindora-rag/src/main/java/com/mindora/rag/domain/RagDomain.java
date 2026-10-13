@@ -60,7 +60,12 @@ public final class RagDomain {
             boolean quoteVerified) {
     }
 
-    /** 请求：单次问答。{@code conversationId} 为多轮记忆预留（今天忽略）。 */
+    /**
+     * 请求：单次问答。
+     *
+     * @param conversationId 多轮记忆预留（今天忽略）
+     * @param secretGuard    是否开启密钥兜底（公开端点 true；管理端调试 false——管理员看的是自己的库）
+     */
     public record RagAnswerRequest(
             String query,
             String scope,
@@ -68,7 +73,8 @@ public final class RagDomain {
             Boolean rerankEnabled,
             Boolean keywordEnabled,
             Boolean expansion,
-            UUID conversationId) {
+            UUID conversationId,
+            boolean secretGuard) {
     }
 
     /** 拒答原因。 */
@@ -81,7 +87,14 @@ public final class RagDomain {
          * 模型给了答案，但引用无法在本次候选中核验（编号越界、quote 非逐字、没有引用）。
          * 第二层的服务端确定性校验把它拦下来了。
          */
-        INVALID_CITATION
+        INVALID_CITATION,
+        /**
+         * 命中密钥兜底：上下文或答案（含引用摘录）里出现疑似凭据。
+         *
+         * <p>这是**公开问答的兜底**，不是主要管控手段——内容是否公开由文章级 visibility 决定。
+         * 宁可误拒，不可泄露。
+         */
+        PROTECTED_CONTENT
     }
 
     /** 检索与组装的伴随元数据。 */

@@ -107,4 +107,40 @@ public final class RagAdapters {
             return id == null ? null : id.replace("-", "").toLowerCase(java.util.Locale.ROOT);
         }
     }
+
+    /** 限流决策：{@code retryAfterSeconds} 为窗口剩余时间，供前端提示。 */
+    public record RateLimitDecision(boolean allowed, long retryAfterSeconds) {
+        public static RateLimitDecision allowed(long windowSeconds) {
+            return new RateLimitDecision(true, Math.max(1, windowSeconds));
+        }
+
+        public static RateLimitDecision rejected(long windowSeconds) {
+            return new RateLimitDecision(false, Math.max(1, windowSeconds));
+        }
+    }
+
+    /**
+     * 公开问答限流端口（固定窗口）。
+     *
+     * <p><b>语义约定</b>：限流是**成本护栏**，不是权限边界（design-04 原则：质量可降级、权限不可降级）。
+     * 因此后端不可用时的正确行为是 fail-open + warn，而不是把公开问答整体打挂；真正的泄露防护由
+     * SecretGuard 独立承担。
+     *
+     * @param key   限流键（调用方拼好前缀与身份，如 {@code mindora:rag:rl:ip:1.2.3.4}）
+     * @param limit 该身份在本窗口内的最大请求数
+     */
+    public interface RateLimitPort {
+        RateLimitDecision tryAcquire(String key, int limit);
+    }
+
+    /**
+     * 当前调用者身份端口。
+     *
+     * <p>业务模块不依赖 Spring Security（本项目的安全装配集中在 mindora-app），因此把「当前用户是谁」
+     * 收敛成一个端口，由 app 层用 {@code SecurityContextHolder} 实现；测试可直接给固定身份。
+     */
+    public interface CallerIdentityPort {
+        /** 已登录返回 userId（JWT 的 sub），匿名返回 empty。 */
+        java.util.Optional<String> currentUserId();
+    }
 }

@@ -30,5 +30,11 @@ mindora:
     # 既不需要真实密钥，也不会让上下文加载失败（对话适配器由自身单测覆盖）
     chat:
       enabled: false
+    public:
+      rate-limit:
+        # 测试不连 Redis；额度调高，避免功能用例互相计数（限流行为由 PublicRagRateLimitTest 单独覆盖）
+        backend: memory
+        anonymous-per-minute: 1000
+        logged-in-per-minute: 1000
   seed:
     enabled: false

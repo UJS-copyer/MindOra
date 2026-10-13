@@ -145,6 +145,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/rag/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/rag/answer/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["answerStream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/register": {
         parameters: {
             query?: never;
@@ -219,6 +251,22 @@ export interface paths {
         get: operations["roles"];
         put?: never;
         post: operations["createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/rag/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["answer_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -949,6 +997,59 @@ export interface components {
             /** Format: date-time */
             publishedAt?: string;
         };
+        PublicRagRequestView: {
+            query?: string;
+        };
+        ApiResponseRagAnswerView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["RagAnswerView"];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        CitationView: {
+            /** Format: int32 */
+            index?: number;
+            chunkId?: string;
+            documentId?: string;
+            documentTitle?: string;
+            headingPath?: string;
+            sourcePath?: string;
+            articleSlug?: string;
+            /** Format: int32 */
+            sequence?: number;
+            quote?: string;
+            quoteVerified?: boolean;
+        };
+        RagAnswerView: {
+            answer?: string;
+            citations?: components["schemas"]["CitationView"][];
+            retrieval?: components["schemas"]["RetrievalView"];
+            refused?: boolean;
+            refusalReason?: string;
+            refusalDetail?: string;
+            degraded?: boolean;
+            degradedReason?: string;
+            chatModel?: string;
+        };
+        RetrievalView: {
+            /** Format: int64 */
+            latencyMs?: number;
+            /** Format: int32 */
+            vectorCandidates?: number;
+            /** Format: int32 */
+            keywordCandidates?: number;
+            /** Format: int32 */
+            matchedTopK?: number;
+            expansionApplied?: boolean;
+            /** Format: int32 */
+            contextChars?: number;
+        };
+        SseEmitter: {
+            /** Format: int64 */
+            timeout?: number;
+        };
         AuthRequest: {
             /** Format: email */
             email: string;
@@ -966,6 +1067,16 @@ export interface components {
             userId?: string;
             email?: string;
             accessToken?: string;
+        };
+        RagAnswerRequestView: {
+            query?: string;
+            scope?: string;
+            /** Format: int32 */
+            topK?: number;
+            rerankEnabled?: boolean;
+            keywordEnabled?: boolean;
+            expansion?: boolean;
+            conversationId?: string;
         };
         ApiResponseSyncTaskView: {
             code?: string;
@@ -1759,6 +1870,56 @@ export interface operations {
             };
         };
     };
+    answer: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PublicRagRequestView"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRagAnswerView"];
+                };
+            };
+        };
+    };
+    answerStream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PublicRagRequestView"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SseEmitter"];
+                };
+            };
+        };
+    };
     register: {
         parameters: {
             query?: never;
@@ -1968,6 +2129,32 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseRoleRow"];
+                };
+            };
+        };
+    };
+    answer_1: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RagAnswerRequestView"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRagAnswerView"];
                 };
             };
         };

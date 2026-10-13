@@ -34,6 +34,10 @@ class OpenApiContractTest {
                 .andExpect(jsonPath("$.paths['/api/v1/admin/knowledge/sources']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/knowledge/documents']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/admin/knowledge/retrieval/search']").exists())
+                // 公开问答（同步 + SSE）与管理端问答都要进契约，前端类型据此生成
+                .andExpect(jsonPath("$.paths['/api/v1/public/rag/answer']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/public/rag/answer/stream']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/admin/rag/answer']").exists())
                 .andReturn();
 
         String outputFile = System.getProperty("openapi.output");

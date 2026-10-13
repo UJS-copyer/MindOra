@@ -43,6 +43,7 @@ public class RagAnswerService {
     private final AnswerCitationValidator validator;
     private final ContextPolicy defaultPolicy;
     private final ChatOptions defaultChatOptions;
+    private final boolean secretGuardEnabled;
 
     public RagAnswerService(
             RetrievalFacadePort retrieval,
@@ -51,20 +52,47 @@ public class RagAnswerService {
             AnswerCitationValidator validator,
             ContextPolicy defaultPolicy,
             ChatOptions defaultChatOptions) {
+        this(retrieval, assembler, chatClient, validator, defaultPolicy, defaultChatOptions, false);
+    }
+
+    public RagAnswerService(
+            RetrievalFacadePort retrieval,
+            ContextAssembler assembler,
+            ChatClientPort chatClient,
+            AnswerCitationValidator validator,
+            ContextPolicy defaultPolicy,
+            ChatOptions defaultChatOptions,
+            boolean secretGuardEnabled) {
         this.retrieval = retrieval;
         this.assembler = assembler;
         this.chatClient = chatClient;
         this.validator = validator;
         this.defaultPolicy = defaultPolicy == null ? ContextPolicy.defaults() : defaultPolicy;
         this.defaultChatOptions = defaultChatOptions == null ? ChatOptions.defaults() : defaultChatOptions;
+        this.secretGuardEnabled = secretGuardEnabled;
     }
 
     public RagAnswerOutcome answer(RagAnswerRequest request) {
+        return answerStream(request, null);
+    }
+
+    /**
+     * 问答编排（同步与流式共用一条路径）。
+     *
+     * <p>{@code deltaConsumer} 非空时走流式：把模型原始 JSON 增量经
+     * {@link StreamingAnswerExtractor} 抽取成 answer 正文、再经 {@link StreamingSecretFilter}
+     * 过滤后逐段交给调用方；<b>完整累积文本仍由既有校验器解析 citations</b>，因此模型契约不用改。
+     *
+     * <p>消费端异常（客户端断开、密钥熔断）会原样穿透到调用方——它是中断上游读取的唯一机制。
+     */
+    public RagAnswerOutcome answerStream(
+            RagAnswerRequest request, java.util.function.Consumer<String> deltaConsumer) {
         if (request == null || request.query() == null || request.query().isBlank()) {
             throw new BusinessException("rag_query_required", "RAG query is required");
         }
         Scope scope = parseScope(request.scope());
         String question = request.query().trim();
+        boolean guard = guardEnabled(request);
 
         RetrievalOutcome outcome = retrieval.search(new RetrievalQuery(
                 question,
@@ -89,57 +117,144 @@ public class RagAnswerService {
             return refused(meta, RefusalReason.NO_CONTEXT, "no_candidates");
         }
 
-        // 2) 调用模型；不可用时降级为「只给检索片段」
-        ChatReply reply;
+        String contextText = assembler.render(context.segments());
+
+        // 2) 密钥兜底（上下文层）：命中则不调模型，密钥连 prompt 都不进
+        if (guard) {
+            java.util.Optional<SecretGuard.Hit> hit = SecretGuard.scanContext(contextText);
+            if (hit.isPresent()) {
+                return refused(
+                        meta,
+                        RefusalReason.PROTECTED_CONTENT,
+                        "secret_guard:context:" + hit.get().patternId());
+            }
+        }
+
+        // 3) 调用模型（流式时把 answer 正文逐段转发出去）；不可用时降级为「只给检索片段」
+        StreamingAnswerExtractor extractor = deltaConsumer == null ? null : new StreamingAnswerExtractor();
+        StreamingSecretFilter streamFilter = extractor != null && guard ? new StreamingSecretFilter() : null;
+        ChatOptions chatOptions = extractor == null
+                ? defaultChatOptions
+                : new ChatOptions(
+                        defaultChatOptions.model(),
+                        defaultChatOptions.temperature(),
+                        defaultChatOptions.maxTokens(),
+                        rawPiece -> forwardDelta(extractor, streamFilter, deltaConsumer, rawPiece));
+        RagAnswerOutcome produced;
         try {
-            reply = chatClient.chat(
+            ChatReply reply = chatClient.chat(
                     List.of(
                             ChatMessage.system(RagPrompt.systemPrompt()),
-                            ChatMessage.user(RagPrompt.userMessage(assembler.render(context.segments()), question))),
-                    defaultChatOptions);
-        } catch (BusinessException exception) {
-            if (isChatUnavailable(exception)) {
-                return degraded(meta, context, exception);
-            }
-            throw exception;
-        }
+                            ChatMessage.user(RagPrompt.userMessage(contextText, question))),
+                    chatOptions);
 
-        // 3) 服务端确定性校验：引用必须落在本次片段内且 quote 逐字可核
-        ParsedAnswer parsed = validator.parse(reply.content());
-        ValidationResult validation = validator.validate(parsed, context);
-        if (!validation.valid()) {
+            // 正文已流完：把密钥窗口里滞留的尾部放出去（flushed 前的检测仍在窗口内进行）
+            if (streamFilter != null) {
+                String tail = streamFilter.flush();
+                if (!tail.isEmpty()) {
+                    deltaConsumer.accept(tail);
+                }
+            }
+
+            // 4) 服务端确定性校验：引用必须落在本次片段内且 quote 逐字可核
+            ParsedAnswer parsed = validator.parse(reply.content());
+            ValidationResult validation = validator.validate(parsed, context);
+            if (!validation.valid()) {
+                if (logger.isDebugEnabled()) {
+                    logger.debug(
+                            "RAG 引用校验未通过：reason={} modelRefused={} citations={} rawReply={}",
+                            validation.reason(),
+                            parsed.refused(),
+                            parsed.citations().size(),
+                            abbreviate(reply.content()));
+                }
+                return refused(meta, refusalReasonOf(validation.reason()), validation.reason());
+            }
+
             if (logger.isDebugEnabled()) {
-                logger.debug(
-                        "RAG 引用校验未通过：reason={} modelRefused={} citations={} rawReply={}",
-                        validation.reason(),
-                        parsed.refused(),
-                        parsed.citations().size(),
-                        abbreviate(reply.content()));
+                logger.debug("RAG 作答成功：模型={} 引用={}（逐字核验 {} 条 / 服务端摘录 {} 条 / 丢弃越界 {} 条）片段={} 上下文={}字",
+                        reply.model(),
+                        validation.citations().size(),
+                        validation.verifiedCount(),
+                        validation.snippetCount(),
+                        validation.droppedCount(),
+                        meta.matchedTopK(),
+                        meta.contextChars());
             }
-            return refused(meta, refusalReasonOf(validation.reason()), validation.reason());
+            produced = new RagAnswerOutcome(
+                    validation.answer(),
+                    validation.citations(),
+                    meta,
+                    false,
+                    null,
+                    null,
+                    false,
+                    null,
+                    reply.model(),
+                    Instant.now());
+        } catch (SecretGuardSignal signal) {
+            // 流式转发途中命中密钥：立即停止转发并改判拒答（已流出的文字由前端按 done 事件替换）
+            logger.warn("流式密钥兜底命中：pattern={}", signal.patternId());
+            return refused(meta, RefusalReason.PROTECTED_CONTENT, "secret_guard:answer:" + signal.patternId());
+        } catch (BusinessException exception) {
+            if (!isChatUnavailable(exception)) {
+                throw exception;
+            }
+            produced = degraded(meta, context, exception);
         }
 
-        if (logger.isDebugEnabled()) {
-            logger.debug("RAG 作答成功：模型={} 引用={}（逐字核验 {} 条 / 服务端摘录 {} 条 / 丢弃越界 {} 条）片段={} 上下文={}字",
-                    reply.model(),
-                    validation.citations().size(),
-                    validation.verifiedCount(),
-                    validation.snippetCount(),
-                    validation.droppedCount(),
-                    meta.matchedTopK(),
-                    meta.contextChars());
+        // 5) 密钥兜底（答案层）：覆盖答案正文与引用摘录——降级路径回传的是服务端摘录，同样可能含密
+        if (guard) {
+            java.util.Optional<SecretGuard.Hit> hit = scanOutcome(produced);
+            if (hit.isPresent()) {
+                return refused(
+                        meta,
+                        RefusalReason.PROTECTED_CONTENT,
+                        "secret_guard:answer:" + hit.get().patternId());
+            }
         }
-        return new RagAnswerOutcome(
-                validation.answer(),
-                validation.citations(),
-                meta,
-                false,
-                null,
-                null,
-                false,
-                null,
-                reply.model(),
-                Instant.now());
+        return produced;
+    }
+
+    private boolean guardEnabled(RagAnswerRequest request) {
+        return request.secretGuard() && secretGuardEnabled;
+    }
+
+    /**
+     * 流式转发一段：原始 JSON 增量 → 抽取 answer 正文 → 密钥滑动窗口 → 交给调用方。
+     *
+     * <p>密钥窗口未越过 {@link StreamingSecretFilter#HOLDBACK} 时返回空串（先攒着不转发），
+     * 这正是「密钥被 delta 切断也不漏检」的代价与保证。
+     */
+    private static void forwardDelta(
+            StreamingAnswerExtractor extractor,
+            StreamingSecretFilter filter,
+            java.util.function.Consumer<String> deltaConsumer,
+            String rawPiece) {
+        String text = extractor.accept(rawPiece);
+        if (text.isEmpty()) {
+            return;
+        }
+        if (filter == null) {
+            deltaConsumer.accept(text);
+            return;
+        }
+        String safe = filter.accept(text);
+        if (!safe.isEmpty()) {
+            deltaConsumer.accept(safe);
+        }
+    }
+
+    /** 扫描答案正文与所有引用摘录（引用摘录来自原文，是另一条泄露路径）。 */
+    private java.util.Optional<SecretGuard.Hit> scanOutcome(RagAnswerOutcome outcome) {
+        StringBuilder builder = new StringBuilder();
+        if (outcome.answer() != null) {
+            builder.append(outcome.answer());
+        }
+        for (Citation citation : outcome.citations()) {
+            builder.append('\n').append(citation.quote() == null ? "" : citation.quote());
+        }
+        return SecretGuard.scanAnswer(builder.toString());
     }
 
     /** 把校验器的细分原因映射为对外枚举：模型主动拒答与引用不达标要能区分开。 */

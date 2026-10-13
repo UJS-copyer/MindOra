@@ -8,16 +8,16 @@
 
 **本期交付**：单次问答闭环——用户提问 → 检索 → 上下文组装（含检索后扩展）→ 对话模型作答 → **服务端确定性校验引用** → 返回答案 + 可定位回原文的引用；知识库无相关内容时明确拒答。
 
-**为后续预留的扩展位**（今天不实现，但契约与端口已留缝）：
+**Stage 3.4 已把下列扩展位落地**（契约见 §10–§13）：
 
-| 后续能力 | 已预留的缝 |
-| --- | --- |
-| SSE 流式输出 | `ChatOptions.streamConsumer` 回调槽（今天传 `null`） |
-| 多轮对话 | 请求体已含 `conversationId`（今天忽略） |
-| 公开问答端点 + 限流 | 今天只有 `RagAdminController`；服务层强制显式 `scope`，公开版固定 `public` |
-| 换检索实现 / 加查询改写 | `RetrievalFacadePort` 窄端口 |
+| 能力 | 状态 | 契约位置 |
+| --- | --- | --- |
+| SSE 流式输出 | **已交付**（`ChatOptions.streamConsumer` 槽位已兑现，端口签名未变） | §12 |
+| 公开问答端点 + 限流 + 密钥兜底 | **已交付**（`PublicRagController`，scope 服务端硬编码） | §10、§11 |
+| 多轮对话 | 未实现（`conversationId` 仍被忽略，顺延 Stage 3.5） | — |
+| 换检索实现 / 加查询改写 | 端口已就绪（`RetrievalFacadePort`） | §3 |
 
-**明确不做**：前端聊天页、RAPTOR/摘要索引、句级重切、Late Chunking（调研已否定，见 `docs/rag-retrieval-improvement-survey-cn.md`）。
+**明确不做**：前端聊天页（顺延 Stage 3.5）、RAPTOR/摘要索引、句级重切、Late Chunking（调研已否定，见 `docs/rag-retrieval-improvement-survey-cn.md`）。
 
 ## 2. 接口契约
 
@@ -157,6 +157,13 @@ mindora-rag
 | `mindora.rag.context.expansion-added-chars` | `RAG_EXPANSION_ADDED` | `1500` | 扩展新增上限（实测拐点） |
 | `mindora.rag.context.section-cap` | `RAG_SECTION_CAP` | `4` | 每命中最多补几条同章节切片 |
 | `mindora.rag.validation.require-verbatim-quote` | `RAG_REQUIRE_VERBATIM_QUOTE` | `true` | 关闭后仅校验编号，引用文本回退为服务端摘录 |
+| `mindora.rag.public.enabled` | `MINDORA_RAG_PUBLIC_ENABLED` | `true` | 公开问答总开关；关闭时端点按 404 处理 |
+| `mindora.rag.public.rate-limit.backend` | `RAG_RATE_LIMIT_BACKEND` | `redis` | `redis` / `memory`（测试与无 Redis 单实例） |
+| `mindora.rag.public.rate-limit.window-seconds` | — | `60` | 固定窗口长度 |
+| `mindora.rag.public.rate-limit.anonymous-per-minute` | — | `6` | 匿名按来源 IP 计 |
+| `mindora.rag.public.rate-limit.logged-in-per-minute` | — | `20` | 登录用户按 userId 计 |
+| `mindora.rag.public.stream.executor-core` / `.executor-max` | — | `2` / `16` | SSE 任务线程池（队列 0，满则回 `server_busy`） |
+| `mindora.rag.security.secret-guard.enabled` | `RAG_SECRET_GUARD_ENABLED` | `true` | 密钥兜底开关（见 §11） |
 
 测试环境（`mindora-app/src/test/resources/application.yml`）设 `mindora.rag.chat.enabled: false`：单测不访问真实模型，问答走降级路径。
 
@@ -238,4 +245,87 @@ cd backend && mvn -s .mvn/mindora-settings.xml -gs .mvn/mindora-settings.xml -pl
 REPEAT=3 node logs/rag-integration-check.mjs
 ```
 
-`mindora-rag` 测试覆盖：对话适配器 6（请求结构/响应解析/空 key/空消息/上游失败/空响应）、上下文组装器 10（全文补全/扩展/预算/排序/编号/文档归属）、引用校验器 17（解析容错/逐条粒度/越界/逐字/宽松模式）、编排 9（三条降级拒答语义/参数校验）。
+`mindora-rag` 测试覆盖：对话适配器 11（请求结构/响应解析/空 key/空消息/上游失败/空响应 + 流式 5：stream 标志与逐帧累积/DONE 后忽略/消费端异常中断且原样上抛/上游 500/非法帧）、上下文组装器 10、引用校验器 17、编排 20（三条降级拒答语义/参数校验/密钥兜底/流式转发）、SecretGuard 6、流式密钥窗口 6、answer 抽取器 12（含随机切分性质测试）、限流适配器 7。合计 **85**。
+
+---
+
+## 10. 公开问答端点（Stage 3.4 交付）
+
+| 端点 | 鉴权 | 请求体 | 说明 |
+| --- | --- | --- | --- |
+| `POST /api/v1/public/rag/answer` | 匿名 | 仅 `query`（2~500 字） | 一次性返回 `answer` + `citations[]` + `refused/degraded` |
+| `POST /api/v1/public/rag/answer/stream` | 匿名 | 仅 `query` | SSE，事件契约见 §12 |
+
+**三条硬性约束**：
+
+1. **scope 由服务端硬编码 `public`**，且请求体**根本没有** scope 字段——比「接受但忽略」更难被误用（单测断言控制器交给领域层的入参）；
+2. 公开内容判定沿用知识库既有过滤（`visibility=public` + `knowledgeEnabled` + `status=active` + MySQL 权威复核），RAG 层不做二次判断、也不放宽；
+3. 叠加限流（§10.1）与密钥兜底（§11）。
+
+响应形状与管理端**完全一致**（共用 `RagAnswerViews`），差别只在请求体收窄与权限。
+
+错误码：`validation_error`(400)、`rag_rate_limited`(429)、`rag_public_disabled`(404)。预检失败一律返回**普通 JSON**（对 SSE 端点而言，此时尚未写 `text/event-stream` 头）。
+
+### 10.1 限流（固定窗口）
+
+- Redis `INCR` + **仅首次** `EXPIRE`（每次 INCR 都续期等于不限流）；无 Redis 时用进程内实现（测试与单实例）。
+- 分桶：登录用户 `u:{userId}`（20/分）、匿名 `ip:{remoteAddr}`（6/分）。身份经 `CallerIdentityPort` 端口获取——业务模块不依赖 Spring Security，由 app 层读 `SecurityContextHolder` 的 `TokenPrincipal`。
+- **fail-open**：Redis 不可用时放行 + warn。理由是 design-04 的分级原则——限流是**成本护栏**，不是权限边界；把公开问答整体打成 429 是更糟的故障模式。泄露防护由 §11 独立承担。
+- 阈值是初始保守值，需按真实分布调整（见 stage-3.4 清单 §10.4）。
+- `getRemoteAddr()` 是直连地址；置于反向代理后必须按可信代理解析 `X-Forwarded-For`，否则全体访客共用代理 IP 的额度。
+
+## 11. 密钥兜底（SecretGuard）
+
+**定位**：内容是否公开由**文章级 visibility** 决定；本层只兜「不该公开的文档意外可检索」这一剩余风险。误伤取向是**宁可误拒、不可泄露**。
+
+| 层 | 时机 | 规则 | 命中后果 |
+| --- | --- | --- | --- |
+| 上下文层 | 检索后、调模型**前** | 仅前缀型高置信规则 | 直接拒答（`protected_content`），密钥**不进 prompt**、不花模型调用 |
+| 答案层 | 生成后（含流式窗口） | 全部规则（含赋值型 + 占位符白名单） | 改判拒答，`refusalDetail=secret_guard:answer:{ruleId}` |
+| 引用摘录 | 产出前 | 同上（拼接答案 + 所有 citation 的 `quote`） | 改判拒答——降级路径回传的是服务端摘录，是**独立泄露路径** |
+
+规则取自 gitleaks 默认规则集的高置信子集：`sk-` 风格密钥（≥32 位）、AWS `AKIA/ASIA/ABIA/ACCA`、阿里云 `LTAI`、GitHub `gh[pousr]_`、Google `AIza`、Slack `xox[baprs]-`、`-----BEGIN … PRIVATE KEY-----`、赋值型（关键字 + 分隔符 + 20~64 位值，带占位符白名单 `\${API_KEY}`/`<your-key>`/`xxxx`/`changeme` 等）。不做熵检测。
+
+**流式不变式**：`StreamingSecretFilter` 始终保留尾部 `HOLDBACK = 96` 字符不转发（必须 ≥ 最长规则长度，否则跨边界命中会漏检；修改规则表需同步调大）。命中抛 `SecretGuardSignal` → 经适配器的 `StreamConsumerAbort` 冒泡出读取循环 → 关闭响应流（与「客户端断开」共用同一中断机制）。
+
+**管理端不启用**（`secretGuard=false`）：管理员看的是自己的库，拒答反而妨碍排查。
+
+## 12. SSE 事件契约（Stage 3.4 交付）
+
+```text
+data: {"type":"delta","text":"…"}                    ← 0..n，经密钥窗口过滤
+data: {"type":"citation","citation":{…§2 引用结构…}}   ← 校验后逐条
+data: {"type":"done","refused":…,"refusalReason":…,"refusalDetail":…,
+       "degraded":…,"degradedReason":…,"chatModel":…,"latencyMs":…,"firstDeltaMs":…}
+data: {"type":"error","code":"…","message":"…"}       ← 意外失败
+```
+
+- **终态规则**：`done` 或 `error` **恰一个**为终态。`server_busy`（线程池满）以 `error` 表达。
+- **模型契约未改**：流式只是把模型输出的 JSON 信封增量抽出 `answer` 正文（`StreamingAnswerExtractor` 状态机处理转义与跨 delta 的键名/转义符/Unicode 转义），完整累积文本仍交给既有校验器解析 `citations`。这样「先流文字、后校验引用」不需要改模型协议，Stage 3.3 的实测基线不受影响。
+- **已流出文字随后被判定为拒答**：严格模式下引用逐字核验需要完整文本，因此 `done{refused=true}` 可能晚于已显示的文字。**前端必须以标准拒答文案替换已显示内容**——这是设计取舍，不是缺陷（Dify/Vercel AI SDK 同为「终止事件携带最终元数据」的模型）。
+- **首字节延迟**：`firstDeltaMs`（收到请求 → 首个 delta）与 `latencyMs`（总耗时）都在 `done` 中；降级路径 `firstDeltaMs=-1`（无 delta）。
+- **中断**：客户端断开 → 写事件抛错 → 异常穿透到适配器 → 停止读取上游并关闭连接；服务端记录 `status=cancelled`，不残留线程。
+- **已知限制**：无 `ping` 保活、无断线重连与「续流」（个人项目从简，靠 emitter 超时 = chat 超时 + 30s 兜底）。若将来置于有 idle 超时的反向代理之后，需要补心跳。
+
+### 12.1 前端接入注意（实现约束，均已核实）
+
+1. **不能用原生 `EventSource`**：该端点是 **POST**，而 `EventSource` 只支持 GET。必须用 `fetch()` 取 `response.body` 的 `ReadableStream`，自行按空行切帧、剥掉 `data: ` 前缀、`JSON.parse` 后按 `type` 分派。也**不要**注册 `addEventListener('delta')`——服务端发送时没有设置 event name，唯一判据是 JSON 里的 `type` 字段。
+2. **预检失败不是事件流**：`rag_public_disabled`(404) / `validation_error`(400) / `rag_rate_limited`(429) 都返回**普通 JSON**（此时响应头还不是 `text/event-stream`）。前端必须先判状态码与 `content-type`，再决定「按 SSE 解析」还是「按 JSON 错误体解析」。
+3. **429 没有 `Retry-After` 响应头**：错误体只给 `code=rag_rate_limited` 与 `message`。前端需自行按窗口（默认 60s，见 `window-seconds`）给出「请稍后再试」的提示或倒计时。
+4. **跨源**：前台站点以绝对地址访问后端（`VITE_API_BASE_URL ?? http://localhost:8080`），浏览器会走 CORS。后端允许源默认是 `http://localhost:5173`、`http://localhost:5174` 及二者 `127.0.0.1` 变体（`mindora.cors.allowed-origins`）；**5175 不在白名单里**，前台站点请使用 5173，或把新源加入配置后再用。SSE 属跨源流式请求，同样受该白名单约束。
+5. **带 JWT 可提升额度**：请求携带有效 `Authorization: Bearer <token>` 时按 `userId` 分桶（20/分），匿名按 IP（6/分）。已登录用户应当带上令牌。
+
+## 13. 访问日志
+
+每条问答（公开同步/公开流式/管理端）落一行 `RAG_ACCESS`：
+
+```text
+endpoint=public|public-stream|admin scope=… user=… ip=… status=ok|refused|degraded|error|cancelled
+refusal=… model=… latencyMs=… firstDeltaMs=… citations=… query=…（截断 100 字）
+```
+
+用途：限流阈值调优、异常流量发现、拒答构成分析。**不记录**完整 prompt、完整上下文与系统提示词（design-04 明令默认不存）。落库（`rag_chat_log` 表）、报表与降级告警归 Stage 4 运维范围。
+
+## 14. 实机验证（2026-10-11）
+
+公开端点实机结论（完整记录见 `docs/stage-3.4-task-manifest-cn.md` §10.2）：公开文档可作答且**引用只来自 public**；负例拒答；**私有内容零召回**；SSE 事件序 `delta×12 → citation → done`（`firstDeltaMs=9125ms`）；限流 `200,200,429,429,429,429` 且 SSE 预检返回 JSON 429；对话模型不可用时 JSON 与 SSE **均为降级而非 500**；管理端回归正例 15/15（流式重构无回归）、负例 27/30（唯一失败仍是 Kafka 边界用例）。

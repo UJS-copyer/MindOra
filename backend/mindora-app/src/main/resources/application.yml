@@ -109,6 +109,24 @@ mindora:
     validation:
       # 是否强制引用片段逐字可核（关闭后仅校验编号，引用文本回退为服务端摘录）
       require-verbatim-quote: ${RAG_REQUIRE_VERBATIM_QUOTE:true}
+    # 公开问答（匿名可访问）：scope 由服务端硬编码为 public
+    public:
+      enabled: ${MINDORA_RAG_PUBLIC_ENABLED:true}
+      rate-limit:
+        # redis（生产默认）| memory（测试/无 Redis 单实例）
+        backend: ${RAG_RATE_LIMIT_BACKEND:redis}
+        window-seconds: 60
+        # 匿名按来源 IP 计，登录用户按 userId 计（额度更宽）
+        anonymous-per-minute: 6
+        logged-in-per-minute: 20
+      stream:
+        # SSE 流式任务线程池：有界，队列 0，超出容量回 server_busy 事件
+        executor-core: 2
+        executor-max: 16
+    security:
+      secret-guard:
+        # 密钥兜底：公开问答检索后扫上下文、生成后扫答案与引用摘录，命中即拒答（见 docs/design-11）
+        enabled: ${RAG_SECRET_GUARD_ENABLED:true}
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-long-random-stage0-secret}
   cors:

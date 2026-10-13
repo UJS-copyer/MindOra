@@ -16,6 +16,7 @@ import com.mindora.rag.application.port.RagAdapters.ChatOptions;
 import com.mindora.rag.application.port.RagAdapters.ChatReply;
 import com.mindora.rag.application.port.RagAdapters.RetrievalFacadePort;
 import com.mindora.rag.domain.RagDomain.ContextPolicy;
+import com.mindora.rag.domain.RagDomain.RagAnswerOutcome;
 import com.mindora.rag.domain.RagDomain.RagAnswerRequest;
 import com.mindora.rag.domain.RagDomain.RefusalReason;
 import java.time.Instant;
@@ -124,7 +125,7 @@ class RagAnswerServiceTest {
     }
 
     private static RagAnswerRequest request(String query) {
-        return new RagAnswerRequest(query, "all", 8, true, true, null, null);
+        return new RagAnswerRequest(query, "all", 8, true, true, null, null, false);
     }
 
     @Test
@@ -273,8 +274,8 @@ class RagAnswerServiceTest {
         RagAnswerService service = service(
                 facadeOf(chunks, 1), chat, new ContextPolicy(4000, true, 1500, 0));
 
-        var withExpansion = service.answer(new RagAnswerRequest("问题", "all", 8, true, true, true, null));
-        var withoutExpansion = service.answer(new RagAnswerRequest("问题", "all", 8, true, true, false, null));
+        var withExpansion = service.answer(new RagAnswerRequest("问题", "all", 8, true, true, true, null, false));
+        var withoutExpansion = service.answer(new RagAnswerRequest("问题", "all", 8, true, true, false, null, false));
 
         assertThat(withExpansion.retrieval().expansionApplied()).isTrue();
         assertThat(withoutExpansion.retrieval().expansionApplied()).isFalse();
@@ -289,14 +290,191 @@ class RagAnswerServiceTest {
                 chatReturning("{}"),
                 ContextPolicy.defaults());
 
-        assertThatThrownBy(() -> service.answer(new RagAnswerRequest("  ", "all", 8, true, true, null, null)))
+        assertThatThrownBy(() -> service.answer(new RagAnswerRequest("  ", "all", 8, true, true, null, null, false)))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.code()).isEqualTo("rag_query_required"));
-        assertThatThrownBy(() -> service.answer(new RagAnswerRequest("问题", null, 8, true, true, null, null)))
+        assertThatThrownBy(() -> service.answer(new RagAnswerRequest("问题", null, 8, true, true, null, null, false)))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.code()).isEqualTo("rag_scope_required"));
-        assertThatThrownBy(() -> service.answer(new RagAnswerRequest("问题", "world", 8, true, true, null, null)))
+        assertThatThrownBy(() -> service.answer(new RagAnswerRequest("问题", "world", 8, true, true, null, null, false)))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.code()).isEqualTo("rag_scope_invalid"));
+    }
+
+    @Test
+    void 上下文含密钥时拒绝作答且不调用模型() {
+        boolean[] chatCalled = {false};
+        ChatClientPort spy = new ChatClientPort() {
+            @Override
+            public String provider() {
+                return "test";
+            }
+
+            @Override
+            public String model() {
+                return "test-model";
+            }
+
+            @Override
+            public ChatReply chat(List<ChatMessage> messages, ChatOptions options) {
+                chatCalled[0] = true;
+                return new ChatReply("{\"refused\":false,\"answer\":\"ok\",\"citations\":[]}", "test-model", "stop");
+            }
+        };
+        List<KnowledgeChunk> chunks = List.of(
+                chunk(1, "章节", "部署配置：sk-abcdefghijklmnopqrstuvwxyz0123456789"));
+        RagAnswerService service = serviceWithGuard(facadeOf(chunks, 1), spy, ContextPolicy.defaults());
+
+        RagAnswerOutcome outcome = service.answer(
+                new RagAnswerRequest("部署配置是什么", "public", 8, true, true, null, null, true));
+
+        assertThat(outcome.refused()).isTrue();
+        assertThat(outcome.refusalReason()).isEqualTo(RefusalReason.PROTECTED_CONTENT);
+        assertThat(outcome.refusalDetail()).startsWith("secret_guard:context:");
+        assertThat(chatCalled[0]).as("上下文命中密钥时不应把密钥送进 prompt").isFalse();
+    }
+
+    @Test
+    void 降级路径的引用摘录含密钥时同样拒答() {
+        // 用赋值型（上下文层不拦），验证答案层对「服务端摘录」的覆盖
+        List<KnowledgeChunk> chunks = List.of(
+                chunk(1, "章节", "配置说明：api_key = abcdefghij0123456789xyz 用于内部调用。"));
+        RagAnswerService service = serviceWithGuard(
+                facadeOf(chunks, 1), chatFailing("rag_chat_unavailable", "down"), ContextPolicy.defaults());
+
+        RagAnswerOutcome outcome = service.answer(
+                new RagAnswerRequest("配置说明", "public", 8, true, true, null, null, true));
+
+        assertThat(outcome.refused()).isTrue();
+        assertThat(outcome.refusalReason()).isEqualTo(RefusalReason.PROTECTED_CONTENT);
+        assertThat(outcome.refusalDetail()).startsWith("secret_guard:answer:");
+    }
+
+    @Test
+    void 管理端不启用兜底时同一内容可正常返回降级片段() {
+        List<KnowledgeChunk> chunks = List.of(
+                chunk(1, "章节", "配置说明：api_key = abcdefghij0123456789xyz 用于内部调用。"));
+        RagAnswerService service = serviceWithGuard(
+                facadeOf(chunks, 1), chatFailing("rag_chat_unavailable", "down"), ContextPolicy.defaults());
+
+        RagAnswerOutcome outcome = service.answer(
+                new RagAnswerRequest("配置说明", "all", 8, true, true, null, null, false));
+
+        assertThat(outcome.degraded()).isTrue();
+        assertThat(outcome.refused()).isFalse();
+    }
+
+    private static RagAnswerService serviceWithGuard(
+            RetrievalFacadePort facade, ChatClientPort chatClient, ContextPolicy policy) {
+        return new RagAnswerService(
+                facade,
+                new ContextAssembler(facade),
+                chatClient,
+                new AnswerCitationValidator(),
+                policy,
+                ChatOptions.defaults(),
+                true);
+    }
+
+    // ---------- 流式（answerStream） ----------
+
+    /** 假模型：把 JSON 信封按给定分段推给 streamConsumer，并返回完整信封。 */
+    private static ChatClientPort chatStreaming(String... pieces) {
+        return new ChatClientPort() {
+            @Override
+            public String provider() {
+                return "test";
+            }
+
+            @Override
+            public String model() {
+                return "test-model";
+            }
+
+            @Override
+            public ChatReply chat(List<ChatMessage> messages, ChatOptions options) {
+                // 同步路径（streamConsumer 为空）只返回完整信封，不推送增量
+                if (options.streamConsumer() != null) {
+                    for (String piece : pieces) {
+                        options.streamConsumer().accept(piece);
+                    }
+                }
+                return new ChatReply(String.join("", pieces), "test-model", "stop");
+            }
+        };
+    }
+
+    @Test
+    void 流式转发answer正文且产出与同步路径一致() {
+        List<KnowledgeChunk> chunks = List.of(chunk(1, "章节", "向量检索与关键词检索通过 RRF 融合。"));
+        RagAnswerService service = service(
+                facadeOf(chunks, 1),
+                chatStreaming(
+                        "{\"refused\":false,\"answer\":\"向量检索",
+                        "与关键词检索通过 RRF 融合。\",\"citations\":[{\"index\":1,\"quote\":\"向量检索与关键词检索通过 RRF 融合。\"}]}"),
+                ContextPolicy.defaults());
+
+        List<String> deltas = new ArrayList<>();
+        RagAnswerOutcome streamed = service.answerStream(request("检索是怎么做的"), deltas::add);
+
+        assertThat(String.join("", deltas)).isEqualTo("向量检索与关键词检索通过 RRF 融合。");
+        assertThat(streamed.refused()).isFalse();
+        assertThat(streamed.answer()).isEqualTo("向量检索与关键词检索通过 RRF 融合。");
+        assertThat(streamed.citations()).hasSize(1);
+        // 与同步路径结果一致（同一条编排代码）
+        RagAnswerOutcome sync = service.answer(request("检索是怎么做的"));
+        assertThat(sync.answer()).isEqualTo(streamed.answer());
+    }
+
+    @Test
+    void 流式答案含密钥则改判拒答且密钥不转发() {
+        List<KnowledgeChunk> chunks = List.of(chunk(1, "章节", "普通内容，足够长用于组装上下文。"));
+        RagAnswerService service = serviceWithGuard(
+                facadeOf(chunks, 1),
+                chatStreaming("{\"refused\":false,\"answer\":\"配置是 sk-abcdefghijklmnopqrstuvwxyz0123456789\",\"citations\":[]}"),
+                ContextPolicy.defaults());
+
+        List<String> deltas = new ArrayList<>();
+        RagAnswerOutcome outcome = service.answerStream(
+                new RagAnswerRequest("配置", "public", 8, true, true, null, null, true), deltas::add);
+
+        assertThat(outcome.refused()).isTrue();
+        assertThat(outcome.refusalReason()).isEqualTo(RefusalReason.PROTECTED_CONTENT);
+        assertThat(outcome.refusalDetail()).startsWith("secret_guard:answer:");
+        assertThat(String.join("", deltas)).as("密钥绝不能出现在已转发的文本里").doesNotContain("sk-");
+    }
+
+    @Test
+    void 流式密钥被delta切断同样命中() {
+        List<KnowledgeChunk> chunks = List.of(chunk(1, "章节", "普通内容，足够长用于组装上下文。"));
+        RagAnswerService service = serviceWithGuard(
+                facadeOf(chunks, 1),
+                chatStreaming(
+                        "{\"refused\":false,\"answer\":\"配置是 sk-abcdefghij",
+                        "klmnopqrstuvwxyz0123456789\",\"citations\":[]}"),
+                ContextPolicy.defaults());
+
+        List<String> deltas = new ArrayList<>();
+        RagAnswerOutcome outcome = service.answerStream(
+                new RagAnswerRequest("配置", "public", 8, true, true, null, null, true), deltas::add);
+
+        assertThat(outcome.refused()).isTrue();
+        assertThat(outcome.refusalDetail()).startsWith("secret_guard:answer:");
+        assertThat(String.join("", deltas)).doesNotContain("sk-");
+    }
+
+    @Test
+    void 流式消费端异常原样上抛() {
+        List<KnowledgeChunk> chunks = List.of(chunk(1, "章节", "内容足够长用于组装上下文。"));
+        RagAnswerService service = service(
+                facadeOf(chunks, 1),
+                chatStreaming("{\"refused\":false,\"answer\":\"正文\",\"citations\":[]}"),
+                ContextPolicy.defaults());
+        IllegalStateException clientGone = new IllegalStateException("client disconnected");
+
+        // 客户端断开必须原样上抛，让适配器据此中断上游读取
+        assertThatThrownBy(() -> service.answerStream(request("问题"), text -> {
+            throw clientGone;
+        })).isSameAs(clientGone);
     }
 }

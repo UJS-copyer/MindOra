@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.mindora.common.exception.BusinessException;
 import com.mindora.rag.application.port.RagAdapters.ChatMessage;
 import com.mindora.rag.application.port.RagAdapters.ChatOptions;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -106,7 +107,129 @@ class OpenAiCompatibleChatAdapterTest {
                 .withSuccess(body, MediaType.APPLICATION_JSON);
     }
 
+    /** 流式响应用 text/event-stream。 */
+    private static org.springframework.test.web.client.response.DefaultResponseCreator withSuccess(
+            String body, MediaType contentType) {
+        return org.springframework.test.web.client.response.MockRestResponseCreators
+                .withSuccess(body, contentType);
+    }
+
     private static org.springframework.test.web.client.response.DefaultResponseCreator withServerError() {
         return org.springframework.test.web.client.response.MockRestResponseCreators.withServerError();
+    }
+
+    // ---------- 流式（streamConsumer 非空） ----------
+
+    @Test
+    void 流式请求带stream标志并逐帧转发且累积完整文本() {
+        OpenAiCompatibleChatAdapter adapter = adapterWith("test-key");
+        server.expect(request -> {
+            String body = ((org.springframework.mock.http.client.MockClientHttpRequest) request).getBodyAsString();
+            assertThat(body).contains("\"stream\":true");
+        }).andRespond(withSuccess("""
+                data: {"model":"stream-model","choices":[{"delta":{"role":"assistant"},"finish_reason":null}]}
+
+                data: {"choices":[{"delta":{"content":"答案"}}]}
+
+                data: {"choices":[{"delta":{"content":"[1]"}}]}
+
+                data: {"choices":[{"delta":{},"finish_reason":"stop"}]}
+
+                data: [DONE]
+
+                """, MediaType.TEXT_EVENT_STREAM));
+
+        List<String> pieces = new ArrayList<>();
+        var reply = adapter.chat(
+                List.of(ChatMessage.user("q")),
+                new ChatOptions(null, 0.2d, 256, pieces::add));
+
+        // 只有 role 的首帧被跳过；内容按顺序转发
+        assertThat(pieces).containsExactly("答案", "[1]");
+        assertThat(reply.content()).isEqualTo("答案[1]");
+        assertThat(reply.model()).isEqualTo("stream-model");
+        assertThat(reply.finishReason()).isEqualTo("stop");
+        server.verify();
+    }
+
+    @Test
+    void 流式请求忽略DONE之后的帧() {
+        OpenAiCompatibleChatAdapter adapter = adapterWith("test-key");
+        server.expect(request -> {
+        }).andRespond(withSuccess("""
+                data: {"choices":[{"delta":{"content":"a"}}]}
+
+                data: [DONE]
+
+                data: {"choices":[{"delta":{"content":"should-be-ignored"}}]}
+
+                """, MediaType.TEXT_EVENT_STREAM));
+
+        List<String> pieces = new ArrayList<>();
+        var reply = adapter.chat(
+                List.of(ChatMessage.user("q")),
+                new ChatOptions(null, 0.2d, 256, pieces::add));
+
+        assertThat(pieces).containsExactly("a");
+        assertThat(reply.content()).isEqualTo("a");
+    }
+
+    @Test
+    void 消费端抛异常时中断读取并原样上抛() {
+        OpenAiCompatibleChatAdapter adapter = adapterWith("test-key");
+        server.expect(request -> {
+        }).andRespond(withSuccess("""
+                data: {"choices":[{"delta":{"content":"第一段"}}]}
+
+                data: {"choices":[{"delta":{"content":"第二段"}}]}
+
+                data: [DONE]
+
+                """, MediaType.TEXT_EVENT_STREAM));
+
+        IllegalStateException clientGone = new IllegalStateException("client disconnected");
+        List<String> pieces = new ArrayList<>();
+
+        // 客户端断开 / 密钥熔断都走这条路径：必须是原始异常，不能被包装成上游不可用
+        assertThatThrownBy(() -> adapter.chat(
+                List.of(ChatMessage.user("q")),
+                new ChatOptions(null, 0.2d, 256, piece -> {
+                    pieces.add(piece);
+                    throw clientGone;
+                })))
+                .isSameAs(clientGone);
+
+        assertThat(pieces).as("首段抛出后不应继续读取后续帧").hasSize(1);
+    }
+
+    @Test
+    void 流式上游报错时包装为不可用() {
+        OpenAiCompatibleChatAdapter adapter = adapterWith("test-key");
+        server.expect(request -> {
+        }).andRespond(withServerError());
+
+        assertThatThrownBy(() -> adapter.chat(
+                List.of(ChatMessage.user("q")),
+                new ChatOptions(null, 0.2d, 256, piece -> {
+                })))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.code()).isEqualTo("rag_chat_unavailable"));
+    }
+
+    @Test
+    void 流式帧内容非法时按响应无效处理() {
+        OpenAiCompatibleChatAdapter adapter = adapterWith("test-key");
+        server.expect(request -> {
+        }).andRespond(withSuccess("""
+                data: {not-json}
+
+                """, MediaType.TEXT_EVENT_STREAM));
+
+        assertThatThrownBy(() -> adapter.chat(
+                List.of(ChatMessage.user("q")),
+                new ChatOptions(null, 0.2d, 256, piece -> {
+                })))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.code()).isEqualTo("rag_chat_response_invalid"));
     }
 }
