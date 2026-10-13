@@ -246,8 +246,8 @@ describe('streamPublicRagAnswer', () => {
 
     await collect(streamPublicRagAnswer({ query: 'q', baseUrl: 'http://api' }));
 
-    // 只声明 text/event-stream 时，后端预检失败退化成 403 + 空响应体（2026-10-13 实机复现），
-    // 因此必须同时声明 application/json，否则拿不到 rag_rate_limited 等错误码。
+    // 正常响应是 SSE 流、预检失败是 JSON 错误体，双值让两条路径都能协商；后端 9e27590
+    // 修复了「单一 SSE 值时预检错误退化成 403 + 空体」的问题，双值保留以免依赖该修复。
     const [, init] = fetchMock.mock.calls[0] as unknown as [
       string,
       { headers: Record<string, string> }

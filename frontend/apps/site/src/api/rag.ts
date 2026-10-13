@@ -258,10 +258,12 @@ export async function* streamPublicRagAnswer(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      // 必须同时声明 application/json：后端预检失败（400/429）时返回 JSON 错误体，
-      // 若只声明 `text/event-stream`，Spring 的内容协商无法满足该错误体，会退化成
-      // **403 + 空响应体**（2026-10-13 实机复现：400/429 全部变 403），前端就拿不到
-      // `rag_rate_limited` 等错误码。带上 application/json 后两条路径都能协商成功。
+      // 同时声明两种类型：正常响应是 SSE 流，预检失败（400/429）返回的却是 JSON 错误体
+      // （design-11 §12.1-2），双值让两条路径都能完成内容协商。
+      // 背景：2026-10-13 实机发现只声明 `text/event-stream` 时预检错误会退化成 403 + 空体，
+      // 拿不到 `rag_rate_limited` 等错误码；后端已在 9e27590 修复（错误响应显式
+      // application/json + 放行 /error），单一 SSE 值现已可用，此处保留双值以免依赖该修复，
+      // 详见 docs/stage-3.4-task-manifest-cn.md §11.7。
       Accept: 'text/event-stream, application/json'
     },
     body: JSON.stringify({ query: options.query } satisfies PublicRagRequest),
