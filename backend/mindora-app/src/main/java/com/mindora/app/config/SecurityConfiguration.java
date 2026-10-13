@@ -30,7 +30,10 @@ public class SecurityConfiguration {
                                 "/api/v1/auth/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html")
+                                "/swagger-ui.html",
+                                // 错误分派必须放行：否则匿名请求一旦进入 /error（404、500、内容协商失败等），
+                                // 会被 anyRequest().authenticated() 拦成 403 空体，真实错误码与消息全部丢失
+                                "/error")
                         .permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")
                         .anyRequest().authenticated())

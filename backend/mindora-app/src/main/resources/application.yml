@@ -95,7 +95,10 @@ mindora:
       enabled: ${MINDORA_RAG_CHAT_ENABLED:true}
       provider: ${MINDORA_RAG_CHAT_PROVIDER:siliconflow}
       base-url: ${RAG_CHAT_BASE_URL:https://api.siliconflow.cn/v1}
-      api-key: ${RAG_CHAT_API_KEY:}
+      # 兜底顺序：显式 RAG_CHAT_API_KEY → 本地配置里的 knowledge.rerank.api-key。
+      # 同一个 SiliconFlow 账号同时提供对话与重排，本地开发因此开箱可用；
+      # 换供应商或换账号时必须显式配置，否则会静默走降级路径（启动时会打 WARN）。
+      api-key: ${RAG_CHAT_API_KEY:${mindora.knowledge.rerank.api-key:}}
       # 默认模型按实机对比选定：7B 正例 8/15，30B-A3B 正例 15/15（详见 docs/design-11-rag-answer-generation-layer.md）
       model: ${RAG_CHAT_MODEL:Qwen/Qwen3-30B-A3B-Instruct-2507}
       timeout-ms: ${RAG_CHAT_TIMEOUT_MS:15000}

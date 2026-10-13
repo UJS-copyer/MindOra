@@ -35,6 +35,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  */
 @Configuration
 public class RagModuleConfiguration {
+    private static final org.slf4j.Logger logger =
+            org.slf4j.LoggerFactory.getLogger(RagModuleConfiguration.class);
 
     @Bean
     @ConditionalOnProperty(name = "mindora.rag.chat.enabled", havingValue = "true", matchIfMissing = true)
@@ -44,6 +46,12 @@ public class RagModuleConfiguration {
             @Value("${mindora.rag.chat.api-key:${RAG_CHAT_API_KEY:}}") String apiKey,
             @Value("${mindora.rag.chat.model:${RAG_CHAT_MODEL:Qwen/Qwen3-30B-A3B-Instruct-2507}}") String model,
             @Value("${mindora.rag.chat.timeout-ms:${RAG_CHAT_TIMEOUT_MS:15000}}") int timeoutMillis) {
+        if (apiKey == null || apiKey.isBlank()) {
+            // 静默降级太难排查（现象只是「对话模型不可用」），启动期就把原因喊出来
+            logger.warn("RAG 对话模型密钥为空（mindora.rag.chat.api-key / RAG_CHAT_API_KEY）：问答会走降级路径，"
+                    + "只返回检索片段。本地开发可在 config/mindora-local.yml 里配置 "
+                    + "mindora.knowledge.rerank.api-key 作为兜底（同一 SiliconFlow 账号）。");
+        }
         return new OpenAiCompatibleChatAdapter(provider, baseUrl, apiKey, model, timeoutMillis);
     }
 

@@ -17,6 +17,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.TaskRejectedException;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -112,7 +113,7 @@ public class PublicRagController {
      * <p>事件契约：{@code delta}* → {@code citation}* → {@code done}（终态）；
      * 意外失败为 {@code error} 事件（终态）。<b>done 或 error 恰一个为终态。</b>
      */
-    @PostMapping("/answer/stream")
+    @PostMapping(value = "/answer/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter answerStream(
             @RequestBody(required = false) PublicRagRequestView request,
             HttpServletRequest httpRequest) {

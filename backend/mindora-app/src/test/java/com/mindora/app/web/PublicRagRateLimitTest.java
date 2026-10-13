@@ -104,6 +104,20 @@ class PublicRagRateLimitTest {
         mockMvc.perform(askFrom("10.2.2.2")).andExpect(status().isOk());
     }
 
+    /**
+     * 回归（联调发现）：SSE 客户端只发 {@code Accept: text/event-stream} 时，
+     * 限流预检的 429 曾退化成 403 空体——现在必须仍是可读的 JSON 错误。
+     */
+    @Test
+    void 限流预检在仅接受事件流的请求下仍返回JSON_429() throws Exception {
+        mockMvc.perform(streamFrom("10.5.5.1").accept(MediaType.TEXT_EVENT_STREAM))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.request().asyncStarted());
+
+        mockMvc.perform(streamFrom("10.5.5.1").accept(MediaType.TEXT_EVENT_STREAM))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("rag_rate_limited"));
+    }
+
     @Test
     void loggedInCallerGetsItsOwnBucket() throws Exception {
         // 匿名额度先打满（用独立 IP，避免与其它用例互相影响）

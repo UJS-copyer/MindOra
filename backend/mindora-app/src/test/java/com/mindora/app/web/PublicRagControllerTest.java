@@ -23,6 +23,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 /**
  * 公开问答端点的入口约束：scope 由服务端硬编码、请求体收窄、参数校验。
@@ -101,6 +102,21 @@ class PublicRagControllerTest {
                 .andExpect(status().isOk());
 
         org.assertj.core.api.Assertions.assertThat(captureRequest().query()).isEqualTo("向量检索怎么做的");
+    }
+
+    /**
+     * 回归：错误分派路径 {@code /error} 此前落在 {@code anyRequest().authenticated()} 里，
+     * 匿名请求的任何错误（404/500/内容协商失败）都会被改写成 403 空体。
+     */
+    @Test
+    void 错误分派路径对匿名放行() throws Exception {
+        MvcResult result = mockMvc.perform(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/error"))
+                .andReturn();
+
+        org.assertj.core.api.Assertions.assertThat(result.getResponse().getStatus())
+                .as("/error 不能落进认证链（403/401），否则真实错误码全部丢失")
+                .isNotIn(401, 403);
     }
 
     private RagAnswerRequest captureRequest() {

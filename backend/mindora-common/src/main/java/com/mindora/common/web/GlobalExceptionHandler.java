@@ -3,6 +3,7 @@ package com.mindora.common.web;
 import com.mindora.common.exception.BusinessException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -16,6 +17,9 @@ public class GlobalExceptionHandler {
         String traceId = request.getHeader("X-Trace-Id");
         return ResponseEntity
                 .status(statusFor(exception.code()))
+                // 显式指定 JSON：SSE 客户端常只发 Accept: text/event-stream，不显式指定就会协商失败（406），
+                // 请求被转发到 /error，真正的错误码与消息全部丢失（外部表现是 403 空体）。
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(handleBusinessException(exception, traceId));
     }
 

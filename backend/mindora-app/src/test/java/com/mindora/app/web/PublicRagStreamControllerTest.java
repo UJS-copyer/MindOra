@@ -146,6 +146,23 @@ class PublicRagStreamControllerTest {
                 .andExpect(jsonPath("$.code").value("validation_error"));
     }
 
+    /**
+     * 回归（联调发现的真实缺陷）：SSE 客户端按惯例只发 {@code Accept: text/event-stream}。
+     * 若错误响应依赖内容协商，就会协商失败 → 分派到 /error → 被安全链拦成 403 空体，
+     * 调用方拿不到任何错误码。修复点：错误响应显式声明 JSON + 放行 /error。
+     */
+    @Test
+    void 预检失败在仅接受事件流的请求下仍返回JSON错误() throws Exception {
+        mockMvc.perform(post("/api/v1/public/rag/answer/stream")
+                        .accept(MediaType.TEXT_EVENT_STREAM)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"query\":\"a\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.code").value("validation_error"));
+    }
+
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder stream(String query) {
         return post("/api/v1/public/rag/answer/stream")
                 .contentType(MediaType.APPLICATION_JSON)
