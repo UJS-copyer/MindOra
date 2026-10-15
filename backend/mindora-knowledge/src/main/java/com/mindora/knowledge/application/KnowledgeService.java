@@ -325,7 +325,7 @@ public class KnowledgeService {
                 document.id(), document.sourceType(), document.sourceId(), document.sourcePath(), document.title(),
                 document.currentVersionId(), document.sourceHash(),
                 visibility == null || visibility.isBlank() ? document.visibility() : visibility,
-                knowledgeEnabled, document.publicArticleId(), document.status(), document.parseStatus(), document.indexStatus(),
+                knowledgeEnabled, document.publicArticleId(), document.articleSlug(), document.status(), document.parseStatus(), document.indexStatus(),
                 document.indexFailureReason(), document.indexRetryCount(), document.createdAt(), clock.instant()));
         syncIndexPermissions(updated);
         return updated;
@@ -368,7 +368,33 @@ public class KnowledgeService {
                 document.sourcePath(),
                 version.contentSnapshot(),
                 document.indexStatus().name().toLowerCase());
-        return repository.saveDocument(document.linkedArticle(PublicIds.toPublicId(article.articleId()), clock.instant()));
+        KnowledgeDocument linked = repository.saveDocument(document.linkedArticle(
+                PublicIds.toPublicId(article.articleId()), article.slug(), clock.instant()));
+        syncPublication(linked);
+        return linked;
+    }
+
+    /**
+     * 发布后把公开文章关联信息（publicArticleId / articleSlug）与权限字段同步到向量点 payload。
+     *
+     * <p>与 {@link #syncIndexPermissions} 同一豁免语义：MySQL 是权威与权限边界，
+     * 这里失败只影响索引新鲜度（引用回链暂缺），可稍后通过重建修复，不阻断发布流程。
+     */
+    private void syncPublication(KnowledgeDocument document) {
+        if (document.currentVersionId() == null) {
+            return;
+        }
+        try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("visibility", document.visibility());
+            payload.put("status", document.status().name().toLowerCase());
+            payload.put("knowledgeEnabled", document.knowledgeEnabled());
+            payload.put("publicArticleId", document.publicArticleId());
+            payload.put("articleSlug", document.articleSlug());
+            vectors.updatePayload(UUID.fromString(document.currentVersionId()), payload);
+        } catch (RuntimeException ignored) {
+            // 索引新鲜度可以稍后通过重建修复；检索时的 MySQL 校验兜底
+        }
     }
 
     public KnowledgeDocument ingestBlogArticle(
@@ -396,12 +422,15 @@ public class KnowledgeService {
                 ? new KnowledgeDocument(
                         UUID.randomUUID(), KnowledgeEnums.SourceType.BLOG, articleId.toString(), sourcePath,
                         title.trim(), null, null, normalizedVisibility, true, PublicIds.toPublicId(articleId),
+                        slug == null || slug.isBlank() ? null : slug.trim(),
                         KnowledgeEnums.DocumentStatus.ACTIVE, KnowledgeEnums.ParseStatus.PENDING,
                         KnowledgeEnums.IndexStatus.PENDING, null, 0, now, now)
                 : new KnowledgeDocument(
                         existing.id(), existing.sourceType(), existing.sourceId(), sourcePath, title.trim(),
                         existing.currentVersionId(), existing.sourceHash(), normalizedVisibility, true,
-                        PublicIds.toPublicId(articleId), KnowledgeEnums.DocumentStatus.ACTIVE,
+                        PublicIds.toPublicId(articleId),
+                        slug == null || slug.isBlank() ? existing.articleSlug() : slug.trim(),
+                        KnowledgeEnums.DocumentStatus.ACTIVE,
                         existing.parseStatus(), existing.indexStatus(), existing.indexFailureReason(),
                         existing.indexRetryCount(), existing.createdAt(), now);
         if (existing != null && hash.equals(existing.sourceHash())) {
@@ -437,14 +466,14 @@ public class KnowledgeService {
         if (existing == null) {
             return new KnowledgeDocument(
                     null, KnowledgeEnums.SourceType.BLOG, articleId.toString(), "blog:" + articleId,
-                    "Blog Article", null, null, "private", false, PublicIds.toPublicId(articleId),
+                    "Blog Article", null, null, "private", false, PublicIds.toPublicId(articleId), null,
                     KnowledgeEnums.DocumentStatus.ACTIVE, KnowledgeEnums.ParseStatus.PENDING,
                     KnowledgeEnums.IndexStatus.PENDING, null, 0, clock.instant(), clock.instant());
         }
         KnowledgeDocument disabled = repository.saveDocument(new KnowledgeDocument(
                 existing.id(), existing.sourceType(), existing.sourceId(), existing.sourcePath(), existing.title(),
                 existing.currentVersionId(), existing.sourceHash(), existing.visibility(), false,
-                existing.publicArticleId(), existing.status(), existing.parseStatus(), existing.indexStatus(),
+                existing.publicArticleId(), existing.articleSlug(), existing.status(), existing.parseStatus(), existing.indexStatus(),
                 existing.indexFailureReason(), existing.indexRetryCount(), existing.createdAt(), clock.instant()));
         syncIndexPermissions(disabled);
         return disabled;
@@ -567,7 +596,7 @@ public class KnowledgeService {
                     existing = new KnowledgeDocument(
                             UUID.randomUUID(), KnowledgeEnums.SourceType.GITEE, source.id().toString(),
                             file.path(), file.title(), null, null, source.defaultVisibility(), true,
-                            null, KnowledgeEnums.DocumentStatus.ACTIVE, KnowledgeEnums.ParseStatus.PENDING,
+                            null, null, KnowledgeEnums.DocumentStatus.ACTIVE, KnowledgeEnums.ParseStatus.PENDING,
                             KnowledgeEnums.IndexStatus.PENDING, null, 0, clock.instant(), clock.instant());
                     created++;
                 } else {

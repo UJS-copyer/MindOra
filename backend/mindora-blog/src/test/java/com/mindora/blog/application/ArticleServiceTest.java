@@ -1,6 +1,7 @@
 package com.mindora.blog.application;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -160,6 +161,33 @@ class ArticleServiceTest {
         assertEquals("public", updated.visibility());
         assertEquals("public-note", updated.slug());
         assertTrue(articleService.listPublic(null, null).isEmpty());
+    }
+
+    @Test
+    void fallsBackToDocumentIdSlugForChineseTitles() {
+        // Stage 3.4 §11.8-F2 回归：中文标题经 [a-z0-9] 过滤为空时，
+        // 回退 knowledge-<documentId 前 8 位>，而不是所有中文文档共用 "knowledge"
+        UUID firstDocumentId = UUID.randomUUID();
+        UUID secondDocumentId = UUID.randomUUID();
+
+        BlogArticle first = articleService.publishKnowledgeDocument(
+                firstDocumentId, "阅读线路：如何用 AI 辅助阅读论文", "obsidian/阅读线路.md", "# 阅读线路\n正文", "indexed");
+        BlogArticle second = articleService.publishKnowledgeDocument(
+                secondDocumentId, "论文大纲整理方法", "obsidian/论文大纲.md", "# 论文大纲\n正文", "indexed");
+
+        assertEquals("knowledge-" + firstDocumentId.toString().substring(0, 8), first.slug());
+        assertEquals("knowledge-" + secondDocumentId.toString().substring(0, 8), second.slug());
+        assertNotEquals(first.slug(), second.slug());
+    }
+
+    @Test
+    void keepsAsciiSlugFromSourcePath() {
+        UUID documentId = UUID.randomUUID();
+
+        BlogArticle article = articleService.publishKnowledgeDocument(
+                documentId, "公开笔记", "notes/reading-path.md", "# 公开笔记\n正文", "indexed");
+
+        assertEquals("reading-path", article.slug());
     }
 
     @Test

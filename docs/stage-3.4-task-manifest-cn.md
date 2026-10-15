@@ -369,9 +369,18 @@ T7（质量收尾）独立，可并行
 
 #### F1（数据边界，非缺陷）：现有公开语料下引用回链不可达
 
+> **2026-10-14 订正：原判断「属数据运营动作」不成立，实为后端契约缺口，已修复。**
+> 根因：`KnowledgeDocument.articleSlug()` 仅认 `sourceType==BLOG && sourcePath` 以 `blog:` 开头；Gitee 文档经 `publishDocument` 发布为公开文章后只回填 `publicArticleId`（`linkedArticle`），slug 从未落库，因此即使文章可公开访问，引用仍恒为 `articleSlug=null`——扩充语料无法解决。
+> 修复（契约变更：`articleSlug` 从派生值改为 `knowledge_document.article_slug` 持久化字段，V7 迁移）：
+> - 发布链路写入 slug：`DocumentPublicationPort.PublishedArticle(articleId, slug)` 本就携带 slug，`publishDocument` 落库时一并写入；`ingestBlogArticle` 同步写新字段（`sourcePath` 的 `blog:` 约定保留不变）。
+> - 发布后对向量点 payload 做 `publicArticleId`/`articleSlug` 局部刷新（尽力而为，与 `syncIndexPermissions` 同一豁免语义）；关键词索引不含 slug，无需处理。
+> - 顺带修复 CJK slug 退化（§11.8-F2 之外的独立缺陷，`ArticleService.slugBase`）：中文标题/文件名被 `[^a-z0-9]` 滤空时，回退 `knowledge-<documentId 前 8 位>`，不再产生所有中文文档共用的 `knowledge`/`knowledge-2`。实测存量 `/blog/knowledge`、`/blog/knowledge-2` 即此退化结果（测试阶段允许删文重发布，不做存量迁移）。
+> - 测试：`mindora-knowledge` 75 / `mindora-blog` 12 / `mindora-app` 43 全绿（含发布写 slug、payload 刷新、GITEE 来源带 slug 命中、中文标题回退 slug 四组新增回归）。
+> - 已知限制（核查结论，未改动）：文章无删除端点（仅 `unpublish`）；下架时 GITEE 关联文档走 `updateDocumentSettings` 仍以文章 `visibility=public` 为准，可见性不回退——公开召回面由「下架后文章不可见但知识文档仍公开」构成，属既有设计，留待 Stage 4 权限模型统一处理。
+
 `articleSlug` 由 `KnowledgeDocument.articleSlug()`（`mindora-knowledge`）判定：**仅当 `sourceType == BLOG` 且 `sourcePath` 以 `blog:` 开头**才返回 slug，否则返回 `null`。当前唯一 public 文档《阅读线路》是 Gitee 同步来源，因此公开问答的引用永远是 `articleSlug=null` —— 引用卡按设计显示「该文档未发布为博客文章」，**章节级回链在真实数据上无法被触发**（单元测试 8 例覆盖了锚点计算，但没有端到端可点场景）。
 
-站点里确实存在同名博客文章《阅读线路》，但它没有与这篇知识文档建立 `articleId/slug` 关联。要让验收口径②在真机上可验，需要一篇**BLOG 来源且公开**的知识文档（走文章反向入库链路），属数据运营动作。
+站点里确实存在同名博客文章《阅读线路》，但它没有与这篇知识文档建立 `articleId/slug` 关联。~~要让验收口径②在真机上可验，需要一篇**BLOG 来源且公开**的知识文档（走文章反向入库链路），属数据运营动作。~~（原文判断已被上方订正取代：修复后 Gitee 文档发布即可获得 slug 与回链）
 
 #### F2（UI 文案，待定）：客户端校验被判成「出错了」
 

@@ -75,6 +75,7 @@ Content-Type: application/json
 
 - `citation.chunkId` / `documentId` 统一为 **32 位无连字符** 形式（`PublicIds.toPublicId`），与 `GET /api/v1/admin/knowledge/documents/{id}/chunks` 一致，前端可直接用它拉原文并定位到 `sequence` 所在切片。
 - **ID 方言**必须显式归一化：检索命中给的是带连字符 36 位 UUID、切片接口给的是无连字符 32 位，二者混用会导致「按引用查不到切片」——这个坑在评测脚本上出现过一次，生成层通过 `RetrievalFacadePort.normalizeId` 统一。
+- **`articleSlug` 来源（2026-10-14 契约变更）**：由 `knowledge_document.article_slug` **持久化字段**提供（V7 迁移起），不再从 `sourceType==BLOG && sourcePath 前缀 blog:` 派生。文档发布为公开文章时由发布链路写入（GITEE 与 BLOG 来源统一），发布后向量 payload 局部刷新；未关联文章时仍为 `null`。背景与证据见 `docs/stage-3.4-task-manifest-cn.md` §11.8-F1 订正。
 
 ### 2.2 `quote` 与 `quoteVerified`
 

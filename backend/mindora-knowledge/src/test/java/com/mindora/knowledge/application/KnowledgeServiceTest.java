@@ -213,6 +213,27 @@ class KnowledgeServiceTest {
 
         assertThat(published.visibility()).isEqualTo("private");
         assertThat(published.publicArticleId()).isEqualTo(fixture.publishedArticleId.toString().replace("-", ""));
+        // Stage 3.4 §11.8-F1 修复：发布时持久化文章 slug，Gitee 来源文档不再恒为 null
+        assertThat(published.articleSlug()).isEqualTo("public-note");
+    }
+
+    @Test
+    void syncsPublicationFieldsToVectorPayloadWhenPublishing() {
+        Fixture fixture = new Fixture(List.of(new KnowledgeAdapters.RemoteFile(
+                "docs/public-note.md", null, "# Public Note\nhello", "same", Map.of(), List.of())));
+        var source = fixture.service.createDataSource("obsidian", "https://gitee.com/x/y", "master", null, "", "private", true);
+        fixture.service.triggerSync(source.id(), KnowledgeEnums.SyncMode.INCREMENTAL, "trace-1");
+        var document = fixture.service.listDocuments().getFirst();
+        fixture.payloadUpdatedVersions.clear();
+        fixture.updatedPayloads.clear();
+
+        fixture.service.publishDocument(document.id());
+
+        // 向量 payload 的 articleSlug 是写入时固化的，发布后必须局部刷新，否则引用回链拿不到 slug
+        assertThat(fixture.payloadUpdatedVersions).containsExactly(UUID.fromString(document.currentVersionId()));
+        assertThat(fixture.updatedPayloads.getFirst())
+                .containsEntry("publicArticleId", fixture.publishedArticleId.toString().replace("-", ""))
+                .containsEntry("articleSlug", "public-note");
     }
 
     @Test
@@ -227,6 +248,7 @@ class KnowledgeServiceTest {
         assertThat(document.sourceId()).isEqualTo(articleId.toString());
         assertThat(document.sourcePath()).isEqualTo("blog:online-article");
         assertThat(document.publicArticleId()).isEqualTo(articleId.toString().replace("-", ""));
+        assertThat(document.articleSlug()).isEqualTo("online-article");
         assertThat(fixture.service.listVersions(document.id())).hasSize(1);
         assertThat(document.indexStatus()).isEqualTo(KnowledgeEnums.IndexStatus.INDEXED);
     }

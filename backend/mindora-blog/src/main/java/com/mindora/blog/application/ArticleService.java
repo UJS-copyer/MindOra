@@ -197,7 +197,7 @@ public class ArticleService {
         Instant now = Instant.now(clock);
         BlogArticle existing = repository.findArticleByKnowledgeDocumentId(documentId).orElse(null);
         String slug = existing == null
-                ? uniqueSlug(slugBase(sourcePath, normalizedTitle), documentId, null)
+                ? uniqueSlug(slugBase(sourcePath, normalizedTitle, documentId), documentId, null)
                 : existing.slug();
         BlogArticle article = new BlogArticle(
                 existing == null ? UUID.randomUUID() : existing.id(),
@@ -300,7 +300,14 @@ public class ArticleService {
         return candidate;
     }
 
-    private String slugBase(String sourcePath, String title) {
+    /**
+     * 由来源路径或标题生成 slug 基础串。
+     *
+     * <p>仅保留 ASCII 字母数字（惯例 slug 字符集）；中文标题/文件名会被滤空，
+     * 此时回退 {@code knowledge-<documentId 前 8 位>} 保证区分度，
+     * 而不是退化成所有中文文档共用的固定串 {@code knowledge}。
+     */
+    private String slugBase(String sourcePath, String title, UUID documentId) {
         String value = sourcePath == null || sourcePath.isBlank() ? title : sourcePath;
         int slash = Math.max(value.lastIndexOf('/'), value.lastIndexOf('\\'));
         if (slash >= 0) {
@@ -310,7 +317,7 @@ public class ArticleService {
         String slug = value.toLowerCase()
                 .replaceAll("[^a-z0-9]+", "-")
                 .replaceAll("(^-|-$)", "");
-        return slug.isBlank() ? "knowledge" : slug;
+        return slug.isBlank() ? "knowledge-" + documentId.toString().substring(0, 8) : slug;
     }
 
     private String summarize(String body) {

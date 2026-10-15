@@ -291,6 +291,19 @@ class KnowledgeRetrievalServiceTest {
     }
 
     @Test
+    void hydratesArticleSlugForNonBlogSourceWhenPersisted() {
+        // 回归（Stage 3.4 §11.8-F1）：GITEE 来源文档发布为公开文章后，
+        // slug 由发布动作持久化，不再依赖 sourcePath 的 "blog:" 前缀派生。
+        seedDocument("public", true, KnowledgeEnums.DocumentStatus.ACTIVE, "docs/阅读线路.md", "42", "knowledge-ab12cd34");
+        hits = List.of(hit(CHUNK_A, 0.9));
+
+        var outcome = service(defaultSettings()).search(query(Scope.PUBLIC));
+
+        assertThat(outcome.results()).hasSize(1);
+        assertThat(outcome.results().getFirst().articleSlug()).isEqualTo("knowledge-ab12cd34");
+    }
+
+    @Test
     void skipsHitsWithoutMatchingChunk() {
         seedDocument("public", true, KnowledgeEnums.DocumentStatus.ACTIVE, "blog:aqs-notes", "42");
         hits = List.of(hit(CHUNK_A, 0.9), hit(UUID.randomUUID(), 0.99));
@@ -374,10 +387,21 @@ class KnowledgeRetrievalServiceTest {
             KnowledgeEnums.DocumentStatus status,
             String sourcePath,
             String articleId) {
+        seedDocument(visibility, knowledgeEnabled, status, sourcePath, articleId,
+                sourcePath.startsWith("blog:") ? sourcePath.substring("blog:".length()) : null);
+    }
+
+    private void seedDocument(
+            String visibility,
+            boolean knowledgeEnabled,
+            KnowledgeEnums.DocumentStatus status,
+            String sourcePath,
+            String articleId,
+            String articleSlug) {
         Instant now = Instant.now();
         repository.saveDocument(new KnowledgeDocument(
                 DOCUMENT_ID, KnowledgeEnums.SourceType.BLOG, "article-1", sourcePath, "文章标题",
-                VERSION_ID.toString(), "hash", visibility, knowledgeEnabled, articleId,
+                VERSION_ID.toString(), "hash", visibility, knowledgeEnabled, articleId, articleSlug,
                 status, KnowledgeEnums.ParseStatus.PARSED, KnowledgeEnums.IndexStatus.INDEXED, null, 0,
                 now, now));
         repository.saveChunk(chunk(CHUNK_A, 0, "章节", "正文内容 ".repeat(80)));

@@ -14,6 +14,7 @@ public record KnowledgeDocument(
         String visibility,
         boolean knowledgeEnabled,
         String publicArticleId,
+        String articleSlug,
         KnowledgeEnums.DocumentStatus status,
         KnowledgeEnums.ParseStatus parseStatus,
         KnowledgeEnums.IndexStatus indexStatus,
@@ -25,6 +26,7 @@ public record KnowledgeDocument(
         sourcePath = sourcePath == null ? "" : sourcePath;
         title = title == null || title.isBlank() ? sourcePath : title;
         visibility = visibility == null || visibility.isBlank() ? "private" : visibility;
+        articleSlug = articleSlug == null || articleSlug.isBlank() ? null : articleSlug;
         status = status == null ? KnowledgeEnums.DocumentStatus.ACTIVE : status;
         parseStatus = parseStatus == null ? KnowledgeEnums.ParseStatus.PENDING : parseStatus;
         indexStatus = indexStatus == null ? KnowledgeEnums.IndexStatus.PENDING : indexStatus;
@@ -46,6 +48,7 @@ public record KnowledgeDocument(
                 visibility,
                 knowledgeEnabled,
                 publicArticleId,
+                articleSlug,
                 status,
                 KnowledgeEnums.ParseStatus.PARSED,
                 KnowledgeEnums.IndexStatus.PENDING,
@@ -58,41 +61,36 @@ public record KnowledgeDocument(
     public KnowledgeDocument index(KnowledgeEnums.IndexStatus status, String failureReason, Instant at) {
         return new KnowledgeDocument(
                 id, sourceType, sourceId, sourcePath, title, currentVersionId, sourceHash, visibility,
-                knowledgeEnabled, publicArticleId, this.status, parseStatus, status, failureReason,
+                knowledgeEnabled, publicArticleId, articleSlug, this.status, parseStatus, status, failureReason,
                 failureReason == null ? indexRetryCount : indexRetryCount + 1, createdAt, at);
     }
 
     public KnowledgeDocument archived(Instant at) {
         return new KnowledgeDocument(
                 id, sourceType, sourceId, sourcePath, title, currentVersionId, sourceHash, visibility,
-                false, publicArticleId, KnowledgeEnums.DocumentStatus.ARCHIVED, parseStatus, indexStatus,
+                false, publicArticleId, articleSlug, KnowledgeEnums.DocumentStatus.ARCHIVED, parseStatus, indexStatus,
                 indexFailureReason, indexRetryCount, createdAt, at);
     }
 
-    public KnowledgeDocument published(String articleId, Instant at) {
+    public KnowledgeDocument published(String articleId, String slug, Instant at) {
         return new KnowledgeDocument(
                 id, sourceType, sourceId, sourcePath, title, currentVersionId, sourceHash, "public",
-                knowledgeEnabled, articleId, status, parseStatus, indexStatus,
+                knowledgeEnabled, articleId, slug, status, parseStatus, indexStatus,
                 indexFailureReason, indexRetryCount, createdAt, at);
     }
 
-    public KnowledgeDocument linkedArticle(String articleId, Instant at) {
+    public KnowledgeDocument linkedArticle(String articleId, String slug, Instant at) {
         return new KnowledgeDocument(
                 id, sourceType, sourceId, sourcePath, title, currentVersionId, sourceHash, visibility,
-                knowledgeEnabled, articleId, status, parseStatus, indexStatus,
+                knowledgeEnabled, articleId, slug, status, parseStatus, indexStatus,
                 indexFailureReason, indexRetryCount, createdAt, at);
     }
 
     /**
-     * 博客来源文档的 {@code sourcePath} 约定为 {@code blog:<slug>}，据此还原文章 slug，
-     * 供检索结果直接生成引用链接；非博客来源或无有效 slug 时返回 {@code null}。
+     * 文章 slug（发布为公开文章或博客文章反向入库时由 blog 模块写入）。
+     * 供检索结果直接生成引用链接；未关联文章时返回 {@code null}。
      */
     public String articleSlug() {
-        String prefix = "blog:";
-        if (sourceType != KnowledgeEnums.SourceType.BLOG || !sourcePath.startsWith(prefix)) {
-            return null;
-        }
-        String slug = sourcePath.substring(prefix.length());
-        return slug.isBlank() ? null : slug;
+        return articleSlug;
     }
 }

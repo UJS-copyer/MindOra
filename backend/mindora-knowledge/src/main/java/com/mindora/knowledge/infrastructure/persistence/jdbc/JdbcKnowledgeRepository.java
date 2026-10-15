@@ -35,8 +35,9 @@ public class JdbcKnowledgeRepository implements KnowledgeRepositories.KnowledgeR
                 INSERT INTO knowledge_document (
                     id, source_type, source_id, source_path, title, current_version_id,
                     source_hash, visibility, knowledge_enabled, status, parse_status,
-                    public_article_id, index_status, index_failure_reason, index_retry_count, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    public_article_id, article_slug, index_status, index_failure_reason,
+                    index_retry_count, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     source_id = VALUES(source_id),
                     source_path = VALUES(source_path),
@@ -48,6 +49,7 @@ public class JdbcKnowledgeRepository implements KnowledgeRepositories.KnowledgeR
                     status = VALUES(status),
                     parse_status = VALUES(parse_status),
                     public_article_id = VALUES(public_article_id),
+                    article_slug = VALUES(article_slug),
                     index_status = VALUES(index_status),
                     index_failure_reason = VALUES(index_failure_reason),
                     index_retry_count = VALUES(index_retry_count),
@@ -65,6 +67,7 @@ public class JdbcKnowledgeRepository implements KnowledgeRepositories.KnowledgeR
                 document.status().name().toLowerCase(),
                 document.parseStatus().name().toLowerCase(),
                 compactUuid(document.publicArticleId()),
+                document.articleSlug(),
                 document.indexStatus().name().toLowerCase(),
                 document.indexFailureReason(),
                 document.indexRetryCount(),
@@ -309,6 +312,7 @@ public class JdbcKnowledgeRepository implements KnowledgeRepositories.KnowledgeR
                 rs.getString("visibility"),
                 rs.getBoolean("knowledge_enabled"),
                 dashedUuid(rs.getString("public_article_id")),
+                rs.getString("article_slug"),
                 KnowledgeEnums.DocumentStatus.valueOf(rs.getString("status").toUpperCase()),
                 KnowledgeEnums.ParseStatus.valueOf(rs.getString("parse_status").toUpperCase()),
                 KnowledgeEnums.IndexStatus.valueOf(rs.getString("index_status").toUpperCase()),
