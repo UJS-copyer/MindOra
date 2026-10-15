@@ -16,20 +16,20 @@
 
 ## Git 集成状态
 
-- `main`：`ce9ef1a`（T5 压缩合并 `bd67327` → SSE 预检 403 修复 `9e27590` → eslint 忽略与注释订正；本文档提交紧随其后），领先 `origin/main`（未推送）
+- `main`：`7c2b736`（T5 压缩合并 `bd67327` → SSE 预检 403 修复 `9e27590` → eslint 忽略与注释订正 → 引用回链修复压缩合并 `7c2b736`，含 V7 迁移；本文档提交紧随其后），领先 `origin/main`（未推送）
 - 各阶段基线/交付提交：
   - Stage 1：`d5b160d`（后端内容）、`62a5cab`（前端内容 + 集成）
   - Stage 2：`b341a77`
   - Stage 3：`34e7697`（主线）、`e4a60df`（检索底座交付）
   - Stage 3.2：`08ec7b0`（关键词与融合）、`3c271e8`（检索调试页）、`67a2b67`（契约与联调记录）
   - Stage 3.3：`cdda506`（压缩合并；来源分支 `feature/stage-3.3-backend` 的 16 个提交按约定保留，仅供追溯）
-  - Stage 3.4（后端）：`d44fb62`（压缩合并；来源分支 `feature/stage-3.4-backend` 的 8 个提交按约定保留，仅供追溯）；`9e27590`（公开问答 SSE 预检 403 修复，见 §11.7）
+  - Stage 3.4（后端）：`d44fb62`（压缩合并；来源分支 `feature/stage-3.4-backend` 的 8 个提交按约定保留，仅供追溯）；`9e27590`（公开问答 SSE 预检 403 修复，见 §11.7）；`7c2b736`（引用回链修复压缩合并，来源分支 `feature/stage-3.4-backend-fix` 的 4 个提交已按约定压缩，分支本体已删除）
   - Stage 3.4（前端 T5）：`bd67327`（压缩合并；来源分支 `feature/stage-3.4-frontend` 的 10 个提交按约定保留，仅供追溯；真机与浏览器验收均已通过）
 - 当前开发：
   - 后端 Stage 3.4 后端闭环已交付，T6 会话历史顺延 Stage 3.5，见 `docs/stage-3.4-task-manifest-cn.md`
   - 前端原型已收敛到 `feature/stage-3.4-frontend`（`bc5fc81`，已随 T5 一并进 main）：首页 `HomeView`、AI 问答 `AiChatView`、`App.vue` 路由接线、`SiteHeader` 导航、`docs/prototypes/` 下的个人工作台快照。**原 `feature/stage-4-frontend` 与 stash 中的同名文件已成为冗余副本**，内容与收敛结果逐字节一致
   - **T5 前台问答页已在 main**：真实 SSE 消费、引用章节级回链、拒答替换/降级/限流冷却/中断态；真机 A–F 与浏览器交互验收全通（§11.3、§11.8）。剩余：降级态真机复现；客户端长度校验的「出错了」徽标待改中性文案（§11.8-F2）
-  - **引用回链契约缺口已修复（2026-10-14，Stage 3.4 后端缺陷修复，分支 `feature/stage-3.4-backend-fix`）**：`articleSlug` 从派生值改为 `knowledge_document.article_slug` 持久化字段（V7 迁移），Gitee 文档发布即写入 slug 并刷新向量 payload；顺带修复中文标题 slug 退化（回退 `knowledge-<documentId 前 8 位>`）。契约变更见 design-11 §2.1，证据与已知限制（unpublish 不回退可见性、文章无删除端点）见 §11.8-F1 订正。**实机浏览器验收已通过（2026-10-14）**：删两篇存量退化 slug 文章后经知识文档「生成草稿 → 发布」重新发布，新 slug `knowledge-beac3521`/`knowledge-e5962d6e`；`/chat` 真实提问（「DDPM 和 DDIM 有什么区别？」）命中《阅读线路》，引用卡显示「回到原文 →」，点击后回链 `/blog/knowledge-e5962d6e` 并正确渲染原文章节（`GET /api/v1/public/articles/knowledge-e5962d6e` 200）；控制台无应用错误（仅浏览器扩展噪声）。§11.8-F1 闭环
+  - **引用回链契约缺口已修复并合并 main（2026-10-14，`7c2b736`）**：`articleSlug` 从派生值改为 `knowledge_document.article_slug` 持久化字段（V7 迁移），Gitee 文档发布即写入 slug 并刷新向量 payload；顺带修复中文标题 slug 退化（回退 `knowledge-<documentId 前 8 位>`）。契约变更见 design-11 §2.1，证据与已知限制（unpublish 不回退可见性、文章无删除端点）见 §11.8-F1 订正。**实机浏览器验收已通过（2026-10-14）**：删两篇存量退化 slug 文章后经知识文档「生成草稿 → 发布」重新发布，新 slug `knowledge-beac3521`/`knowledge-e5962d6e`；`/chat` 真实提问（「DDPM 和 DDIM 有什么区别？」）命中《阅读线路》，引用卡显示「回到原文 →」，点击后回链 `/blog/knowledge-e5962d6e` 并正确渲染原文章节（`GET /api/v1/public/articles/knowledge-e5962d6e` 200）；控制台无应用错误（仅浏览器扩展噪声）。§11.8-F1 闭环
 - 已完成阶段的分支（内容均已通过压缩合并进入 main）与空指针分支待清理；清理需人工确认后执行
 - 工作区约定：前后端改动分属不同分支；不在同一工作区同时暂存前后端改动
 
