@@ -51,6 +51,7 @@
 | [stage-3.2-task-manifest-cn.md](stage-3.2-task-manifest-cn.md) | Stage 3.2 关键词与融合 | 已交付（含接口行为 / 权限修复 / 联调记录 / 运行约束） |
 | [stage-3.3-task-manifest-cn.md](stage-3.3-task-manifest-cn.md) | Stage 3.3 入库质量 + 评测基线 + 生成层 | 生成层待合并回 main（含接口行为 / 联调记录 / 归因方法） |
 | [stage-3.4-task-manifest-cn.md](stage-3.4-task-manifest-cn.md) | Stage 3.4 公开问答闭环 | **后端闭环已交付**（T1 待本人处置凭据；T5 前台问答页、T6 会话历史顺延 Stage 3.5）。接口行为与实机联调记录见其 §10 |
+| [stage-3.5-implementation-plan-cn.md](stage-3.5-implementation-plan-cn.md) | Stage 3.5 会话历史与多轮记忆（T6） | **方案已定稿待实施**：记忆策略、存储选型、改写取舍、评测口径与任务拆解 |
 
 阶段执行计划在执行完毕后进 [archive/](archive/)。**当前阶段**的计划与任务清单见上表最后一行（计划与台账合一，不再另建计划文档）。
 
