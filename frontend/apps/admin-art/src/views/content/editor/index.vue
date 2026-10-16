@@ -22,8 +22,8 @@
         >
           {{ isInspectorOpen ? '收起属性抽屉' : '展开属性抽屉' }}
         </ElButton>
-        <ElButton type="primary" :loading="saving" @click="save">
-          保存并发布草稿
+        <ElButton type="primary" :loading="saving" @click="saveAndPublish">
+          保存并发布
         </ElButton>
       </ElSpace>
     </div>
@@ -197,6 +197,7 @@
     listAssets,
     listCategories,
     listTags,
+    publishArticle,
     updateArticle,
     uploadAsset
   } from '@/api/content'
@@ -284,6 +285,32 @@
         : await createArticle(payload)
       articleId.value = article.id
       ElMessage.success('草稿已保存')
+      router.push({ name: 'ContentArticles' })
+    } finally {
+      saving.value = false
+    }
+  }
+
+  /**
+   * 顶部主按钮：先保存草稿，再立即发布——与文章列表页的「发布」行为一致。
+   * 修复前该按钮只调 save，与「保存并发布草稿」的文案不符（列表页仍是唯一发布入口）。
+   */
+  const saveAndPublish = async () => {
+    saving.value = true
+    try {
+      const payload: ArticleDraftInput = {
+        ...form,
+        summary: form.summary || undefined,
+        coverAssetId: form.coverAssetId || undefined,
+        categoryId: form.categoryId || undefined,
+        tagIds: form.tagIds || []
+      }
+      const article = articleId.value
+        ? await updateArticle(articleId.value, payload)
+        : await createArticle(payload)
+      articleId.value = article.id
+      await publishArticle(article.id)
+      ElMessage.success('已保存并发布')
       router.push({ name: 'ContentArticles' })
     } finally {
       saving.value = false

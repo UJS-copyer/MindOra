@@ -188,15 +188,17 @@ describe('useRagChat', () => {
     chat.dispose();
   });
 
-  it('reports a validation error without calling the backend', async () => {
+  it('reports a neutral invalid status without calling the backend', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
     const chat = createChat();
     await chat.send('短');
 
+    // §11.8-F2：长度校验是用法提示而非失败，状态为中性 invalid（徽标「提示」），
+    // 不再复用红色「出错了」的 error 态
     const assistant = chat.messages.value[1];
-    expect(assistant.status).toBe('error');
+    expect(assistant.status).toBe('invalid');
     expect(assistant.content).toBe(QUERY_LENGTH_COPY);
     expect(fetchMock).not.toHaveBeenCalled();
   });

@@ -20,7 +20,14 @@ import {
 } from '../api/rag';
 
 export type RagMessageStatus =
-  'streaming' | 'done' | 'refused' | 'degraded' | 'error' | 'rate_limited' | 'cancelled';
+  | 'streaming'
+  | 'done'
+  | 'refused'
+  | 'degraded'
+  | 'error'
+  | 'rate_limited'
+  | 'cancelled'
+  | 'invalid';
 
 export interface RagChatMessage {
   id: string;
@@ -182,7 +189,9 @@ export function useRagChat(options: UseRagChatOptions = {}) {
     const assistant = pushMessage('assistant', 'streaming');
 
     if (query.length < QUERY_MIN_LENGTH || query.length > QUERY_MAX_LENGTH) {
-      assistant.status = 'error';
+      // 客户端用法提示不是请求失败：用中性 `invalid` 态渲染（§11.8-F2），
+      // 与真正的传输/服务端错误（红色「出错了」）区分开；不打任何网络请求。
+      assistant.status = 'invalid';
       assistant.content = QUERY_LENGTH_COPY;
       return;
     }

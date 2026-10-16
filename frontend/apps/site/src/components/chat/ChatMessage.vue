@@ -25,7 +25,9 @@ const statusBadge = computed<{ label: string; tone: string } | null>(() => {
     degraded: { label: '降级模式', tone: 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400' },
     error: { label: '出错了', tone: 'bg-red-500/10 text-red-600 dark:text-red-400' },
     rate_limited: { label: '触发限流', tone: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-    cancelled: { label: '已停止', tone: 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400' }
+    cancelled: { label: '已停止', tone: 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400' },
+    // 客户端输入校验（如问题长度）：用法提示，不是失败态（§11.8-F2）
+    invalid: { label: '提示', tone: 'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400' }
   };
   return tones[props.message.status];
 });
