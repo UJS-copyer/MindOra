@@ -11,6 +11,7 @@ import com.mindora.app.MindOraApplication;
 import com.mindora.rag.application.RagAnswerService;
 import com.mindora.rag.domain.RagDomain.RagAnswerOutcome;
 import com.mindora.rag.domain.RagDomain.RagAnswerRequest;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -117,6 +118,43 @@ class PublicRagControllerTest {
         org.assertj.core.api.Assertions.assertThat(result.getResponse().getStatus())
                 .as("/error 不能落进认证链（403/401），否则真实错误码全部丢失")
                 .isNotIn(401, 403);
+    }
+
+    @Test
+    void anonymousConversationIdIsIgnoredWithoutError() throws Exception {
+        // design-11 契约：匿名请求带 conversationId 按无会话处理——不报错、历史为空、响应不含会话 id
+        mockMvc.perform(post("/api/v1/public/rag/answer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"query\":\"多轮怎么处理\",\"conversationId\":\"abc123\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.conversationId").doesNotExist());
+
+        org.assertj.core.api.Assertions.assertThat(captureRequest().history()).isEmpty();
+    }
+
+    @Test
+    void loggedInConversationPersistsTurnAndReturnsConversationId() throws Exception {
+        // 登录（真实 JWT 链路）→ 问答 → 落库 → 响应携带 conversationId（新会话首次下发）。
+        // token 由测试内自签（同一 secret），不起真实用户表。
+        com.mindora.user.infrastructure.security.SimpleJwtTokenService tokens =
+                new com.mindora.user.infrastructure.security.SimpleJwtTokenService(
+                        "local-stage0-secret", Clock.systemUTC());
+        // issue() 返回值自带 "Bearer " 前缀，直接作 Authorization 头使用
+        String authorization = tokens.issue(new com.mindora.user.domain.UserAccount(
+                java.util.UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                "chat@example.com", "irrelevant", java.util.Set.of()));
+
+        String conversationId = com.jayway.jsonpath.JsonPath.read(
+                mockMvc.perform(post("/api/v1/public/rag/answer")
+                                .header("Authorization", authorization)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"query\":\"多轮第一问\"}"))
+                        .andExpect(status().isOk())
+                        .andReturn().getResponse().getContentAsString(),
+                "$.data.conversationId");
+
+        org.assertj.core.api.Assertions.assertThat(conversationId).isNotBlank();
+        org.assertj.core.api.Assertions.assertThat(captureRequest().history()).isEmpty();
     }
 
     private RagAnswerRequest captureRequest() {

@@ -1,5 +1,6 @@
 package com.mindora.rag.domain;
 
+import com.mindora.rag.application.port.RagAdapters.ChatMessage;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -65,6 +66,9 @@ public final class RagDomain {
      *
      * @param conversationId 多轮记忆预留（今天忽略）
      * @param secretGuard    是否开启密钥兜底（公开端点 true；管理端调试 false——管理员看的是自己的库）
+     * @param history        多轮记忆窗口（Stage 3.5 启用）：注入在 system 与本轮 user 之间的历史消息。
+     *                       由调用方（控制器经 ChatConversationService）解析并裁剪；null 按 empty 处理。
+     *                       历史消息不进入本轮引用核验域——assistant 历史已剥离 [n] 编号。
      */
     public record RagAnswerRequest(
             String query,
@@ -74,7 +78,19 @@ public final class RagDomain {
             Boolean keywordEnabled,
             Boolean expansion,
             UUID conversationId,
-            boolean secretGuard) {
+            boolean secretGuard,
+            List<ChatMessage> history) {
+
+        public RagAnswerRequest {
+            history = history == null ? List.of() : List.copyOf(history);
+        }
+
+        /** 兼容既有调用（无历史的单轮路径）。 */
+        public RagAnswerRequest(
+                String query, String scope, Integer topK, Boolean rerankEnabled,
+                Boolean keywordEnabled, Boolean expansion, UUID conversationId, boolean secretGuard) {
+            this(query, scope, topK, rerankEnabled, keywordEnabled, expansion, conversationId, secretGuard, List.of());
+        }
     }
 
     /** 拒答原因。 */

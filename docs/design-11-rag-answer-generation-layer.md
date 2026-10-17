@@ -33,7 +33,8 @@ Content-Type: application/json
   "rerankEnabled": true,   // 可选
   "keywordEnabled": true,  // 可选
   "expansion": true,       // 可选，检索后扩展开关（缺省取服务端配置）
-  "conversationId": null   // 预留：多轮记忆（今天忽略，非法值按无会话处理）
+  "conversationId": null   // 多轮记忆（Stage 3.5 已启用）：登录用户带此 id 续聊；
+                           // 匿名/非法值按无会话处理（不报错）
 }
 ```
 
@@ -250,12 +251,17 @@ REPEAT=3 node logs/rag-integration-check.mjs
 
 ---
 
-## 10. 公开问答端点（Stage 3.4 交付）
+## 10. 公开问答端点（Stage 3.4 交付；Stage 3.5 扩展会话历史）
 
 | 端点 | 鉴权 | 请求体 | 说明 |
 | --- | --- | --- | --- |
-| `POST /api/v1/public/rag/answer` | 匿名 | 仅 `query`（2~500 字） | 一次性返回 `answer` + `citations[]` + `refused/degraded` |
-| `POST /api/v1/public/rag/answer/stream` | 匿名 | 仅 `query` | SSE，事件契约见 §12 |
+| `POST /api/v1/public/rag/answer` | 匿名/登录 | `query`（2~500 字）+ 可选 `conversationId` | 一次性返回 `answer` + `citations[]` + `refused/degraded` + `conversationId` |
+| `POST /api/v1/public/rag/answer/stream` | 匿名/登录 | 同上 | SSE，事件契约见 §12（done 事件含 `conversationId`） |
+| `GET /api/v1/public/rag/conversations` | 登录（匿名返回空列表） | — | 会话列表（未软删，按最近消息倒序） |
+| `GET /api/v1/public/rag/conversations/{id}/messages` | 登录 | — | 会话完整消息（恢复对话）；匿名/非本人 404 语义 |
+| `DELETE /api/v1/public/rag/conversations/{id}` | 登录 | — | 软删会话 |
+
+**Stage 3.5 会话语义**：登录用户带合法 `conversationId` 时注入记忆窗口（滑动窗口 + token 双约束，历史消息剥离 `[n]` 编号，不进本轮引用核验域）；终态（done/refused/degraded）落库 `chat_conversation`/`chat_message`（V8 迁移），新会话 id 随响应/done 事件**首次下发**，前端续聊携带；**匿名或非法 `conversationId` 按无会话处理**（不报错、响应字段为 null）——归属不匹配与不存在同为 404 语义，防枚举。详见 `docs/stage-3.5-implementation-plan-cn.md` 与 `docs/stage-3.5-task-manifest-cn.md`。
 
 **三条硬性约束**：
 

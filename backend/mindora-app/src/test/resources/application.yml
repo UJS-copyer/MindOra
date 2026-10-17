@@ -30,6 +30,12 @@ mindora:
     # 既不需要真实密钥，也不会让上下文加载失败（对话适配器由自身单测覆盖）
     chat:
       enabled: false
+      # 会话历史用内存实现（测试不连 MySQL；JDBC 实现与 memory 同契约，靠实机验收兜底）
+      history:
+        backend: memory
+      memory:
+        context-turns: 4
+        max-history-tokens: 3000
     public:
       rate-limit:
         # 测试不连 Redis；额度调高，避免功能用例互相计数（限流行为由 PublicRagRateLimitTest 单独覆盖）

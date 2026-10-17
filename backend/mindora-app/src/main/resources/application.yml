@@ -104,6 +104,15 @@ mindora:
       timeout-ms: ${RAG_CHAT_TIMEOUT_MS:15000}
       temperature: ${RAG_CHAT_TEMPERATURE:0.2}
       max-tokens: ${RAG_CHAT_MAX_TOKENS:2048}
+      # 多轮记忆与会话历史（Stage 3.5 T6，见 docs/stage-3.5-implementation-plan-cn.md）
+      memory:
+        # 记忆窗口轮数（1..8，design-04 既定 4）
+        context-turns: ${RAG_MEMORY_CONTEXT_TURNS:4}
+        # 历史消息 token 预算上限（估算口径见 ConversationMemoryAssembler）
+        max-history-tokens: ${RAG_MEMORY_MAX_HISTORY_TOKENS:3000}
+      history:
+        # 会话落库后端：jdbc（默认）| memory（测试/无 DB 场景）
+        backend: ${RAG_CHAT_HISTORY_BACKEND:jdbc}
     context:
       budget-chars: ${RAG_CONTEXT_BUDGET:4000}
       expansion-enabled: ${RAG_CONTEXT_EXPANSION:true}

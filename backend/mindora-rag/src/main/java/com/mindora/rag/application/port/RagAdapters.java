@@ -3,6 +3,7 @@ package com.mindora.rag.application.port;
 import com.mindora.knowledge.application.KnowledgeRetrievalService.RetrievalOutcome;
 import com.mindora.knowledge.application.KnowledgeRetrievalService.RetrievalQuery;
 import com.mindora.knowledge.domain.KnowledgeChunk;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -142,5 +143,57 @@ public final class RagAdapters {
     public interface CallerIdentityPort {
         /** 已登录返回 userId（JWT 的 sub），匿名返回 empty。 */
         java.util.Optional<String> currentUserId();
+    }
+
+    /**
+     * 会话历史里的一条已落库消息（供记忆组装与回显）。
+     *
+     * @param role            user / assistant
+     * @param content         消息正文（assistant 为纯文本终态内容，含拒答/降级文案）
+     * @param createdAtMillis 落库时间戳，用于时间正序还原
+     */
+    public record StoredMessage(String role, String content, long createdAtMillis) {
+    }
+
+    /**
+     * 会话历史仓储端口（Stage 3.5 T6）。
+     *
+     * <p>语义约定：
+     * <ul>
+     *   <li>所有读写都以 {@code userId} 为行级边界——归属不匹配按「不存在」处理（防枚举）；</li>
+     *   <li>匿名（userId 为 null/blank）不产生任何读写，调用方先判空；</li>
+     *   <li>删除是软删（与 user_account / blog_article 约定一致），软删会话不可见也不可继续。</li>
+     * </ul>
+     *
+     * <p>并发约定：单人项目不处理同会话并发写，后写覆盖（见实现类注释）。
+     */
+    public interface ChatConversationRepository {
+        /** 创建会话并返回 id；title 由调用方生成（首问截断）。 */
+        String create(String userId, String title, Instant now);
+
+        /** 追加一条消息并维护会话的 message_count / last_message_at。会话不存在或非本人时抛 BusinessException。 */
+        void appendMessage(
+                String conversationId, String userId, String role, String content,
+                String citationsJson, String status, String metaJson, Instant now);
+
+        /** 取会话最近 limit 条消息（时间正序）；会话不存在/非本人/已软删返回空列表。 */
+        List<StoredMessage> recentMessages(String conversationId, String userId, int limit);
+
+        /** 会话是否存在、可见且归属该用户。 */
+        boolean existsForUser(String conversationId, String userId);
+
+        /** 用户的会话列表（未软删，按 last_message_at 倒序，limit 条）。 */
+        List<ConversationSummary> listConversations(String userId, int limit);
+
+        /** 会话的全部消息（时间正序），供前端恢复完整对话；不存在/非本人返回空列表。 */
+        List<StoredMessage> messages(String conversationId, String userId);
+
+        /** 软删会话（消息保留，仅不可见）；成功返回 true，不存在/非本人返回 false。 */
+        boolean softDelete(String conversationId, String userId);
+
+        /** 会话列表项（列表页展示，免 join 消息表）。 */
+        record ConversationSummary(
+                String id, String title, int messageCount, Instant lastMessageAt, Instant createdAt) {
+        }
     }
 }

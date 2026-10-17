@@ -3,11 +3,14 @@ package com.mindora.app.config;
 import com.mindora.knowledge.application.KnowledgeRetrievalService;
 import com.mindora.knowledge.application.KnowledgeService;
 import com.mindora.rag.application.AnswerCitationValidator;
+import com.mindora.rag.application.ChatConversationService;
 import com.mindora.rag.application.ContextAssembler;
+import com.mindora.rag.application.ConversationMemoryAssembler;
 import com.mindora.rag.application.RagAnswerService;
 import com.mindora.rag.api.web.RagStreamTaskExecutor;
 import com.mindora.rag.application.port.RagAdapters.CallerIdentityPort;
 import com.mindora.rag.application.port.RagAdapters.ChatClientPort;
+import com.mindora.rag.application.port.RagAdapters.ChatConversationRepository;
 import com.mindora.rag.application.port.RagAdapters.ChatOptions;
 import com.mindora.rag.application.port.RagAdapters.RateLimitPort;
 import com.mindora.rag.application.port.RagAdapters.RetrievalFacadePort;
@@ -17,12 +20,16 @@ import com.mindora.rag.infrastructure.adapter.KnowledgeRetrievalFacadeAdapter;
 import com.mindora.rag.infrastructure.adapter.OpenAiCompatibleChatAdapter;
 import com.mindora.rag.infrastructure.adapter.RedisRateLimitAdapter;
 import com.mindora.rag.infrastructure.adapter.UnavailableRagAdapters;
+import com.mindora.rag.infrastructure.persistence.jdbc.JdbcChatConversationRepository;
+import com.mindora.rag.infrastructure.persistence.memory.InMemoryChatConversations;
+import java.time.Clock;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
@@ -99,6 +106,38 @@ public class RagModuleConfiguration {
     RateLimitPort inMemoryRateLimitPort(
             @Value("${mindora.rag.public.rate-limit.window-seconds:60}") long windowSeconds) {
         return new InMemoryRateLimitAdapter(windowSeconds, System::currentTimeMillis);
+    }
+
+    /**
+     * 会话历史仓储（Stage 3.5 T6）：jdbc 缺省；测试与无 DB 场景切 memory
+     * （照 rate-limit backend 的条件装配写法，声明顺序见其注释）。
+     */
+    @Bean
+    @ConditionalOnProperty(name = "mindora.rag.chat.history.backend", havingValue = "jdbc", matchIfMissing = true)
+    ChatConversationRepository jdbcChatConversationRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcChatConversationRepository(jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    ChatConversationRepository inMemoryChatConversationRepository() {
+        return new InMemoryChatConversations();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    ConversationMemoryAssembler conversationMemoryAssembler(
+            @Value("${mindora.rag.chat.memory.context-turns:4}") int contextTurns,
+            @Value("${mindora.rag.chat.memory.max-history-tokens:3000}") int maxHistoryTokens) {
+        return new ConversationMemoryAssembler(contextTurns, maxHistoryTokens);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    ChatConversationService chatConversationService(
+            ChatConversationRepository chatConversationRepository,
+            ConversationMemoryAssembler memoryAssembler) {
+        return new ChatConversationService(chatConversationRepository, memoryAssembler, Clock.systemUTC());
     }
 
     /**

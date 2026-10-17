@@ -347,6 +347,18 @@ Future upgrade:
 conversation summary + recent N turns
 ```
 
+> **Implementation note (Stage 3.5, 2026-10-17)**: the first version is delivered
+> as sliding window + token-budget dual constraint (turns paired user/assistant;
+> a turn whose single message exceeds the hard cap is dropped whole; assistant
+> history messages have their `[n]` citation markers stripped so they never enter
+> the current turn's citation-verification domain). Conversations persist in
+> MySQL (`chat_conversation` / `chat_message`, migration V8) for logged-in users
+> only; anonymous visitors keep localStorage-only history. Config keys:
+> `mindora.rag.chat.memory.context-turns` / `max-history-tokens`,
+> `mindora.rag.chat.history.backend` (jdbc|memory). Design rationale and
+> rejected alternatives (summary compression, LLM query rewrite in v1) are in
+> `docs/stage-3.5-implementation-plan-cn.md`.
+
 ## Streaming Output
 
 The first version should support streaming chat output.

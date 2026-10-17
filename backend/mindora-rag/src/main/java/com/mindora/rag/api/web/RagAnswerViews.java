@@ -16,6 +16,11 @@ public final class RagAnswerViews {
     }
 
     public static RagAnswerView of(RagAnswerOutcome outcome) {
+        return of(outcome, null);
+    }
+
+    /** 公开端点带 conversationId 的重载：登录用户的会话 id（新会话在此首次下发）；匿名/管理端传 null。 */
+    public static RagAnswerView of(RagAnswerOutcome outcome, String conversationId) {
         return new RagAnswerView(
                 outcome.answer(),
                 outcome.citations().stream().map(RagAnswerViews::ofCitation).toList(),
@@ -25,7 +30,8 @@ public final class RagAnswerViews {
                 outcome.refusalDetail(),
                 outcome.degraded(),
                 outcome.degradedReason(),
-                outcome.chatModel());
+                outcome.chatModel(),
+                conversationId);
     }
 
     public static CitationView ofCitation(Citation citation) {
@@ -88,6 +94,8 @@ public final class RagAnswerViews {
             String refusalDetail,
             boolean degraded,
             String degradedReason,
-            String chatModel) {
+            String chatModel,
+            /** 登录用户的会话 id（公开端点专用）；管理端/匿名恒 null。 */
+            String conversationId) {
     }
 }

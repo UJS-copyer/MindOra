@@ -142,11 +142,13 @@ public class RagAnswerService {
                         rawPiece -> forwardDelta(extractor, streamFilter, deltaConsumer, rawPiece));
         RagAnswerOutcome produced;
         try {
-            ChatReply reply = chatClient.chat(
-                    List.of(
-                            ChatMessage.system(RagPrompt.systemPrompt()),
-                            ChatMessage.user(RagPrompt.userMessage(contextText, question))),
-                    chatOptions);
+            // 多轮记忆（Stage 3.5）：历史插在 system 与本轮 user 之间（时间正序）。
+            // 历史消息已由组装器剥离 [n] 引用编号，不进入本轮核验域；无会话时为空列表，单轮路径不变。
+            List<ChatMessage> messages = new java.util.ArrayList<>(1 + request.history().size() + 1);
+            messages.add(ChatMessage.system(RagPrompt.systemPrompt()));
+            messages.addAll(request.history());
+            messages.add(ChatMessage.user(RagPrompt.userMessage(contextText, question)));
+            ChatReply reply = chatClient.chat(messages, chatOptions);
 
             // 正文已流完：把密钥窗口里滞留的尾部放出去（flushed 前的检测仍在窗口内进行）
             if (streamFilter != null) {
