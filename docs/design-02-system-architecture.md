@@ -39,7 +39,7 @@ Recommended stack:
 - RocketMQ
 - MySQL
 - Lucene
-- Milvus
+- Qdrant
 - local file storage
 
 ### Infrastructure
@@ -51,7 +51,7 @@ Core infrastructure components:
 
 - MySQL for business data
 - Redis for cache and authentication support
-- Milvus for vector storage
+- Qdrant for vector storage (Milvus stays an optional replacement behind `VectorStorePort`)
 - Lucene for keyword and inverted-index retrieval
 - RocketMQ for asynchronous workflows and domain events
 - local file storage for first-version managed assets
@@ -175,9 +175,9 @@ Use Redis for:
 - rate limiting
 - short-lived session helpers
 
-### Milvus
+### Vector Store
 
-Use Milvus for:
+Current implementation: **Qdrant**. Use it for:
 
 - chunk embeddings
 - minimal chunk metadata
@@ -201,7 +201,7 @@ The first version should implement one default provider in each adapter area.
 Planned defaults:
 
 - data source: Gitee
-- vector store: Milvus
+- vector store: Qdrant
 - file storage: local file storage
 - model provider: OpenAI-compatible API
 - login provider: email + GitHub
@@ -263,7 +263,7 @@ Recommended delivery order:
 - Backend architecture: modular monolith
 - Backend stack: Spring Boot 3, Spring AI, MyBatis-Plus, Redis, RocketMQ
 - Database: MySQL
-- Vector database: Milvus
+- Vector database: Qdrant
 - Keyword retrieval engine: Lucene
 - Data source: Gitee first
 - File storage: local file storage first
@@ -281,8 +281,8 @@ it also adds clear costs:
 
 - Running both vector retrieval and keyword retrieval increases architecture,
   testing, and observability complexity compared with a single-retriever stack.
-- Milvus provides stronger long-term vector scalability, but its deployment,
-  operations, and tuning cost are higher than a lighter vector setup.
+- The vector store is the heaviest stateful dependency. Qdrant keeps a single-node
+  deployment cheap, but gives up the long-term scale a Milvus-class cluster offers.
 - Lucene improves keyword retrieval and fallback behavior, but it introduces an
   extra indexing lifecycle, consistency checks, and storage overhead.
 - Hybrid search, RRF fusion, reranking, and context refinement improve answer

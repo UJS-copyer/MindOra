@@ -17,7 +17,7 @@
 | 多轮对话 | **已交付**（Stage 3.5，会话记忆 + 落库，见 §10） | §10 |
 | 换检索实现 / 加查询改写 | 端口已就绪（`RetrievalFacadePort`） | §3 |
 
-**明确不做**：前端聊天页（顺延 Stage 3.5）、RAPTOR/摘要索引、句级重切、Late Chunking（调研已否定，见 `docs/rag-retrieval-improvement-survey-cn.md`）。
+**明确不做**：RAPTOR/摘要索引、句级重切、Late Chunking（调研已否定，见 `docs/rag-retrieval-improvement-survey-cn.md`）；**真伴读（锁定本文检索）推迟到公开篇数 ≥ 20**——检索契约目前只有 `scope`，没有 `documentId` 过滤（design-10 §6.1）。公开站聊天页已交付（Stage 3.4 T5）。
 
 ## 2. 接口契约
 

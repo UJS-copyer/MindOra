@@ -50,7 +50,7 @@ Scope:
 - Docker Compose
 - MySQL
 - Redis
-- Milvus
+- Qdrant
 - RocketMQ
 - Spring Security + JWT
 - basic RBAC
@@ -158,7 +158,7 @@ Implementation order:
 6. Knowledge Document and Version creation
 7. Chunking configuration
 8. Embedding call
-9. Milvus write
+9. vector write (Qdrant)
 10. Index status management
 11. Blog publish-to-knowledge ingestion
 
@@ -172,7 +172,7 @@ Scope:
 - document version records
 - global chunking strategy
 - Alibaba Cloud Bailian `text-embedding-v4`
-- Milvus vector write
+- vector write to Qdrant
 - index status tracking
 - failure retry
 - single document re-index
@@ -187,7 +187,7 @@ Gitee Markdown
 -> Knowledge Document Version
 -> chunks
 -> embedding
--> Milvus
+-> Qdrant
 -> indexed state
 ```
 
@@ -198,14 +198,14 @@ Blog Article published
 -> Knowledge Document
 -> chunks
 -> embedding
--> Milvus
+-> Qdrant
 ```
 
 Stage 2 deliverable:
 
 ```text
 Markdown from the Gitee repository can be synchronized, parsed, chunked,
-embedded, written to Milvus, and inspected from the admin console.
+embedded, written to Qdrant, and inspected from the admin console.
 ```
 
 ## Stage 3: RAG Chat
@@ -227,7 +227,7 @@ the complete retrieval and generation chain rather than vector-only chat.
 
 Recommended implementation phases:
 
-1. Retrieval foundation: Milvus vector retrieval, Lucene keyword retrieval,
+1. Retrieval foundation: Qdrant vector retrieval, Lucene keyword retrieval,
    metadata permission filtering, and index status.
 2. Retrieval quality: Hybrid Search, RRF fusion, reranking, and context
    refinement.
@@ -249,7 +249,7 @@ Recommended stack:
 - MyBatis-Plus
 - Redis
 - RocketMQ
-- Milvus Java SDK or HTTP wrapper
+- Qdrant HTTP client (current) / Milvus SDK behind the same port
 - Alibaba Cloud Bailian `text-embedding-v4`
 - SiliconFlow `BAAI/bge-reranker-v2-m3`
 - OpenAI-compatible Chat API
@@ -258,7 +258,7 @@ Recommended stack:
 RAG backend responsibilities:
 
 - retrieval orchestration
-- Milvus vector retrieval
+- Qdrant vector retrieval
 - Lucene keyword retrieval
 - Hybrid Search and RRF fusion
 - prompt assembly
@@ -281,13 +281,13 @@ implementation planning.
 First-version retrieval:
 
 ```text
-Milvus vector retrieval + Lucene keyword retrieval + metadata filtering
+Qdrant vector retrieval + Lucene keyword retrieval + metadata filtering
 ```
 
 The final Stage 3 retrieval chain:
 
 ```text
-Milvus vector retrieval
+Qdrant vector retrieval
 -> Lucene keyword retrieval
 -> Hybrid Search
 -> RRF fusion
@@ -325,7 +325,7 @@ Rerank Model:
 
 Vector Store:
 
-- Milvus
+- Qdrant
 
 ### RAG Runtime Features
 
@@ -351,7 +351,7 @@ Scope:
 
 Fallback:
 
-- rerank failure falls back to Milvus vector score ordering
+- rerank failure falls back to vector score ordering
 - keyword retrieval failure falls back to vector retrieval
 - permission filtering failure must fail closed
 - embedding/vector/chat service failures return explicit temporary-unavailable
@@ -491,5 +491,5 @@ The first release should satisfy:
   retrieval quality chain, hidden public page, then public entry.
 - Stage 4 is risk-based: synchronization and RAG operations are required,
   content operation analytics can be postponed.
-- RAG backend uses Spring Boot 3, Spring AI, Milvus, Lucene, Bailian embedding,
+- RAG backend uses Spring Boot 3, Spring AI, Qdrant, Lucene, Bailian embedding,
   SiliconFlow rerank, OpenAI-compatible chat, RocketMQ, Redis, and SSE.

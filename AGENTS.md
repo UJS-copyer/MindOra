@@ -24,7 +24,7 @@
 ## 现有约定索引
 
 - **文档总入口与单一事实来源（SSOT）声明：`docs/README.md`（新建任何文档前必须先读它）**
-- 设计文档：`docs/design-*.md`（最新为 `docs/design-11-rag-answer-generation-layer.md`：RAG 问答生成层契约——单次问答、引用定位、三线拒答与降级、配置与实机联调数据；检索侧见 `docs/design-10-keyword-retrieval-and-hybrid-fusion.md`）
+- 设计文档：`docs/design-*.md`（最新为 `docs/design-11-rag-answer-generation-layer.md`：RAG 问答生成层契约——**应答三态**（有依据 / 无依据兜底 / 拒绝）、服务端摘录引用、**公开域 = 已发布**、提示词版本化、配置与实机联调数据；检索侧见 `docs/design-10-keyword-retrieval-and-hybrid-fusion.md`，路线与上线门禁见 `docs/design-07-implementation-roadmap.md`）
 - 阶段路线与交付原则：`docs/design-07-implementation-roadmap.md`
 - 后端结构、包边界与本地开发规则：`docs/backend-development-rules-cn.md`
 - 项目**当前有效状态**（迁移、Git、启动入口、阶段状态、检查结果、阶段索引、下一阶段）：`docs/project-status-cn.md`

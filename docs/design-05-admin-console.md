@@ -42,7 +42,7 @@ Show status for:
 
 - MySQL
 - Redis
-- Milvus
+- Qdrant
 - RocketMQ
 - Chat Model
 - Embedding Model
@@ -261,7 +261,7 @@ Show:
 - heading path
 - chunk length
 - embedding status
-- Milvus write status
+- Vector write status (Qdrant)
 - index update time
 - failure reason
 
@@ -444,7 +444,7 @@ Show:
 
 - MySQL
 - Redis
-- Milvus
+- Qdrant
 - RocketMQ
 - Chat Model
 - Embedding Model
@@ -530,10 +530,9 @@ The admin console may show them as read-only runtime information.
 - Knowledge Base combines data source, sync, documents, versions, chunking, and
   indexing.
 - File Assets stays lightweight but supports filtering by usage and source.
-- RAG management is split into conversations, retrieval analysis, and strategy.
+- RAG management is split into conversations, retrieval analysis, and strategy; from 2026-10-17 it also covers **prompt versioning** (design-11 §16) and the **quality loop** (records + feedback, design-07 4.3).
 - System settings are grouped by module and configuration type.
 - Storage path and similar deployment-level settings are not dynamically
   editable from the admin console.
-- User Interaction includes basic user management, message moderation, and user
-  behavior statistics.
+- User Interaction includes basic user management (messages and moderation were retired on 2026-10-17, see design-01 scope re-check).
 - System Operations includes health checks, task queue management, and logs.

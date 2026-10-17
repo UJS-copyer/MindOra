@@ -89,12 +89,12 @@
 | 优先级 | 优化方向 | 涉及模块 | 具体行动项 | 落地状态 |
 | :---: | :--- | :--- | :--- | :--- |
 | **P0** | **Markdown 富元数据切片** | `mindora-knowledge` | 解析 Gitee 同步过来的 Markdown 时，提取 AST 并附加 `titlePath`、`headingLevel`、`blockType` 等元数据。 | 已完成（Stage 3 F1/F2） |
-| **P0** | **问答引用来源追溯展示** | `mindora-rag`, `site` | 后端在 SSE 流式输出中附带切片引用信息，前端实现精准锚点跳转与高亮定位。 | 部分完成（Stage 3 已在检索结果中返回 articleId/articleSlug 与 headingPath，前端引用展示与锚点跳转顺延到后续轮次） |
-| **P1** | **文章级侧边栏 AI 伴读** | `frontend/apps/site`, `mindora-rag` | 在文章详情页提供抽屉式对话助手，上下文限定在当前文章切片，支持总结与追问。 | 未开始（顺延到后续轮次） |
-| **P1** | **知识库与发布状态解耦** | `mindora-blog`, `mindora-admin` | 支持识别 Obsidian Frontmatter 的 `published` 标记；后台支持对单篇或批量文章执行入库/出库操作。 | 未开始（顺延到后续轮次） |
+| **P0** | **问答引用来源追溯展示** | `mindora-rag`, `site` | 后端在 SSE 流式输出中附带切片引用信息，前端实现精准锚点跳转与高亮定位。 | 已完成（Stage 3.4：SSE `citation` 事件 + 章节级回链；契约见 design-11 §15） |
+| **P1** | **文章级侧边栏 AI 伴读** | `frontend/apps/site`, `mindora-rag` | 在文章详情页提供抽屉式对话助手，上下文限定在当前文章切片，支持总结与追问。 | 推迟：真伴读需 `documentId` 过滤（design-10 §6.1），公开篇数 ≥ 20 后再做；4.6 只做「就本文提问」预填 |
+| **P1** | **知识库与发布状态解耦** | `mindora-blog`, `mindora-admin` | 支持识别 Obsidian Frontmatter 的 `published` 标记；后台支持对单篇或批量文章执行入库/出库操作。 | 部分完成（`visibility` + `knowledgeEnabled` 已具备；Frontmatter `published` 标记未做；公开域改为「文章已发布」为准，见 design-11 §15.3） |
 | **P1** | **后台检索召回可视化工具** | `mindora-admin`, `mindora-knowledge` | 在后台增加检索测试页，直观查看 Query 的切片召回与打分排序。 | 已完成（Stage 3 F7/F9：管理端检索调试接口与 /knowledge/retrieval 页面，可查看向量分、重排分与降级状态） |
-| **P2** | **混合检索（Hybrid Search）** | `mindora-rag` | 引入 Lucene 或全文检索与向量检索融合，通过 RRF 算法优化技术专有名词召回率。 | 未开始（顺延到后续轮次） |
-| **P3** | **模块降级与访问风控** | `mindora-app`, `mindora-common` | 增加向量模块就绪探测与优雅降级策略，完善 RAG 接口的分级限流机制。 | 未开始（顺延到后续轮次） |
+| **P2** | **混合检索（Hybrid Search）** | `mindora-rag` | 引入 Lucene 或全文检索与向量检索融合，通过 RRF 算法优化技术专有名词召回率。 | 已完成（Stage 3.2：Lucene + RRF k=60） |
+| **P3** | **模块降级与访问风控** | `mindora-app`, `mindora-common` | 增加向量模块就绪探测与优雅降级策略，完善 RAG 接口的分级限流机制。 | 已完成（Stage 3.4：四路降级 + 限流；向量库故障已改「质量降级」，见 design-10 §5） |
 
 ---
 

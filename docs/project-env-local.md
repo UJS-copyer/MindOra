@@ -26,8 +26,8 @@ MINDORA_RERANK_ENABLED="true"
 MINDORA_VECTOR_ENABLED="true"
 GITEE_API_BASE_URL="https://gitee.com/api/v5"
 
-# 设计文档以 Milvus 为长期规划；当前虚拟机和现有配置使用 Qdrant，
-# 后端通过 VectorStorePort 保留向 Milvus 替换的边界。
+# 向量库：设计文档已统一为 Qdrant（2026-10-17），Milvus 仅作为 VectorStorePort 的长期备选；
+# 当前虚拟机与现有配置均使用 Qdrant。
 
 # GitHub OAuth
 AUTH_SECRET="your-auth-secret"

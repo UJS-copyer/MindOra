@@ -6,8 +6,8 @@
 > 已由 [design-09](design-09-chunk-metadata-and-vector-payload.md)、[design-10](design-10-keyword-retrieval-and-hybrid-fusion.md)、
 > [design-11](design-11-rag-answer-generation-layer.md) 细化为可执行契约——**这些部分以那三份为准**。
 >
-> 本文仍然有效、且**尚未实现**的部分（后续实现以此为需求来源）：公开问答权限模型、多轮记忆（Multi-Turn Memory）、
-> 流式输出（Streaming Output）、日志与质量分析、策略开关、资源感知的模块启停。
+> 本文仍然有效、且**尚未兑现**的部分（后续实现以此为需求来源）：日志与质量分析（记录 / 评价 / 复测，见 design-07 4.3）、
+> 策略开关与资源感知的模块启停。**公开问答权限模型、多轮记忆、流式输出已于 Stage 3.4 / 3.5 交付**（见 design-11 §10、§12）。
 >
 > 文档索引与单一事实来源声明见 [docs/README.md](README.md)。
 
@@ -72,7 +72,7 @@ Embedding retrieval + keyword retrieval + hybrid search + RRF fusion + reranking
 
 Recommended backend mapping:
 
-- vector retrieval: Milvus
+- vector retrieval: Qdrant
 - keyword retrieval: Lucene
 - fusion strategy: Reciprocal Rank Fusion (RRF)
 - rerank strategy: provider-backed rerank model
@@ -198,7 +198,7 @@ First-version retrieval flow:
 ```text
 User question
 -> query embedding
--> Milvus topN vector recall
+-> Qdrant topN vector recall
 -> BAAI/bge-reranker-v2-m3 reranking
 -> select topK chunks
 -> assemble context
@@ -228,7 +228,7 @@ Recommended defaults:
 - `rerank_timeout_ms = 3000`
 - `fallback_enabled = true`
 
-If reranking fails and fallback is enabled, the system should use Milvus vector
+If reranking fails and fallback is enabled, the system should use vector
 similarity ordering.
 
 ## Fallback Strategy
@@ -243,7 +243,7 @@ KeywordRetriever unavailable
 -> use vector retrieval
 
 Reranker unavailable
--> use Milvus vector score ordering
+-> use vector score ordering
 -> record fallback log
 
 Embedding service unavailable
@@ -474,7 +474,7 @@ capabilities stay available in richer deployments.
   context refinement, and fallback interfaces.
 - First version implements vector retrieval, metadata filtering, and reranking, while preserving phased rollout toward full hybrid retrieval.
 - Lucene is the planned keyword retrieval engine.
-- Milvus is the planned vector backend.
+- Qdrant is the current vector backend; Milvus stays an optional replacement behind `VectorStorePort`.
 - Metadata is intentionally minimal and avoids redundant display fields.
 - Chat Model uses API key based configuration.
 - Embedding Model uses Alibaba Cloud Bailian `text-embedding-v4`.
@@ -496,8 +496,8 @@ trade-offs:
   materially increase latency compared with pure vector retrieval.
 - Running Lucene and a vector store together creates consistency and reindex
   coordination work whenever documents change.
-- Milvus improves vector retrieval capacity and future scale, but raises
-  deployment and operational complexity compared with lighter vector setups.
+- A Milvus-class cluster would improve long-term vector scale, but raises
+  deployment and operational complexity compared with a lighter setup (Qdrant is the current choice).
 - Context refinement can improve prompt efficiency, but if tuned poorly it may
   drop evidence that was useful for grounding.
 - More toggles make low-resource deployment safer, but increase operational

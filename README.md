@@ -9,7 +9,7 @@ retrieving, and asking questions over a personal knowledge base.
 - Maven backend build with Java 21
 - Vue 3 + Vite npm workspace under `frontend/`
 - Ubuntu VM hosted infrastructure through Docker Compose
-- MySQL, Redis, Milvus, RocketMQ, Lucene, and local file storage configuration
+- MySQL, Redis, Qdrant, RocketMQ, Lucene, and local file storage configuration
 - Environment template and startup documentation
 
 ## Current Infrastructure
@@ -21,7 +21,7 @@ Docker runs on the Ubuntu VM, not on the Windows development machine.
 | Ubuntu VM           | `root@192.168.222.128`              |
 | MySQL               | `192.168.222.128:3306`              |
 | Redis               | `192.168.222.128:6379`              |
-| Milvus              | `http://192.168.222.128:19530`      |
+| Qdrant              | `http://192.168.222.128:6333`       |
 | RocketMQ NameServer | `192.168.222.128:9876`              |
 | Storage root        | `/data/docker-data/mindora/storage` |
 
