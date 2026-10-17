@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | SSE 流式输出 | **已交付**（`ChatOptions.streamConsumer` 槽位已兑现，端口签名未变） | §12 |
 | 公开问答端点 + 限流 + 密钥兜底 | **已交付**（`PublicRagController`，scope 服务端硬编码） | §10、§11 |
-| 多轮对话 | 未实现（`conversationId` 仍被忽略，顺延 Stage 3.5） | — |
+| 多轮对话 | **已交付**（Stage 3.5，会话记忆 + 落库，见 §10） | §10 |
 | 换检索实现 / 加查询改写 | 端口已就绪（`RetrievalFacadePort`） | §3 |
 
 **明确不做**：前端聊天页（顺延 Stage 3.5）、RAPTOR/摘要索引、句级重切、Late Chunking（调研已否定，见 `docs/rag-retrieval-improvement-survey-cn.md`）。
@@ -78,7 +78,7 @@ Content-Type: application/json
 - **ID 方言**必须显式归一化：检索命中给的是带连字符 36 位 UUID、切片接口给的是无连字符 32 位，二者混用会导致「按引用查不到切片」——这个坑在评测脚本上出现过一次，生成层通过 `RetrievalFacadePort.normalizeId` 统一。
 - **`articleSlug` 来源（2026-10-14 契约变更）**：由 `knowledge_document.article_slug` **持久化字段**提供（V7 迁移起），不再从 `sourceType==BLOG && sourcePath 前缀 blog:` 派生。文档发布为公开文章时由发布链路写入（GITEE 与 BLOG 来源统一），发布后向量 payload 局部刷新；未关联文章时仍为 `null`。背景与证据见 `docs/stage-3.4-task-manifest-cn.md` §11.8-F1 订正。
 
-### 2.2 `quote` 与 `quoteVerified`
+### 2.2 `quote` 与 `quoteVerified`（已被 §15.1 取代，保留作历史）
 
 - `quote` **只可能是知识库原文**：模型逐字给出并通过核验时原样回传；否则回传服务端从该切片原文截取的摘录。
 - `quoteVerified=true` 表示这段 quote 由模型指认且逐字核验通过；`false` 表示是服务端摘录（仍来自原文，但不是模型指认的那一段）。前端可用它决定是否展示「引用原文」标记。
@@ -116,9 +116,9 @@ mindora-rag
 
 | 情形 | 行为 | 落点 |
 | --- | --- | --- |
-| 检索没有任何候选 | **直接拒答，不调用模型**（省钱且防幻觉） | `refused=true`，`refusalReason=no_context` |
+| 检索没有任何候选 | ~~直接拒答、不调模型~~ **已由 §15.4 修订**：调一次小模型判域并写兜底说明 | `answerMode=ungrounded`，`ungroundedReason=no_domain_match\|no_retrieval_result` |
 | 模型判断资料不足（提示词第一层） | 拒答 | `refusalReason=model_refused` |
-| 回答存在引用问题（第二层服务端校验） | 拒答 | `refusalReason=invalid_citation`，`refusalDetail` 给出细分原因 |
+| 回答存在引用问题（第二层服务端校验） | ~~拒答~~ **已取消（§15.2）**：只清洗引用，答案照常返回 | `invalid_citation` 不再产生；越界/未核验的引用被丢弃，答案保留 |
 | 对话模型不可用/密钥缺失/响应异常 | **降级**：返回已检索片段 + 提示语 | `degraded=true`，**不是 500**（与 knowledge 的「重排/关键词可降级」语义一致） |
 
 `refusalDetail` 取值：
@@ -129,16 +129,18 @@ mindora-rag
 - `no_citation`：模型给了答案但一条引用都没给；
 - `no_candidates`：检索没有候选。
 
+> **2026-10-17 起（§15）**：`invalid_citation` / `citations_not_verifiable` / `citations_out_of_range` / `no_citation` 均**不再产生**（引用问题只清洗引用，不拒答）；零候选改走 `answerMode=ungrounded` + `ungroundedReason`。
+
 **不引入任何相似度阈值熔断**：本项目实测正例最低分 0.0008 与负例最高分 0.8324 完全重叠，阈值法在本语料上不可用（详见 `docs/rag-retrieval-improvement-survey-cn.md`）。拒答只能靠「提示词 + 服务端校验」两层。
 
-### 3.3 引用校验粒度（`AnswerCitationValidator`）
+### 3.3 引用校验粒度（`AnswerCitationValidator`）（**逐字门禁部分已被 §15.1 取代**）
 
 逐条独立校验，不做「任一不合格即整体拒答」：
 
 1. **编号越界** → 丢弃该条（引用了本次候选中不存在的片段，属确定性接地违规）；
 2. **quote 逐字核验**（空白归一化后子串匹配，容忍换行/缩进，不容忍改写；最短 4 字）→ 通过则原样保留 `quoteVerified=true`；
 3. 未通过 → 严格模式（默认）下丢弃该条；
-4. **只有当没有任何一条引用可核验时**才判定不可作答。
+4. **只有当没有任何一条引用可核验时**才判定不可作答。（**已由 §15.2 修订**：此后引用问题不再导致拒答，答案一律保留，只清洗引用列表。）
 
 改为逐条粒度的原因：7B 模型常给出 2 条引用、其中 1 条 quote 未逐字对上（例如把相邻行拼成一段），而另一条完全可核验；旧的全量拒答会把答对的回答误判为「知识库没有记录」（见第 7.3 节）。
 
@@ -154,11 +156,12 @@ mindora-rag
 | `mindora.rag.chat.timeout-ms` | `RAG_CHAT_TIMEOUT_MS` | `15000` | 连接/读取超时 |
 | `mindora.rag.chat.temperature` | `RAG_CHAT_TEMPERATURE` | `0.2` | |
 | `mindora.rag.chat.max-tokens` | `RAG_CHAT_MAX_TOKENS` | `2048` | |
+| `mindora.rag.chat.ungrounded-model` | `RAG_CHAT_UNGROUNDED_MODEL` | `Qwen/Qwen2.5-7B-Instruct` | 零候选兜底（判域 + 写说明）用的小模型，见 §15.4；置空则回落主模型，`max-tokens` 固定 ≤256 |
 | `mindora.rag.context.budget-chars` | `RAG_CONTEXT_BUDGET` | `4000` | 上下文总预算 |
 | `mindora.rag.context.expansion-enabled` | `RAG_CONTEXT_EXPANSION` | `true` | 检索后扩展 |
 | `mindora.rag.context.expansion-added-chars` | `RAG_EXPANSION_ADDED` | `1500` | 扩展新增上限（实测拐点） |
 | `mindora.rag.context.section-cap` | `RAG_SECTION_CAP` | `4` | 每命中最多补几条同章节切片 |
-| `mindora.rag.validation.require-verbatim-quote` | `RAG_REQUIRE_VERBATIM_QUOTE` | `true` | 关闭后仅校验编号，引用文本回退为服务端摘录 |
+| `mindora.rag.validation.require-verbatim-quote` | `RAG_REQUIRE_VERBATIM_QUOTE` | **`false`**（§15.1 起） | 关闭时引用文本一律取服务端摘录、答案不因引用问题拒答；置 `true` 仅额外校验模型给的 quote 用作高亮，不影响作答 |
 | `mindora.rag.public.enabled` | `MINDORA_RAG_PUBLIC_ENABLED` | `true` | 公开问答总开关；关闭时端点按 404 处理 |
 | `mindora.rag.public.rate-limit.backend` | `RAG_RATE_LIMIT_BACKEND` | `redis` | `redis` / `memory`（测试与无 Redis 单实例） |
 | `mindora.rag.public.rate-limit.window-seconds` | — | `60` | 固定窗口长度 |
@@ -173,7 +176,7 @@ mindora-rag
 
 | 决策 | 依据 |
 | --- | --- |
-| 拒答必须做服务端校验，不能只靠提示词 | AbstentionBench（arXiv:2506.09038）：规模提升无助拒答，推理微调反而使拒答率 −24%；GopherCite（arXiv:2203.11147）：「带已验证引用作答 + 不确定即弃答」把高质量率 80% → 90% |
+| 拒答必须做服务端校验，不能只靠提示词 | AbstentionBench（arXiv:2506.09038）：规模提升无助拒答，推理微调反而使拒答率 −24%；GopherCite（arXiv:2203.11147）：「带已验证引用作答 + 不确定即弃答」把高质量率 80% → 90%。**rev2 注**：此条只保留「拒绝要由服务端参与」——服务端仍负责零候选判定、分型字段与可答范围注入，但**不再承担引用级核验**（§15）；代价是拒答更依赖模型，见 §15.1。 |
 | 最强证据放首尾 | Lost in the Middle（arXiv:2307.03172）：相关信息置于上下文中部时效果甚至差于闭卷 |
 | 不把 topK 提到 20 | 实测扩展（SpanHit@8 91.6%）优于提 k（90.1%）；检索文档数 20→50 仅 +1.5% |
 | 不做文档配额去重 | 实测 −6.9pt（本项目答案常来自同文档多块） |
@@ -309,7 +312,7 @@ data: {"type":"error","code":"…","message":"…"}       ← 意外失败
 
 - **终态规则**：`done` 或 `error` **恰一个**为终态。`server_busy`（线程池满）以 `error` 表达。
 - **模型契约未改**：流式只是把模型输出的 JSON 信封增量抽出 `answer` 正文（`StreamingAnswerExtractor` 状态机处理转义与跨 delta 的键名/转义符/Unicode 转义），完整累积文本仍交给既有校验器解析 `citations`。这样「先流文字、后校验引用」不需要改模型协议，Stage 3.3 的实测基线不受影响。
-- **已流出文字随后被判定为拒答**：严格模式下引用逐字核验需要完整文本，因此 `done{refused=true}` 可能晚于已显示的文字。**前端必须以标准拒答文案替换已显示内容**——这是设计取舍，不是缺陷（Dify/Vercel AI SDK 同为「终止事件携带最终元数据」的模型）。
+- **已流出文字随后被判定为拒答**（**注：§15 后此路径只剩安全类 `refused`**）：严格模式下引用逐字核验需要完整文本，因此 `done{refused=true}` 可能晚于已显示的文字。**前端必须以标准拒答文案替换已显示内容**——这是设计取舍，不是缺陷（Dify/Vercel AI SDK 同为「终止事件携带最终元数据」的模型）。
 - **首字节延迟**：`firstDeltaMs`（收到请求 → 首个 delta）与 `latencyMs`（总耗时）都在 `done` 中；降级路径 `firstDeltaMs=-1`（无 delta）。
 - **中断**：客户端断开 → 写事件抛错 → 异常穿透到适配器 → 停止读取上游并关闭连接；服务端记录 `status=cancelled`，不残留线程。
 - **已知限制**：无 `ping` 保活、无断线重连与「续流」（个人项目从简，靠 emitter 超时 = chat 超时 + 30s 兜底）。若将来置于有 idle 超时的反向代理之后，需要补心跳。
@@ -336,3 +339,160 @@ refusal=… model=… latencyMs=… firstDeltaMs=… citations=… query=…（�
 ## 14. 实机验证（2026-10-11）
 
 公开端点实机结论（完整记录见 `docs/stage-3.4-task-manifest-cn.md` §10.2）：公开文档可作答且**引用只来自 public**；负例拒答；**私有内容零召回**；SSE 事件序 `delta×12 → citation → done`（`firstDeltaMs=9125ms`）；限流 `200,200,429,429,429,429` 且 SSE 预检返回 JSON 429；对话模型不可用时 JSON 与 SSE **均为降级而非 500**；管理端回归正例 15/15（流式重构无回归）、负例 27/30（唯一失败仍是 Kafka 边界用例）。
+
+---
+
+## 15. 2026-10-17 修订（v2）：引用不做逐字门禁、应答改为三态（有依据 / 无依据兜底 / 拒绝）、公开域收紧为已发布
+
+> **本节取代** §2.2（quote 与 quoteVerified）、§3.2 表中的「第三线 / invalid_citation」、§3.3 的严格逐字门禁；原章节保留作历史。
+> **背景（作者裁决）**：① 知识库不可能覆盖所有情况，逐字校验会把正确回答拖成拒答、并让回答趋同；回答应由模型**基于引用来源自行组织**。② 用户问的若是与本站无关的事，应当**说明情况并给替代路径**（参考 RAGNote 的「信息说明 + 实用建议 + 引导」），不是丢一句"知识库没有记录"。③ 公开站要按可上线标准收紧知识范围。④ 零候选时允许再调一次小模型做判定与说明。⑤ 模型完全没给引用也不拒答。
+> 实现落在 Stage 4.1（公开域）、4.2（回答契约 v2）与 3.6（管理端问答页），见 `docs/design-07-implementation-roadmap.md`。
+
+### 15.1 引用：从「逐字核验门禁」改为「服务端摘录 + 编号校验」
+
+| 项 | 旧（§2.2 / §3.3） | 新 |
+| --- | --- | --- |
+| `quote` 来源 | 模型逐字给出且通过子串核验才保留 | **一律由服务端从命中切片截取**（按句边界，≤200 字） |
+| 模型给的 `quote` | 判据（不过即丢弃该条） | 仅作「重点片段」提示：逐字命中则用作高亮，未命中静默忽略，**不影响引用去留与作答** |
+| 编号越界 | 丢弃该条；一条不剩 → 拒答 `invalid_citation` | 丢弃该条 **并从正文里删掉这个 `[n]` 标记**（不能让用户点到死链）；答案照常返回，`citations` 可为空 |
+| 模型没给引用 | 拒答 `no_citation` | **不拒答**：答案保留，`citations` 为空，`citationless=true` |
+| 拒答触发 | 含「引用不合格」 | **引用问题永不导致拒答** |
+| 响应字段 | `quote` + `quoteVerified` | `quote`（服务端摘录）+ `quoteSource="server_excerpt"`；`quoteVerified` 保留一版恒 `false` 作兼容，随后移除 |
+| 配置 | `require-verbatim-quote` 默认 `true` | 默认 **`false`** |
+
+**保留的确定性下限（这是「可追溯」的底线，不再放宽）**：
+
+1. `citation.chunkId` 必须能在本次候选集合中回查，否则丢弃该条；
+2. `citation.quote` 必须逐字出现在该 `chunkId` 的切片正文中（服务端自取，天然成立）；
+3. `headingPath` / `articleSlug` / `sequence` 用于回链，缺失则前端降级为纯文本；
+4. 引用卡上不再声称「逐字核验」，文案统一为「摘自原文」；
+5. **正文 `[n]` 与引用卡一一对应**：产出前扫描答案正文里的 `[n]`，只保留能回查的编号，其余标记**直接删除**（不保留成纯文本），避免正文出现点不动的死链。
+
+**代价（要写进验收，不许隐去）**：我们不再能声明「模型说的每个字都在原文里」，只能声明「展示给你的引文来自原文，答案由模型基于这些片段组织」。这换来的是作答率与表达自然度——这是作者明确选择的取舍。
+
+### 15.2 应答三态：有依据作答 / 无依据兜底 / 拒绝
+
+参考项目的做法不是「拒答」，而是**先把情况说明白，再给可行动的替代**。照此把「拒答」拆成三态：
+
+| 态 | `answerMode` | 触发 | 带引用 | 关键约束 |
+| --- | --- | --- | --- | --- |
+| 有依据作答 | `grounded` | 有候选，模型按候选作答 | 可带 | 正文 `[n]` 必须都能回查 |
+| 无依据兜底 | `ungrounded` | 零候选（主题无关 / 未收录），或有候选但模型判定资料不足 | **不带** | 必须标注「非知识库内容」；**不得伪造引用** |
+| 拒绝 | `refused` | 仅安全类原因（如 SecretGuard 命中、内容违规） | 不带 | 保留原有语义 |
+
+`ungrounded` 的两种原因（`ungroundedReason`）：
+
+| 原因 | 场景 | 文案要求 |
+| --- | --- | --- |
+| `no_domain_match` | 与本站收录主题**无关**（如「今天天气怎么样」） | 说明本站覆盖范围（分类 + 代表主题），给替代路径 |
+| `no_retrieval_result` | 主题相关但本站**没有写过** | 「本站没有写过这个」+ 最接近的 2~3 篇标题 |
+| `model_refused` | 有候选，但资料不足以支撑作答 | 说明「资料不足」，给替代路径（同一结构，不另造文案） |
+
+**为什么不再叫「拒答」**：旧的三线拒答在零候选时只说「知识库没有记录」，对访客是死路。参考项目的结构是「信息说明 → 实用建议 → 引导继续问」；我们采纳结构，但**加一条它没有的硬约束**：兜底态的答案**不带任何引用**，且必须标注「非知识库内容」——否则就是拿模型常识冒充站内资料。
+
+**防模型偷懒（保留）**：检索**有候选**时，模型只能在「按候选作答」与 `ungrounded(model_refused)` 之间选；`no_domain_match` 只允许在**零候选**时出现。服务端校验：`no_domain_match` 但候选非空 → 强制改判 `ungrounded(model_refused)`。
+
+### 15.3 公开检索域收紧为「前台已发布且可见」
+
+现状（design-10 §4.2）公开域过滤 = `visibility=public + knowledgeEnabled + status=active`，**权威字段在 `knowledge_document`**，与「文章是否发布」是两套标记。已知缺口：文章 unpublish 不回退 `visibility`（`docs/stage-3.4-task-manifest-cn.md` §11.8-F1 订正）→ **前台已下架的文章仍可能被公开问答召回**。
+
+新契约（`scope=public`，fail-closed）：
+
+1. 公开域候选必须能回溯到**一篇处于已发布状态的文章**；没有关联文章的 Gitee 文档**不进公开域**；
+2. 权威判定在 MySQL：检索时复核文章状态（`published`），知识库侧字段降为「入库意图」；
+3. **无法判定即排除**，不做「拿不准就放行」；
+4. 私有域（管理端 `scope=all`）不变：草稿、未发布笔记、全部来源都可检索。
+
+理由：知识范围必须与前台可见内容一致。否则「站上搜不到、问答却引用了」——对访客是信息泄漏，对作者是两套事实。
+
+**边界说明（不改的那一半）**：草稿**继续入库**（切片 + 向量 + 关键词），这是个人知识助手的价值所在；「只处理已发布文章」不成立，成立的是「**公开域**只处理已发布文章」。
+
+### 15.4 零候选时的兜底形态（按参考项目截图落地）
+
+零候选不再「直接拒答、不调模型」，而是：**调一次小模型做判定 + 生成说明**，再由服务端拼装结构化回复。
+
+页面结构（六段，顺序固定）：
+
+1. **一句话开场**：说明这是什么情况（「关于这个问题，我需要先说明一下」）；
+2. **信息说明卡**（前端固定组件，不交给模型排版）：写明「知识库中没有检索到相关片段」+ 原因（域外 / 未收录）；
+3. **可选常识补充**：允许模型给通用建议，但整段必须由前端标注「非知识库内容」，且**不得出现 `[n]`**；**只能给方法（怎么查、去哪查），不得给具体事实**（温度、股价、日期事件等一律不许编，参考项目截图里那句「10 月中旬…早晚温差大」是边界：属季节性常识，可留）；
+4. **可行动的下一步**：告诉用户还能怎么问（改问本站主题 / 加具体主题词 / 直接去检索文章）；
+5. **「您可能还想了解」建议追问（服务端生成，不占模型调用）**：从当前域目录取 3 条（分类 + 代表文档标题），点一下即发问；
+6. **评价按钮**（赞 / 踩）：与 4.3 的质量闭环共用同一接口。
+
+**成本**：零候选时多一次调用，用小模型（`mindora.rag.chat.ungrounded-model`，默认 **`Qwen/Qwen2.5-7B-Instruct`**，置空则回落主模型；`max-tokens ≤ 256`）。判定与说明**在同一次调用内完成**，不拆两次。
+
+**为什么值得花这一次调用**：零候选恰好是访客最需要被带路的时刻。旧做法省了这一次调用，换来的是「死路 + 不知道能问什么」。
+
+**可答范围注入（`answerableScope`）**：兜底时把**当前域的可答范围摘要**（分类 + 文档标题）注入提示词，受 `budget-chars`（4000）约束；几十篇可全标题注入，几百篇只注入分类计数与代表标题——由 `catalogMode=full|summary|off` 控制（按文档数阈值自动切档）。
+
+### 15.5 两域：管理端问答与公开问答各自怎么工作
+
+同一条 `RagAnswerService`，两个入口，差别只在**域**与**回链目标**：
+
+| 入口 | 域 | 鉴权 | 引用回链目标 | 兜底文案视角 |
+| --- | --- | --- | --- | --- |
+| 公开 `/api/v1/public/rag/answer(/stream)` | `public`（= 已发布文章，服务端硬编码） | 匿名 / 登录 | `/blog/{slug}#h={anchor}` | 访客：说明本站公开内容范围 |
+| 管理端 `/api/v1/admin/rag/answer` | `all`（草稿、私有笔记、未发布、Gitee 来源） | `SUPER_ADMIN` | 管理端知识文档 / 切片详情（私有文档无 `articleSlug`，回链到文档预览） | 作者：给「该文档未发布 / 未入索引」这类诊断信息 |
+
+三条配套规则：
+
+1. **管理端必须能按公开域复测**：`scope` 可选 `public`，用于「线上答不好的问题，在管理端用公开域重跑」。4.3 的同问题复测靠它，否则复测结论不可迁移（与 5.3 里 RAGNote 自己强调的坑同源）。
+2. **管理端问答页是 3.6 的交付物**：会话历史的生产者只剩管理端（3.5 的公开站会话 UI 已弃用），没有管理端问答入口，V8 的 `chat_conversation` 就没有数据来源。所以 **3.6 = 管理端问答 + 会话列表 / 查看 / 删除**。
+3. **SecretGuard 管理端不开**（§11）：作者要能看见自己的库；但页面上要标注「私有内容，勿外传」，因为那里可能出现密钥类文本。
+
+### 15.6 对既有基线与验收的影响
+
+- **3.3 的实测基线不再等价**：旧基线（正例 15/15、负例 28/30）是在 `require-verbatim-quote=true` 下测的。改法生效后**作答率上升、`invalid_citation` 归零、拒答率下降**，必须重跑一轮并把新数字写进对应 stage 文档；**口径变更不得与旧数字直接比较**。
+- **完成判据修订**（`docs/ragnote-insights-and-architecture-takeaways.md` §5.5 D3）：改为「零越界引用 + 每条 quote 均为服务端摘录 + 兜底态零引用」。
+- **前端**：引用卡去掉「逐字核验」标记（改「摘自原文」）；新增三态渲染（`grounded` 正常答案 / `ungrounded` 信息说明卡 + 「非知识库内容」标注 + 建议追问 / `refused` 标准拒答）；`quoteVerified` 保留一版兼容。
+- **OpenAPI**：`RagAnswerView` 与 SSE `done` 增加 `answerMode`、`ungroundedReason`、`suggestions[]`、`citationless`；移除 `refusalDetail` 中的 `citations_not_verifiable:*` / `citations_out_of_range:*`；`refused` 布尔字段保留一版（等价于 `answerMode=refused`）。
+
+---
+
+## 16. 提示词版本化（2026-10-17 新增，随 4.2 交付）
+
+> **目的**：满足「生产级」定义里的**改了能回退**。现状 prompt 硬编码在 `RagPrompt`，改一句要发版、回退只能回滚整个版本。
+> 参考做法：RAGNote 把提示词放后台，可维护、可看历史、可恢复（`logs/ragnote-v2-intro-2026-10.md` L503–507）。
+
+### 16.1 来源优先级与生效语义
+
+1. **DB 生效版本**（`prompt_template.active_version`）——后台「发布」后立即生效；
+2. **配置文件**（`mindora.rag.prompt.*`）——本地 / 测试覆盖用，存在时优先于 DB；
+3. **代码内置默认**（`RagPrompt`）——兜底，DB 与配置都没有时才用。
+
+**生效不重启**：生成层按 `templateKey + version` 读缓存（TTL 60s，或发布时主动失效），发布即刷。
+
+### 16.2 模板与版本
+
+| 项 | 说明 |
+| --- | --- |
+| `templateKey` | `answer.grounded` / `answer.ungrounded` / `scope.classify`（首个版本只需这三个） |
+| 版本 | 单调递增整数；每版存全文 + 备注 + 创建人 + 创建时间 |
+| 状态 | `draft` / `active` / `archived`；同一 key 同时只有一个 `active` |
+| 回退 | 把任一历史版本置为 `active`（一条 UPDATE，不重启、不发版） |
+| 差异 | 版本间展示文本 diff，确认「这次到底改了什么」 |
+| 占位符 | `{{context}}` `{{question}}` `{{history}}` `{{scope}}` 等；**发布前校验占位符齐全，缺一个即拒绝发布**（防止线上拼出半截 prompt） |
+
+迁移：`V9__prompt_template.sql`（表结构在 design-06 下次修订时并入登记）。
+
+### 16.3 与三态的绑定
+
+| key | 用途 | 约束 |
+| --- | --- | --- |
+| `answer.grounded` | 有候选时作答 | 要求 JSON 输出（`answer` / `citations` / `scope`），引用只许 `[n]` |
+| `answer.ungrounded` | 零候选兜底 | 输出说明 + 可行动建议，**禁止引用**，`max-tokens ≤ 256`，用 `Qwen/Qwen2.5-7B-Instruct` |
+| `scope.classify` | 零候选时判域 | 输出 `no_domain_match` / `no_retrieval_result` |
+
+三个 key **版本独立、回退互不影响**——这才是「只回退那一处」。
+
+### 16.4 后台页面（design-05 增补时落地）
+
+列表（key + 当前 active 版本 + 更新时间）→ 编辑（带占位符校验）→ 预览（用固定样例上下文渲染）→ 发布 → 历史（diff + 一键回退）。
+
+### 16.5 验收
+
+- 改一版 `answer.grounded` 并发布，**不重启**，下一次问答生效（实机核对 `RAG_ACCESS` 日志里的版本号）；
+- 回退到上一版同样不重启生效；
+- 占位符缺失的版本**发布被拒**且有错误提示；
+- 历史版本可 diff；同一 key 的 `active` 唯一性有测试断言。

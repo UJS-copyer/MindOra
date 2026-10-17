@@ -175,6 +175,8 @@ RRF_score(d) = Σ_paths 1 / (k + rank_path(d))
 **由此得到的重要结论**：**派生索引用于缩小召回范围，权威数据用于最终裁决。**
 所以回写失败不是安全事故（只是索引不够新），可以尽力而为——这避免了「文章发布/下线」这类业务流程依赖索引可用性。
 
+> **2026-10-17 补充（公开域收紧）**：`scope=public` 的权威判定以**文章已发布**为准（见 `docs/design-11-rag-answer-generation-layer.md` §15.3）。此前只复核 `knowledge_document.visibility`，而文章 unpublish 不回退该字段，会导致已下架文章仍被公开问答召回。两路过滤条件仍须相等，且**排除条件要跟着一起改**。
+
 ---
 
 ## 5. 降级与失败语义
@@ -184,8 +186,10 @@ RRF_score(d) = Σ_paths 1 / (k + rank_path(d))
 | 重排序不可用 | 质量特性 | 降级为融合顺序 | `fallback` / `fallbackReason` |
 | 关键词检索不可用 | 质量特性 | 降级为纯向量检索 | `keywordFallback` / `keywordFallbackReason` |
 | 嵌入服务不可用 | 能力缺失 | 明确报错 | `retrieval_embedding_unavailable` |
-| 向量库不可用 | 能力缺失 | 明确报错 | `retrieval_vector_unavailable` |
+| 向量库不可用 | **质量特性**（2026-10-17 修订） | **降级为纯关键词检索**（此前是「能力缺失 → 明确报错」） | `vectorFallback` / `vectorFallbackReason=retrieval_vector_unavailable` |
 | 关键词索引未启用 | 配置 | 写入跳过、检索降级 | — |
+
+> **为什么要改**：公开问答上线后，向量库（VM 上的 Qdrant）是唯一一个「可去掉、一旦坏掉就整条问答硬失败」的组件，且本项目已复现 4 次网桥故障。既然关键词索引是进程内、可独立工作，向量失效就该退化为质量下降而不是不可用——与「重排不可用 → 融合顺序」「关键词不可用 → 纯向量」保持同一语义层级。代价：答案质量可能下降，需在响应里显式标记，不得静默。
 
 `fallback-enabled=false` 时重排失败改为报错（`retrieval_rerank_unavailable`），用于需要严格语义的场景。
 

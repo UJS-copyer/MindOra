@@ -3,7 +3,7 @@
 > **这是 `docs/` 的唯一入口。新建任何文档前先读这里。**
 > 创建规则（何时允许新建、放哪、叫什么、写什么、何时归档）见根目录 `AGENTS.md` 的「文档创建规则」章节。
 
-最近维护：2026-10-10
+最近维护：2026-10-17
 
 ## 1. 单一事实来源（SSOT）
 
@@ -95,7 +95,7 @@
 
 | 问题 | 证据 | 处置 |
 | --- | --- | --- |
-| **超长文档** | `design-06` 798、`rag-guide-cn` 706、`design-05` 539、`design-04` 495、`design-07` 420、`design-03` 399、**`design-11` 323（Stage 3.4 增补公开端点/SecretGuard/SSE 契约后）**、`stage-3.3-task-manifest-cn` ≈440、`stage-3.2-task-manifest-cn` ≈150 | 规则：新建 ≤ 300 行、涨到 500 行必须拆分。**不专项重构**，按「下次因业务需要改到该文档时顺手拆分」处理，`design-06` 与 `stage-3.3-task-manifest-cn` 优先；`design-11` 下次修订时把 §10–§13（公开端点/密钥兜底/SSE/日志）拆成 `design-12-public-qa-and-streaming.md` |
+| **超长文档** | `design-06` 798、`rag-guide-cn` 706、`design-05` 539、**`design-04` 507（已越 500 线，尚未拆分）**、`design-11` 496（§15 契约 v2 + §16 提示词版本化；**下次改到必须先拆**：把 §10–§13 拆成 `design-12-public-qa-and-streaming.md`）、`design-07` 495（Stage 4/5 + 就绪差距）、`design-03` 399、`stage-3.3-task-manifest-cn` ≈440、`stage-3.2-task-manifest-cn` ≈150 | 规则：新建 ≤ 300 行、涨到 500 行必须拆分。**不专项重构**，按「下次因业务需要改到该文档时顺手拆分」处理，`design-06`、`design-04` 与 `stage-3.3-task-manifest-cn` 优先 |
 | 生成物混在 `docs/` 根目录 | [stage-3.3-candidate-questions-cn.md](stage-3.3-candidate-questions-cn.md) 单文件约 299 KB，是脚本生成的候选问题评审清单 | 迁至 `docs/generated/`（已加入 `.gitignore`）。**该文件正在被编辑，暂缓执行**；Stage 3.4 T7 会用到它 |
 | 主题重复叙述 | [rag-guide-cn.md](rag-guide-cn.md) 第 2 章「业界成熟方案速览」与调研文档重复；第 4 章「能力边界」与 project-status 重复 | 内容保留（学习价值独立），已加指针声明「结论以 design/survey 为准」 |
 | 原始设计与落地契约并存 | [design-04](design-04-rag-and-chat.md) 的检索/生成章节已被 design-09/10/11 细化 | 已标注状态，明确哪部分仍以 design-04 为准 |
