@@ -16,7 +16,7 @@
 
 ## Git 集成状态
 
-- `main`：`6141c9f`（T5 压缩合并 `bd67327` → SSE 预检 403 修复 `9e27590` → eslint 忽略与注释订正 → 引用回链修复压缩合并 `7c2b736` → T5 遗留小项收敛 `7ccf752` → Stage 3.5 实现方案 `6141c9f`；本文档提交紧随其后），领先 `origin/main`（未推送）。**Stage 3.5 开发中**：`feature/stage-3.5-backend` / `feature/stage-3.5-frontend`（代码已交付、后端 API 实机验证通过；浏览器 UI 验收与多轮黄金集评测待补，台账见 `docs/stage-3.5-task-manifest-cn.md`）
+- `main`：`6141c9f`（T5 压缩合并 `bd67327` → SSE 预检 403 修复 `9e27590` → eslint 忽略与注释订正 → 引用回链修复压缩合并 `7c2b736` → T5 遗留小项收敛 `7ccf752` → Stage 3.5 实现方案 `6141c9f`），领先 `origin/main` 23 个提交；**Stage 3.4 及之前的全部内容已推送备份（2026-10-17，用户指定推至 3.4 节点）**，3.5 方案文档与后续在本地待下阶段验收后一并推送。Stage 3.5 状态：后端会话引擎已交付并经 API 实机验证；前端登录/会话 UI 质量不达标已弃用（半回退，见上条），台账见 `docs/stage-3.5-task-manifest-cn.md`
 - 各阶段基线/交付提交：
   - Stage 1：`d5b160d`（后端内容）、`62a5cab`（前端内容 + 集成）
   - Stage 2：`b341a77`
@@ -30,8 +30,8 @@
   - 前端原型已收敛到 `feature/stage-3.4-frontend`（`bc5fc81`，已随 T5 一并进 main）：首页 `HomeView`、AI 问答 `AiChatView`、`App.vue` 路由接线、`SiteHeader` 导航、`docs/prototypes/` 下的个人工作台快照。**原 `feature/stage-4-frontend` 与 stash 中的同名文件已成为冗余副本**，内容与收敛结果逐字节一致
   - **T5 前台问答页已在 main**：真实 SSE 消费、引用章节级回链、拒答替换/降级/限流冷却/中断态；真机 A–F 与浏览器交互验收全通（§11.3、§11.8）。**三项遗留已收敛（2026-10-16，`待提交`）**：① 降级态真机复现通过（`RAG_CHAT_BASE_URL` 指向不可用端点实测：JSON/SSE 均 `degraded=true`、`degradedReason=rag_chat_unavailable`、正文为「生成模型暂不可用…」+ 18 条服务端摘录、非 500；恢复后正常作答）；② 引用回链已闭环（§11.8-F1 订正）；③ 客户端长度校验改中性 `invalid` 状态（灰色「提示」徽标，不再渲染红色「出错了」，§11.8-F2 关闭）。同批修复管理端文章编辑页「保存并发布草稿」按钮名不副实的问题（现保存后真正调用发布，与列表页一致）
   - **引用回链契约缺口已修复并合并 main（2026-10-14，`7c2b736`）**：`articleSlug` 从派生值改为 `knowledge_document.article_slug` 持久化字段（V7 迁移），Gitee 文档发布即写入 slug 并刷新向量 payload；顺带修复中文标题 slug 退化（回退 `knowledge-<documentId 前 8 位>`）。契约变更见 design-11 §2.1，证据与已知限制（unpublish 不回退可见性、文章无删除端点）见 §11.8-F1 订正。**实机浏览器验收已通过（2026-10-14）**：删两篇存量退化 slug 文章后经知识文档「生成草稿 → 发布」重新发布，新 slug `knowledge-beac3521`/`knowledge-e5962d6e`；`/chat` 真实提问（「DDPM 和 DDIM 有什么区别？」）命中《阅读线路》，引用卡显示「回到原文 →」，点击后回链 `/blog/knowledge-e5962d6e` 并正确渲染原文章节（`GET /api/v1/public/articles/knowledge-e5962d6e` 200）；控制台无应用错误（仅浏览器扩展噪声）。§11.8-F1 闭环
-- 已完成阶段的分支（内容均已通过压缩合并进入 main）与空指针分支待清理；清理需人工确认后执行
-- 工作区约定：前后端改动分属不同分支；不在同一工作区同时暂存前后端改动
+- **Git 分支治理（2026-10-17）**：AGENTS.md 分支策略修订为**主干单分支**（阶段验收打 `stage/<n>` tag 代替阶段分支；仅高风险/长期隔离工作开短命 `feature/<topic>`）。据此完成仓库清理：**删除 20 个过期分支**（Stage 0~3.4 全部阶段分支、codex/*、dev-backend/frontend、冗余的 3.5-frontend——已逐支核验其独有内容均被 main 严格取代）与 **4 个 .worktrees 工作树**（残留目录核验无人工内容后一并删除）。保留 3 个分支：`main`、`feature/stage-3.6-chat-rebuild`（当前开发）、`feature/stage-3.5-backend`（3.5 参照实现）。里程碑追溯改由 main 历史上的阶段交付提交与 tag 承担
+- 当前开发分支 `feature/stage-3.6-chat-rebuild`（`68532a9`）：**Stage 3.5 半回退的落点**——后端会话引擎（记忆窗口/落库/CRUD/V8）完整保留，公开站 `frontend/apps/site` 回退到 3.4 已验收的匿名极简形态（3.5 前端登录/会话 UI 质量不达标，弃用；实机缺陷与决策记录见 `docs/stage-3.5-task-manifest-cn.md`）。后续：3.6 管理端会话页（自用历史归宿）→ 3.7 查询改写（ConversationQueryRewriter，修指代追问召回）→ Stage 4 体验打磨（问答记录+评价、rerank/向量 A/B、prompt 引导文案）
 
 ## 启动入口
 
