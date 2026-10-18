@@ -148,6 +148,8 @@ mindora:
     refresh-ttl: ${AUTH_REFRESH_TTL:P14D}
     refresh-absolute-ttl: ${AUTH_REFRESH_ABSOLUTE_TTL:P30D}
     refresh-grace: ${AUTH_REFRESH_GRACE:PT60S}
+    cookie:
+      secure: ${AUTH_COOKIE_SECURE:false}
     rate-limit:
       # 固定窗口限流后端：redis（生产）| memory（测试/无 Redis 单实例）
       backend: redis
