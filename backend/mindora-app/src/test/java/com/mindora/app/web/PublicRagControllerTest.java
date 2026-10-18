@@ -11,7 +11,7 @@ import com.mindora.app.MindOraApplication;
 import com.mindora.rag.application.RagAnswerService;
 import com.mindora.rag.domain.RagDomain.RagAnswerOutcome;
 import com.mindora.rag.domain.RagDomain.RagAnswerRequest;
-import java.time.Clock;
+import com.mindora.user.application.port.TokenService;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +39,9 @@ class PublicRagControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private TokenService tokenService;
 
     @MockitoBean
     private RagAnswerService ragAnswerService;
@@ -135,12 +138,9 @@ class PublicRagControllerTest {
     @Test
     void loggedInConversationPersistsTurnAndReturnsConversationId() throws Exception {
         // 登录（真实 JWT 链路）→ 问答 → 落库 → 响应携带 conversationId（新会话首次下发）。
-        // token 由测试内自签（同一 secret），不起真实用户表。
-        com.mindora.user.infrastructure.security.SimpleJwtTokenService tokens =
-                new com.mindora.user.infrastructure.security.SimpleJwtTokenService(
-                        "local-stage0-secret", Clock.systemUTC());
-        // issue() 返回值自带 "Bearer " 前缀，直接作 Authorization 头使用
-        String authorization = tokens.issue(new com.mindora.user.domain.UserAccount(
+        // token 由容器内 TokenService 签发（与过滤器使用同一密钥），不查真实用户表。
+        // 裸 token 直接作 Authorization 头：这正是旧前端「原样发送」的写法，顺带覆盖过滤器兼容性。
+        String authorization = tokenService.issue(new com.mindora.user.domain.UserAccount(
                 java.util.UUID.fromString("11111111-1111-1111-1111-111111111111"),
                 "chat@example.com", "irrelevant", java.util.Set.of()));
 

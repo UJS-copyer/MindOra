@@ -13,6 +13,14 @@ spring:
     enabled: false
 
 mindora:
+  # 测试固定一份合法密钥：非 local profile 下生产级强校验会拒绝空/占位/过短密钥。
+  auth:
+    jwt:
+      secret: test-only-mindora-jwt-secret-0123456789abcdef
+    access-ttl: PT30M
+    refresh-ttl: P14D
+    refresh-absolute-ttl: P30D
+    refresh-grace: PT60S
   persistence:
     blog: memory
     user: memory

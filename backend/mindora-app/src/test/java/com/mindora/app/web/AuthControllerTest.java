@@ -1,6 +1,6 @@
 package com.mindora.app.web;
 
-import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -36,7 +36,8 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.code").value("success"))
                 .andExpect(jsonPath("$.traceId").value("trace-auth-1"))
                 .andExpect(jsonPath("$.data.email").value(email))
-                .andExpect(jsonPath("$.data.accessToken", startsWith("Bearer ")));
+                .andExpect(jsonPath("$.data.accessToken",
+                        matchesPattern("^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$")));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -51,7 +52,8 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.code").value("success"))
                 .andExpect(jsonPath("$.traceId").value("trace-auth-2"))
                 .andExpect(jsonPath("$.data.email").value(email))
-                .andExpect(jsonPath("$.data.accessToken", startsWith("Bearer ")));
+                .andExpect(jsonPath("$.data.accessToken",
+                        matchesPattern("^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$")));
     }
 
     @Test

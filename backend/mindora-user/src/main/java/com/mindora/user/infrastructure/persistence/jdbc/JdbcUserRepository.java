@@ -23,7 +23,7 @@ public class JdbcUserRepository implements UserRepository {
     public Optional<UserAccount> findByEmail(String email) {
         return jdbcTemplate.query(
                         """
-                        SELECT u.id, u.email, u.password_hash
+                        SELECT u.id, u.email, u.password_hash, u.token_version
                         FROM user_account u
                         WHERE u.email = ? AND u.deleted = FALSE AND u.status = 'active'
                         """,
@@ -93,7 +93,8 @@ public class JdbcUserRepository implements UserRepository {
                 uuid(userId),
                 rs.getString("email"),
                 rs.getString("password_hash"),
-                roles);
+                roles,
+                rs.getInt("token_version"));
     }
 
     private String normalizeRoleName(String role) {

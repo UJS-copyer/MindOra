@@ -139,8 +139,15 @@ mindora:
       secret-guard:
         # 密钥兜底：公开问答检索后扫上下文、生成后扫答案与引用摘录，命中即拒答（见 docs/design-11）
         enabled: ${RAG_SECRET_GUARD_ENABLED:true}
-  jwt:
-    secret: ${JWT_SECRET:change-me-to-a-long-random-stage0-secret}
+  auth:
+    # 身份与令牌（契约见 docs/design-12-identity-and-token-lifecycle.md §6）。
+    # 非 local 环境密钥缺失、仍是占位符或短于 32 字符会拒绝启动。
+    jwt:
+      secret: ${JWT_SECRET:}
+    access-ttl: ${AUTH_ACCESS_TTL:PT30M}
+    refresh-ttl: ${AUTH_REFRESH_TTL:P14D}
+    refresh-absolute-ttl: ${AUTH_REFRESH_ABSOLUTE_TTL:P30D}
+    refresh-grace: ${AUTH_REFRESH_GRACE:PT60S}
   cors:
     allowed-origins: ${MINDORA_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174}
   storage:

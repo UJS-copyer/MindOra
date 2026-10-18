@@ -37,6 +37,7 @@
         <mybatis-plus.version>3.5.12</mybatis-plus.version>
         <rocketmq.spring.version>2.3.6</rocketmq.spring.version>
         <lucene.version>9.12.3</lucene.version>
+        <jjwt.version>0.13.0</jjwt.version>
     </properties>
 
     <dependencyManagement>

@@ -1,7 +1,8 @@
 package com.mindora.app.config;
 
-import com.mindora.user.domain.TokenPrincipal;
 import com.mindora.user.application.port.TokenService;
+import com.mindora.user.domain.TokenPrincipal;
+import com.mindora.user.domain.TokenVerification;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,10 +26,11 @@ public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
-        tokenService.verify(request.getHeader("Authorization"))
-                .map(this::authentication)
-                .ifPresent(authentication -> SecurityContextHolder.getContext()
-                        .setAuthentication(authentication));
+        TokenVerification verification = tokenService.verify(request.getHeader("Authorization"));
+        // 缺失/过期/无效在本轮一律按匿名继续：统一的 401 JSON 契约（token_expired 等）由 a3 落地。
+        if (verification instanceof TokenVerification.Valid valid) {
+            SecurityContextHolder.getContext().setAuthentication(authentication(valid.principal()));
+        }
         filterChain.doFilter(request, response);
     }
 
