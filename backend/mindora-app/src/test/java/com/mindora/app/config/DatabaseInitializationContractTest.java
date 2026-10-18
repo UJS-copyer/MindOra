@@ -28,6 +28,18 @@ class DatabaseInitializationContractTest {
         assertTrue(seed.contains("published"));
     }
 
+    @Test
+    void stage36IdentityTokenGroundworkMigrationDefinesSchemaAndBackfill() throws IOException {
+        String migration = readResource("db/migration/V9__stage_3_6_identity_token_groundwork.sql");
+
+        assertTrue(migration.contains("ALTER TABLE user_account"));
+        assertTrue(migration.contains("token_version"));
+        assertTrue(migration.contains("CREATE TABLE auth_refresh_token"));
+        assertTrue(migration.contains("uq_refresh_hash"));
+        assertTrue(migration.contains("INSERT INTO auth_account"));
+        assertTrue(migration.contains("NOT EXISTS"));
+    }
+
     private String readResource(String name) throws IOException {
         try (InputStream input = getClass().getClassLoader().getResourceAsStream(name)) {
             assertTrue(input != null, "Missing resource: " + name);

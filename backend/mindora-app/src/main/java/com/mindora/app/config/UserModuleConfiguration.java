@@ -5,12 +5,14 @@ import com.mindora.user.application.AdminIdentityService;
 import com.mindora.user.application.RbacPermissionService;
 import com.mindora.user.application.UnavailableAdminIdentityGateway;
 import com.mindora.user.application.port.AdminIdentityGateway;
+import com.mindora.user.application.port.AuthRefreshTokenRepository;
 import com.mindora.user.application.port.PasswordHasher;
 import com.mindora.user.application.port.RbacPermissionGateway;
 import com.mindora.user.application.port.TokenService;
 import com.mindora.user.domain.UserRepository;
 import com.mindora.user.infrastructure.persistence.memory.InMemoryUserRepository;
 import com.mindora.user.infrastructure.persistence.jdbc.JdbcAdminIdentityGateway;
+import com.mindora.user.infrastructure.persistence.jdbc.JdbcAuthRefreshTokenRepository;
 import com.mindora.user.infrastructure.persistence.jdbc.JdbcRbacPermissionGateway;
 import com.mindora.user.infrastructure.persistence.jdbc.JdbcUserRepository;
 import com.mindora.user.infrastructure.security.Sha256PasswordHasher;
@@ -35,6 +37,12 @@ public class UserModuleConfiguration {
     @ConditionalOnProperty(name = "mindora.persistence.user", havingValue = "jdbc", matchIfMissing = true)
     UserRepository jdbcUserRepository(JdbcTemplate jdbcTemplate) {
         return new JdbcUserRepository(jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "mindora.persistence.user", havingValue = "jdbc", matchIfMissing = true)
+    AuthRefreshTokenRepository jdbcAuthRefreshTokenRepository(JdbcTemplate jdbcTemplate) {
+        return new JdbcAuthRefreshTokenRepository(jdbcTemplate);
     }
 
     @Bean
