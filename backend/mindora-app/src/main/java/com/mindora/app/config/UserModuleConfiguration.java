@@ -3,12 +3,14 @@ package com.mindora.app.config;
 import com.mindora.user.application.AuthService;
 import com.mindora.user.application.AuthSessionService;
 import com.mindora.user.application.AccessTokenValidator;
+import com.mindora.user.application.AuthRateLimitGuard;
 import com.mindora.user.application.AdminIdentityService;
 import com.mindora.user.application.RbacPermissionService;
 import com.mindora.user.application.RefreshTokenService;
 import com.mindora.user.application.UnavailableAdminIdentityGateway;
 import com.mindora.user.application.port.AdminIdentityGateway;
 import com.mindora.user.application.port.AuthRefreshTokenRepository;
+import com.mindora.user.application.port.AuthRateLimitPort;
 import com.mindora.user.application.port.PasswordHasher;
 import com.mindora.user.application.port.RbacPermissionGateway;
 import com.mindora.user.application.port.TokenService;
@@ -19,6 +21,8 @@ import com.mindora.user.infrastructure.persistence.jdbc.JdbcAdminIdentityGateway
 import com.mindora.user.infrastructure.persistence.jdbc.JdbcAuthRefreshTokenRepository;
 import com.mindora.user.infrastructure.persistence.jdbc.JdbcRbacPermissionGateway;
 import com.mindora.user.infrastructure.persistence.jdbc.JdbcUserRepository;
+import com.mindora.user.infrastructure.ratelimit.InMemoryAuthRateLimitAdapter;
+import com.mindora.user.infrastructure.ratelimit.RedisAuthRateLimitAdapter;
 import com.mindora.user.infrastructure.security.JwtSecretPolicy;
 import com.mindora.user.infrastructure.security.JwtTokenService;
 import com.mindora.user.infrastructure.security.Sha256PasswordHasher;
@@ -31,6 +35,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -113,8 +118,28 @@ public class UserModuleConfiguration {
     AuthSessionService authSessionService(
             UserRepository userRepository,
             TokenService tokenService,
-            RefreshTokenService refreshTokenService) {
-        return new AuthSessionService(userRepository, tokenService, refreshTokenService);
+            RefreshTokenService refreshTokenService,
+            AuthRateLimitGuard authRateLimitGuard,
+            @Value("${mindora.auth.rate-limit.refresh-per-hour:60}") int refreshPerHour) {
+        return new AuthSessionService(
+                userRepository, tokenService, refreshTokenService, authRateLimitGuard, refreshPerHour);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "mindora.auth.rate-limit.backend", havingValue = "redis", matchIfMissing = true)
+    AuthRateLimitPort redisAuthRateLimitPort(StringRedisTemplate redisTemplate) {
+        return new RedisAuthRateLimitAdapter(redisTemplate);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(AuthRateLimitPort.class)
+    AuthRateLimitPort inMemoryAuthRateLimitPort() {
+        return new InMemoryAuthRateLimitAdapter(System::currentTimeMillis);
+    }
+
+    @Bean
+    AuthRateLimitGuard authRateLimitGuard(AuthRateLimitPort authRateLimitPort) {
+        return new AuthRateLimitGuard(authRateLimitPort);
     }
 
     @Bean

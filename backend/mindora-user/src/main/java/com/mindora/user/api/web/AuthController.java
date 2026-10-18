@@ -3,6 +3,7 @@ package com.mindora.user.api.web;
 import com.mindora.common.api.ApiResponse;
 import com.mindora.common.exception.BusinessException;
 import com.mindora.common.id.PublicIds;
+import com.mindora.user.application.AuthRateLimitGuard;
 import com.mindora.user.application.AuthService;
 import com.mindora.user.application.AuthSessionService;
 import com.mindora.user.application.port.TokenService;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
@@ -39,28 +41,40 @@ public class AuthController {
 
     private final AuthService authService;
     private final AuthSessionService sessionService;
+    private final AuthRateLimitGuard rateLimitGuard;
     private final TokenService tokenService;
     private final Duration refreshTtl;
     private final boolean cookieSecure;
+    private final int registerPerHour;
+    private final int loginPerMinute;
 
     public AuthController(
             AuthService authService,
             AuthSessionService sessionService,
+            AuthRateLimitGuard rateLimitGuard,
             TokenService tokenService,
             @Value("${mindora.auth.refresh-ttl:P14D}") Duration refreshTtl,
-            @Value("${mindora.auth.cookie.secure:false}") boolean cookieSecure) {
+            @Value("${mindora.auth.cookie.secure:false}") boolean cookieSecure,
+            @Value("${mindora.auth.rate-limit.register-per-hour:5}") int registerPerHour,
+            @Value("${mindora.auth.rate-limit.login-per-minute:10}") int loginPerMinute) {
         this.authService = authService;
         this.sessionService = sessionService;
+        this.rateLimitGuard = rateLimitGuard;
         this.tokenService = tokenService;
         this.refreshTtl = refreshTtl;
         this.cookieSecure = cookieSecure;
+        this.registerPerHour = registerPerHour;
+        this.loginPerMinute = loginPerMinute;
     }
 
     @PostMapping("/register")
     public ApiResponse<AuthView> register(
             @Valid @RequestBody AuthRequest request,
+            HttpServletRequest httpRequest,
             @RequestHeader(value = "X-Trace-Id", required = false) String traceId,
             HttpServletResponse response) {
+        rateLimitGuard.require(
+                "auth:register:ip:" + httpRequest.getRemoteAddr(), registerPerHour, Duration.ofHours(1));
         AuthResult result = authService.register(request.email(), request.password());
         writeRefreshCookie(response, result.refreshToken());
         return ApiResponse.success(authView(result), traceId(traceId));
@@ -69,8 +83,11 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResponse<AuthView> login(
             @Valid @RequestBody AuthRequest request,
+            HttpServletRequest httpRequest,
             @RequestHeader(value = "X-Trace-Id", required = false) String traceId,
             HttpServletResponse response) {
+        rateLimitGuard.require(
+                "auth:login:ip:" + httpRequest.getRemoteAddr(), loginPerMinute, Duration.ofMinutes(1));
         AuthResult result = authService.login(request.email(), request.password());
         writeRefreshCookie(response, result.refreshToken());
         return ApiResponse.success(authView(result), traceId(traceId));

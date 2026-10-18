@@ -21,6 +21,12 @@ mindora:
     refresh-ttl: P14D
     refresh-absolute-ttl: P30D
     refresh-grace: PT60S
+    rate-limit:
+      # 测试用进程内计数并放大额度；限流行为由 AuthRateLimitTest 单独收紧
+      backend: memory
+      register-per-hour: 1000
+      login-per-minute: 1000
+      refresh-per-hour: 1000
   persistence:
     blog: memory
     user: memory

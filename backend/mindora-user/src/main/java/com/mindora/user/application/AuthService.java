@@ -31,6 +31,7 @@ public class AuthService {
 
     public AuthResult register(String email, String rawPassword) {
         String normalizedEmail = normalizeEmail(email);
+        validatePassword(rawPassword);
         // 不过滤状态：禁用/删除账号的邮箱仍算占用，避免重新注册把账号「复活」。
         if (userRepository.findByEmail(normalizedEmail).isPresent()) {
             throw new BusinessException("user_email_exists", "Email already exists");
@@ -51,7 +52,18 @@ public class AuthService {
         if (!passwordHasher.matches(rawPassword, user.passwordHash())) {
             throw new BusinessException("invalid_credentials", "Invalid email or password");
         }
+        // 密码正确后再看状态：避免用「账号被禁用」这个信号枚举已注册邮箱
+        if (!user.usable()) {
+            throw new BusinessException("account_disabled", "Account is disabled");
+        }
         return resultOf(user);
+    }
+
+    private void validatePassword(String rawPassword) {
+        if (rawPassword == null || rawPassword.length() < 8 || rawPassword.length() > 72) {
+            throw new BusinessException(
+                    "validation_error", "Password must be between 8 and 72 characters");
+        }
     }
 
     private AuthResult resultOf(UserAccount user) {

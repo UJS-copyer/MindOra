@@ -14,6 +14,7 @@ import com.mindora.common.exception.BusinessException;
 import com.mindora.user.domain.AuthResult;
 import com.mindora.user.domain.IssuedRefreshToken;
 import com.mindora.user.domain.RoleName;
+import com.mindora.user.domain.UserAccount;
 import com.mindora.user.infrastructure.persistence.memory.InMemoryUserRepository;
 import com.mindora.user.infrastructure.security.JwtTokenService;
 import com.mindora.user.infrastructure.security.Sha256PasswordHasher;
@@ -70,5 +71,39 @@ class AuthServiceTest {
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.register("reader@example.com", "Password123!"));
         assertEquals("user_email_exists", exception.code());
+    }
+
+    @Test
+    void rejectsShortPasswordOnRegister() {
+        AuthService authService = authService(Clock.systemUTC());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authService.register("reader@example.com", "short"));
+        assertEquals("validation_error", exception.code());
+    }
+
+    @Test
+    void disabledAccountCannotLogin() {
+        InMemoryUserRepository users = new InMemoryUserRepository();
+        Sha256PasswordHasher hasher = new Sha256PasswordHasher();
+        java.util.UUID id = java.util.UUID.randomUUID();
+        users.save(new UserAccount(
+                id,
+                "disabled@example.com",
+                hasher.hash("Password123!"),
+                java.util.Set.of("user"),
+                0,
+                "disabled",
+                false,
+                null));
+        AuthService authService = new AuthService(
+                users,
+                hasher,
+                new JwtTokenService(SECRET, Clock.systemUTC(), Duration.ofMinutes(30)),
+                refreshTokenService);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> authService.login("disabled@example.com", "Password123!"));
+        assertEquals("account_disabled", exception.code());
     }
 }

@@ -9,6 +9,7 @@ import com.mindora.user.domain.IssuedRefreshToken;
 import com.mindora.user.domain.TokenPrincipal;
 import com.mindora.user.domain.UserAccount;
 import com.mindora.user.domain.UserRepository;
+import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
 
@@ -22,18 +23,27 @@ public class AuthSessionService {
     private final UserRepository userRepository;
     private final TokenService tokenService;
     private final RefreshTokenService refreshTokenService;
+    private final AuthRateLimitGuard rateLimitGuard;
+    private final int refreshPerHour;
 
     public AuthSessionService(
             UserRepository userRepository,
             TokenService tokenService,
-            RefreshTokenService refreshTokenService) {
+            RefreshTokenService refreshTokenService,
+            AuthRateLimitGuard rateLimitGuard,
+            int refreshPerHour) {
         this.userRepository = userRepository;
         this.tokenService = tokenService;
         this.refreshTokenService = refreshTokenService;
+        this.rateLimitGuard = rateLimitGuard;
+        this.refreshPerHour = refreshPerHour;
     }
 
     public AuthResult refresh(String rawRefreshToken) {
         AuthRefreshToken current = refreshTokenService.requireActive(rawRefreshToken);
+        // 按用户计（design-12 §6），先于账户读取，避免禁用账号反复打库
+        rateLimitGuard.require(
+                "auth:refresh:u:" + current.userId(), refreshPerHour, Duration.ofHours(1));
         UUID userId = PublicIds.toUuid(current.userId());
         UserAccount user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException("token_invalid", "Account no longer exists"));
