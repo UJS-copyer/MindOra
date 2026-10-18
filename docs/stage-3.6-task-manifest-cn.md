@@ -1,7 +1,7 @@
 # Stage 3.6 阶段文档：身份地基与会话域统一
 
 > 一句话用途：记录本阶段的**设计目标（Spec）**与**实现进展**，作为实施与验收的唯一台账。
-> 维护日期：2026-10-18　状态：**3.6a 批次①、②（a0–a2 + a4 密钥部分）已实施；a3–a5、3.6b 未开始**
+> 维护日期：2026-10-18　状态：**3.6a 批次①–③（a0–a4）已实施；a5、3.6b 未开始**
 
 > **范围重定说明**：本阶段原定「管理端流式问答工作台」。2026-10-18 产品评审后重定：
 > 站长与访客视为**同一类用户**，差别只在「能查多大范围」；管理端**不做聊天 UI**；会话历史归**账号**。
@@ -101,7 +101,7 @@
 | ⑤ | b1 + b2 | `ConversationTurns` 抽取（公开端点测试原样全绿）+ 管理端问答落库并回传 id | 1–1.5 天 |
 | ⑥ | b3 + b4 | 会话 CRUD 走新路径、他人 404、`persist=false` 不写、范围按入口校验 | 1 天 |
 
-> 进度（2026-10-18）：对话 ①、② 已完成，③–⑥ 未开始。
+> 进度（2026-10-18）：对话 ①、②、③ 已完成，④–⑥ 未开始。
 
 为什么这样切：
 
@@ -180,11 +180,38 @@ npm run api:sync && npm run api:check
 - 实机：`prod` + 短密钥启动失败，报错明确要求 `JWT_SECRET` 至少 32 字符；`prod` + 48 字符合法密钥可正常启动。
 - 已知影响：升级后旧令牌全部失效需重新登录；本地每次重启都会换临时密钥（design-12 §6 的既定行为）。
 
-### 7.3 尚未开始
+### 7.3 批次③（a3 + a4 状态与限流）已完成（2026-10-18）
+
+**a3 认证端点与会话校验**（提交 `085f83c` / `2040b5f`）
+
+- 新增 `refresh` / `logout` / `me`：登录与刷新下发 `mindora_rt`（HttpOnly、SameSite=Lax、Path=/api/v1/auth、Max-Age=14 天）；刷新先校验令牌、再校验账户状态与 `tv`、最后轮换；登出 `token_version+1` 并撤销全部 RT，Cookie 缺失也幂等成功。
+- 每请求校验补上账户回查：账户不存在 → `token_invalid`，禁用/删除 → `account_disabled`，`tv` 不一致 → `token_revoked`。
+- 401/403 统一 JSON：`RestAuthenticationEntryPoint` / `RestAccessDeniedHandler`，匿名访问管理端由 403 空体改为 401 `token_missing`；`/auth/me` 回到认证链。
+- 过渡期规则：`register/login/refresh/logout` 不因过期 AT 失败（否则旧 token 会把修复动作本身挡住），其余路径按 401 处理。
+
+**a4 登录状态、密码边界与限流**（提交 `0b48fd0`）
+
+- 登录先验密码再查状态：密码错 → `invalid_credentials`，禁用/删除 → `account_disabled`（避免用错误码枚举邮箱）；注册密码 8–72。
+- 认证限流：注册 5/小时/IP、登录 10/分钟/IP、刷新 60/小时/用户；Redis 后端不可用时 fail-open（与公开问答一致），测试与无 Redis 场景用进程内实现。
+
+**验证（真实执行）**
+
+- 全量：11 模块 `BUILD SUCCESS`，**290 个测试 0 失败**（批次②的 268 + 新增 22；mindora-user 40、mindora-app 57）。
+- 实机全链路：登录返回 `roles/expiresIn` 且 Cookie 属性符合契约 → `me` 200（`displayName=admin`）→ refresh 换到新 AT/RT → logout → 旧 AT 得 401 `token_revoked`，旧 RT 得 401 `refresh_reused`。
+- 实机 401/403：匿名管理端 401 `token_missing`；乱串 401 `token_invalid`；普通 USER 令牌访问管理端 403 `access_denied`。
+- 实机禁用：数据库置 `disabled` 后，正确密码登录 401 `account_disabled`、错误密码仍是 `invalid_credentials`；该账号旧 AT 立即 401 `account_disabled`。
+- 实机限流：`login-per-minute=1` 时第二次登录 429 `auth_rate_limited`。
+- 契约：`api:sync` / `api:check` 通过，新增三条 auth 路径与 `AuthView.roles/expiresIn`、`AuthMeView`；`npm run typecheck`、`lint`、admin-art `build` 全绿。
+
+**已知限制**
+
+- 每请求 2 次查询（账户 + 角色），design-12 §7 已如实记录；后续可合并。
+- 限流 fail-open：Redis 故障期间额度失效，属既定取舍。
+- 本地临时密钥每次重启都会变，需重新登录（design-12 §6）。
+
+### 7.4 尚未开始
 
 | 项 | 状态 |
 | --- | --- |
-| a3 认证端点（refresh/logout/me、Cookie、统一 401 契约） | ⬜ 未开始 |
-| a4 其余（登录状态校验、三处限流） | ⬜ 未开始 |
-| a5 前端登录态 | ⬜ 未开始 |
+| a5 前端登录态（bootstrap、单飞刷新、登出、403 文案） | ⬜ 未开始 |
 | 3.6b（b1–b4） | ⬜ 未开始 |

@@ -69,7 +69,7 @@ Set-Cookie: mindora_rt=<opaque>; Path=/api/v1/auth; HttpOnly; SameSite=Lax; Max-
 | `POST /api/v1/auth/register` | 匿名 | `{email, password}` | `AuthView` + RT Cookie | 开放注册；IP 限流 5 次/小时；自动登录 |
 | `POST /api/v1/auth/login` | 匿名 | `{email, password}` | `AuthView` + RT Cookie | IP 限流 10 次/分钟；新建家族 |
 | `POST /api/v1/auth/refresh` | RT Cookie | 无请求体 | `AuthView` + 新 RT Cookie | 轮换；不需要 Access Token |
-| `POST /api/v1/auth/logout` | RT Cookie | 无请求体 | 空 | 全端失效 + 清 Cookie；Cookie 缺失也返回成功（幂等） |
+| `POST /api/v1/auth/logout` | RT Cookie | 无请求体 | `ApiResponse`（data 为空） | 全端失效 + 清 Cookie；Cookie 缺失也返回成功（幂等） |
 | `GET /api/v1/auth/me` | AT | — | `{userId, email, displayName, roles}` | 前台用户获取自身信息；匿名 401 |
 
 `AuthView`：
@@ -88,10 +88,15 @@ Set-Cookie: mindora_rt=<opaque>; Path=/api/v1/auth; HttpOnly; SameSite=Lax; Max-
 | `account_disabled` | 账号被禁用或已删除 | 清状态 → 登录页 + 提示 |
 | `refresh_missing` / `refresh_invalid` / `refresh_expired` | RT 缺失 / 查不到 / 过期 | 清状态 → 登录页 |
 | `refresh_absolute_expired` | 家族超过 30 天 | 同上，提示「登录已超时」 |
-| `refresh_reused` | 重用已轮换的 RT | 同上，撤销家族 |
+| `refresh_reused` | 重用已轮换或已撤销的 RT | 同上，撤销家族 |
+| `token_missing` | 访问受保护路径但未携带 AT | 回登录页 |
+| `access_denied`（403） | 已登录但角色不足（普通用户进管理端） | 提示「该账号无后台权限」 |
+| `auth_rate_limited`（429） | 注册/登录/刷新超过额度 | 提示稍后再试 |
 | `invalid_credentials` / `account_disabled` | 登录失败 | 停留在登录页 |
 
-所有 401/403 响应必须是**统一 JSON 体**（含 `code`），不能是空体——现状由 Spring 默认 `AuthenticationEntryPoint` 返回空，需替换。
+所有 401/403 响应必须是**统一 JSON 体**（含 `code`），不能是空体。已由 `RestAuthenticationEntryPoint` / `RestAccessDeniedHandler` 统一实现；`GlobalExceptionHandler` 把 `token_*` / `refresh_*` / `account_disabled` 映射为 401，`auth_rate_limited` 映射为 429。
+
+> **过渡期例外**：`register` / `login` / `refresh` / `logout` 四个端点**不因过期或无效的 AT 失败**（按匿名继续）——登录、刷新、登出本身就是修复/结束旧会话的动作；`/auth/me` 仍按 401 处理。
 
 ## 5. 数据模型（V9，只追加）
 
@@ -139,6 +144,7 @@ WHERE u.deleted = FALSE
 | `mindora.auth.refresh-absolute-ttl` | `AUTH_REFRESH_ABSOLUTE_TTL` | `P30D` | 家族绝对上限 |
 | `mindora.auth.refresh-grace` | `AUTH_REFRESH_GRACE` | `PT60S` | 轮换宽限 |
 | `mindora.auth.cookie.secure` | `AUTH_COOKIE_SECURE` | `false`（prod 建议 true） | Cookie Secure 标记 |
+| `mindora.auth.rate-limit.backend` | — | `redis` | 限流后端；`memory` 用于测试/无 Redis 单实例 |
 | `mindora.auth.rate-limit.register-per-hour` | — | `5` | 按 IP |
 | `mindora.auth.rate-limit.login-per-minute` | — | `10` | 按 IP |
 | `mindora.auth.rate-limit.refresh-per-hour` | — | `60` | 按用户 |
@@ -153,7 +159,7 @@ WHERE u.deleted = FALSE
    - `tv != token_version` → `token_revoked`；
 4. 写入 `Authentication`（`ROLE_*`），继续链路。
 
-> 每请求一次主键查询，换取「禁用/登出立即生效」；这是有意取舍，不引入缓存。
+> 每请求查一次账户（主键查询；当前实现另带一次角色查询，共 2 次），换取「禁用/登出立即生效」；这是有意取舍，不引入缓存。
 
 ## 8. 前端约定（admin-art 先落地，`site` 在 4.7 复用同一逻辑）
 
