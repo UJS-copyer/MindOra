@@ -264,7 +264,7 @@ REPEAT=3 node logs/rag-integration-check.mjs
 | `GET /api/v1/public/rag/conversations/{id}/messages` | 登录 | — | 会话完整消息（恢复对话）；匿名/非本人 404 语义 |
 | `DELETE /api/v1/public/rag/conversations/{id}` | 登录 | — | 软删会话 |
 
-**Stage 3.5 会话语义**：登录用户带合法 `conversationId` 时注入记忆窗口（滑动窗口 + token 双约束，历史消息剥离 `[n]` 编号，不进本轮引用核验域）；终态（done/refused/degraded）落库 `chat_conversation`/`chat_message`（V8 迁移），新会话 id 随响应/done 事件**首次下发**，前端续聊携带；**匿名或非法 `conversationId` 按无会话处理**（不报错、响应字段为 null）——归属不匹配与不存在同为 404 语义，防枚举。详见 `docs/stage-3.5-implementation-plan-cn.md` 与 `docs/stage-3.5-task-manifest-cn.md`。
+**Stage 3.5 会话语义**：登录用户带合法 `conversationId` 时注入记忆窗口（滑动窗口 + token 双约束，历史消息剥离 `[n]` 编号，不进本轮引用核验域）；终态（done/refused/degraded）落库 `chat_conversation`/`chat_message`（V8 迁移），新会话 id 随响应/done 事件**首次下发**，前端续聊携带；**匿名或非法 `conversationId` 按无会话处理**（不报错、响应字段为 null）——归属不匹配与不存在同为 404 语义，防枚举。详见 `docs/stage-3.5-task-manifest-cn.md`。
 
 **三条硬性约束**：
 
@@ -322,7 +322,7 @@ data: {"type":"error","code":"…","message":"…"}       ← 意外失败
 1. **不能用原生 `EventSource`**：该端点是 **POST**，而 `EventSource` 只支持 GET。必须用 `fetch()` 取 `response.body` 的 `ReadableStream`，自行按空行切帧、剥掉 `data: ` 前缀、`JSON.parse` 后按 `type` 分派。也**不要**注册 `addEventListener('delta')`——服务端发送时没有设置 event name，唯一判据是 JSON 里的 `type` 字段。
 2. **预检失败不是事件流**：`rag_public_disabled`(404) / `validation_error`(400) / `rag_rate_limited`(429) 都返回**普通 JSON**（此时响应头还不是 `text/event-stream`）。前端必须先判状态码与 `content-type`，再决定「按 SSE 解析」还是「按 JSON 错误体解析」。
 3. **429 没有 `Retry-After` 响应头**：错误体只给 `code=rag_rate_limited` 与 `message`。前端需自行按窗口（默认 60s，见 `window-seconds`）给出「请稍后再试」的提示或倒计时。
-4. **跨源**：前台站点以绝对地址访问后端（`VITE_API_BASE_URL ?? http://localhost:8080`），浏览器会走 CORS。后端允许源默认是 `http://localhost:5173`、`http://localhost:5174` 及二者 `127.0.0.1` 变体（`mindora.cors.allowed-origins`）；**5175 不在白名单里**，前台站点请使用 5173，或把新源加入配置后再用。SSE 属跨源流式请求，同样受该白名单约束。
+4. **同源，不再跨源**（2026-10-18 决定）：前端一律用**相对路径** `/api/...`，本地由 **vite 代理**转发到 `http://localhost:8080`，生产由同域反向代理转发——浏览器看到的始终是同源，因此既不走 CORS，也不影响 Cookie（为 3.6a 的 Refresh Cookie 铺路）。**不要再配 `VITE_API_BASE_URL` 绝对地址**；只有临时跨源调试才需要改后端 `mindora.cors.allowed-origins`。SSE 属同源流式请求，同样不受跨源限制。
 5. **带 JWT 可提升额度**：请求携带有效 `Authorization: Bearer <token>` 时按 `userId` 分桶（20/分），匿名按 IP（6/分）。已登录用户应当带上令牌。
 
 ## 13. 访问日志
@@ -438,7 +438,7 @@ refusal=… model=… latencyMs=… firstDeltaMs=… citations=… query=…（�
 三条配套规则：
 
 1. **管理端必须能按公开域复测**：`scope` 可选 `public`，用于「线上答不好的问题，在管理端用公开域重跑」。4.3 的同问题复测靠它，否则复测结论不可迁移（与 5.3 里 RAGNote 自己强调的坑同源）。
-2. **管理端问答页是 3.6 的交付物**：会话历史的生产者只剩管理端（3.5 的公开站会话 UI 已弃用），没有管理端问答入口，V8 的 `chat_conversation` 就没有数据来源。所以 **3.6 = 管理端问答 + 会话列表 / 查看 / 删除**。
+2. **3.6 只做后端接入，不做聊天界面**（2026-10-18 决策）：管理端问答接入会话域（记忆 + 落库 + `persist` + 回传 `conversationId`），会话 CRUD 收归用户域 `/api/v1/rag/conversations*`；界面归 4.3 的复测台。会话历史的真正归宿是**账号**（4.7 公开站登录后复用同一套），管理端只是「私有域工具」。
 3. **SecretGuard 管理端不开**（§11）：作者要能看见自己的库；但页面上要标注「私有内容，勿外传」，因为那里可能出现密钥类文本。
 
 ### 15.6 对既有基线与验收的影响

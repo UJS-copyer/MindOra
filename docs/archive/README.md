@@ -15,5 +15,6 @@
 | 归档文件 | 原位置 | 归档日期 | 为什么归档 | 承接者（活跃文档） |
 | --- | --- | --- | --- | --- |
 | [2026-10-stage-3.3-rag-generation-layer-plan-cn.md](2026-10-stage-3.3-rag-generation-layer-plan-cn.md) | `docs/stage-3.3-rag-generation-layer-plan-cn.md` | 2026-10-10 | Stage 3.3 生成层六步执行完毕，计划文档使命结束 | 契约与实测见 [design-11](../design-11-rag-answer-generation-layer.md)；交付与验收见 [stage-3.3-task-manifest-cn.md](../stage-3.3-task-manifest-cn.md) |
+| [2026-10-stage-3.5-chat-history-and-memory-plan-cn.md](2026-10-stage-3.5-chat-history-and-memory-plan-cn.md) | `docs/stage-3.5-implementation-plan-cn.md` | 2026-10-17 | Stage 3.5 后端会话能力实现完毕，小阶段临时计划归档 | 交付与验收台账见 [stage-3.5-task-manifest-cn.md](../stage-3.5-task-manifest-cn.md) |
 | [2026-07-14-stage-0-engineering-foundation-plan.md](2026-07-14-stage-0-engineering-foundation-plan.md) | `docs/superpowers/plans/2026-07-14-stage-0-engineering-foundation.md` | 2026-10-10 | Stage 0 已交付，执行计划结束 | [project-status-cn.md](../project-status-cn.md)、[design-07](../design-07-implementation-roadmap.md) |
 | [2026-07-14-stage-1-content-and-admin-plan.md](2026-07-14-stage-1-content-and-admin-plan.md) | `docs/superpowers/plans/2026-07-14-stage-1-content-and-admin.md` | 2026-10-10 | Stage 1 已交付，执行计划结束 | [project-status-cn.md](../project-status-cn.md)、[design-08](../design-08-frontend-design-spec-stage-1.md) |

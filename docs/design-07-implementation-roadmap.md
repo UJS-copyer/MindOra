@@ -6,7 +6,8 @@
 > 向量 / 重排 A/B 降为 backlog（向量保留）。上线判据为 D1–D7（见
 > `docs/ragnote-insights-and-architecture-takeaways.md` §5.5），不是下面的 `Release Criteria`；
 > 契约细节见 `docs/design-11-rag-answer-generation-layer.md` §15（此处只排顺序）。
-> Stage 3.6（管理端问答与会话页）与 3.7（条件化查询改写）是主干内的子阶段，编号不变。
+> Stage 3.6 已按 2026-10-18 决策拆为 **3.6a 身份地基**（双令牌，见 `design-12`）与 **3.6b 会话域统一**（管理端问答接入会话、CRUD 收归用户域）；
+> 3.7（条件化查询改写）是主干内的子阶段。编号不变。
 > **已知结构风险**：进程内 Lucene 关键词索引是单写者，后端无法水平扩展、重启即停机——见 Stage 5。
 
 ## Purpose
@@ -412,7 +413,7 @@ Stage 4 交付物：
 ### 5.1 部署面
 
 - 域名 + HTTPS + 反向代理；**按可信代理解析 `X-Forwarded-For`**（否则全体访客共用一个限流桶，design-11 §10.1）
-- CORS 白名单切到真实源（本地默认只放行 5173 / 5174）
+- 部署形态定为**同域**：Nginx 托管前端静态文件并把 `/api` 反代到后端——浏览器始终同源，**CORS 不再是必需项**（`mindora.cors.allowed-origins` 只留作临时跨源调试的兜底）
 - 密钥只走环境变量；仓库与 `docs/` 里不得出现敏感值
 - MySQL 备份 + **恢复演练**；关键词索引可重建；Qdrant 要么做快照，要么接受「可重建」
 

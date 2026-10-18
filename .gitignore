@@ -24,3 +24,6 @@ coverage/
 *.tsbuildinfo
 
 reference/
+
+# Personal interview prep (AGENTS.md: 个人材料不入库)
+interview/

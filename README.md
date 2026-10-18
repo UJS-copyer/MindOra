@@ -3,6 +3,8 @@
 MindOra is a personal knowledge management platform for writing, storing,
 retrieving, and asking questions over a personal knowledge base.
 
+> 📖 **项目中文主文档与分阶段开发进度详见：[docs/README.md](docs/README.md)**
+
 ## Stage 0 Scope
 
 - Spring Boot 3 modular monolith under `backend/`

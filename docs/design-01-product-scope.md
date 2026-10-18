@@ -210,15 +210,15 @@ This keeps the project realistic while preserving future extensibility.
 
 | 上文条款 | 处置 | 当前口径 |
 | --- | --- | --- |
-| §1「Email registration and login / GitHub login / Message or guestbook / moderation and notification workflows」 | **作废（社交面）** | 只保留登录与账号（为后续真实使用准备）；评论、留言、审核、通知、邮件全部不做 |
-| §1「public user interaction」 | **收窄** | 访客**匿名即可完整使用**公开问答；登录入口刻意低调，只带来更高限流额度与「管理端可见的会话历史」 |
-| §4「New conversation / Multi-turn conversation / Conversation history」作为**公开**能力 | **收窄** | 公开站是单次问答（可以带 `conversationId`，但没有会话 UI）；**会话历史的归宿是管理端**（Stage 3.6） |
+| §1「Email registration and login / GitHub login / Message or guestbook / moderation and notification workflows」 | **部分作废** | **账号体系保留并启用**：开放注册（2026-10-18 决定），后续接 Google / GitHub 登录（`auth_account` 多 provider 结构已就绪）；评论、留言、审核、通知、邮件仍不做 |
+| §1「public user interaction」 | **收窄** | 访客**匿名即可完整使用**公开问答；登录后拥有**自己的**会话历史（不进管理端），并获得更高限流额度 |
+| §4「New conversation / Multi-turn conversation / Conversation history」作为**公开**能力 | **修订（2026-10-18）** | 公开站当前仍是单次问答（无会话 UI）；**会话历史归账号**，公开站登录后可见（暂记 Stage 4.7），管理端只是私有域工具 |
 | §7「operational configuration should be managed through the admin UI」 | **收窄为「端口可换、配置以 yml 为主」** | 不再承诺后台配置编辑器；管理端做只读观测与少数必要操作（Stage 3.5 的教训：配置面越大越难验收） |
 | 「should not hard-code a single … vector database」 | **保留端口，收窄默认** | 检索可运行在**非向量**模式（关键词 + 全文）；向量是可选增强，**保留**，是否参与公开链路由后续实测决定（现状：参与） |
 | 「configurable and extensible full-stack personal knowledge management system」 | **收窄** | 个人笔记 + RAG 介绍站，边开发边学习；**不对标 RAGNote 的完整度**，目标是「简单舒适的使用体验」 |
 | 「Published blog articles can enter the knowledge base pipeline」 | **澄清（2026-10-17）** | **全部来源都入库**（含草稿——那正是私人助手的价值）；**只有已发布文章进公开检索域**，fail-closed（design-11 §15.3） |
 | 交付标准（上文隐含） | **明确定义（2026-10-17）** | **生产级 = 能给陌生人用、不烧钱、坏了能发现、改了能回退、问答体验接近常见产品。** 明确**不含**多实例 / 高可用 / SLA（单实例是接受的上限）。工程与产品都按这一条判，不再用「像不像大厂」当标准 |
-| 多用户 / 多租户 | **分开定性（2026-10-17）** | 「多用户」（单站点多账号，参考项目那种）成本约 1 周、可做；「多租户」（一套部署多个独立站点/知识库）**明确不做**，成本评估见 takeaways §5.8 |
+| 多用户 / 多租户 | **已定（2026-10-18）** | 「多用户」= **A 方案：单站点、单知识库，各人各自会话**；站长与访客是**同一类用户**，差别只在查询范围，且范围**由入口决定**（公开站永远 `public`，管理端才允许 `all`）。「多租户」（一套部署多个独立站点/知识库）**明确不做**，成本评估见 takeaways §5.8 |
 
 不变的：内容闭环优先、首页长期是个人首页、博客是完整内容管理模块、发布即入知识库、资产统一管理、
 后端 Java / Spring Boot、前端 Vue 3 + Vite、本地优先。

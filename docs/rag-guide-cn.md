@@ -581,7 +581,7 @@ FlattenGraphFilter       →  【仅索引侧】把 token 图形展平后再入�
 
 ### 4.4 下一轮怎么做（以 design-07 为准）
 
-路线以 `docs/design-07-implementation-roadmap.md` Stage 4 为准：3.6 管理端问答 + 会话页 → 3.7 条件化改写 →
+路线以 `docs/design-07-implementation-roadmap.md` 为准：3.6a 身份地基 → 3.6b 会话域统一 → 3.7 条件化改写 →
 4.1 公开域 → 4.2 回答契约 v2（含提示词版本化）→ 4.3 质量闭环 → 4.4 韧性与成本 → 4.5 运维 → 4.6 双入口 → Stage 5 上线门禁。
 改检索参数 / 提示词 / 模型前，先跑基线：`node scripts/rag-eval/run.mjs`（用法见 `scripts/rag-eval/README.md`）。
 

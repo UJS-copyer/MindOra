@@ -158,11 +158,12 @@ npm run dev:admin-art
 
 访问：`http://localhost:5175`。
 
-前端 API 默认连接本地后端：
+前端请求约定（**重要，2026-10-18 定**）：
 
-```text
-http://localhost:8080
-```
+- 两个前端一律使用**相对路径** `/api/...`，由 **vite 开发服务器代理**转发到 `http://localhost:8080`（见各自 `vite.config.ts` 的 `/api` 规则）；
+- **不要**在 `.env` 里把 `VITE_API_BASE_URL` 配成绝对地址（如 `http://localhost:8080`）：那会让浏览器按**跨源**处理，登录态 Cookie 会变成第三方 Cookie，还多一层 CORS 配置；
+- 生产同理：Nginx 托管前端静态文件，并把 `/api` 反代到后端——**同域**部署，不需要 CORS、不需要 `SameSite=None`；
+- 后台管理端（5175）已按此配置；公开站点（5173）在 Stage 3.6a 的 a0 任务里一并改为相对路径 + 代理。
 
 ## 日常启动顺序
 

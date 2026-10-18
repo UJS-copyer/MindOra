@@ -357,7 +357,7 @@ conversation summary + recent N turns
 > `mindora.rag.chat.memory.context-turns` / `max-history-tokens`,
 > `mindora.rag.chat.history.backend` (jdbc|memory). Design rationale and
 > rejected alternatives (summary compression, LLM query rewrite in v1) are in
-> `docs/stage-3.5-implementation-plan-cn.md`.
+> `docs/stage-3.5-task-manifest-cn.md` (and archived plan `docs/archive/2026-10-stage-3.5-chat-history-and-memory-plan-cn.md`).
 
 ## Streaming Output
 
