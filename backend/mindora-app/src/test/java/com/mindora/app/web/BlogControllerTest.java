@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mindora.app.MindOraApplication;
 import com.mindora.user.domain.RoleName;
 import com.mindora.user.domain.UserAccount;
+import com.mindora.user.domain.UserRepository;
 import com.mindora.user.application.port.TokenService;
 import java.util.Set;
 import java.util.UUID;
@@ -38,6 +39,9 @@ class BlogControllerTest {
 
     @Autowired
     private TokenService tokenService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Test
     void superAdminManagesArticleAndPublicSiteReadsPublishedContent() throws Exception {
@@ -249,10 +253,12 @@ class BlogControllerTest {
     }
 
     private String tokenFor(RoleName role) {
-        return tokenService.issue(new UserAccount(
+        UserAccount user = new UserAccount(
                 UUID.randomUUID(),
                 role.value() + "@example.com",
                 "hash",
-                Set.of(role.value())));
+                Set.of(role.value()));
+        userRepository.save(user);
+        return tokenService.issue(user);
     }
 }

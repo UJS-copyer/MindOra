@@ -12,6 +12,7 @@ import com.mindora.rag.domain.RagDomain.RagAnswerOutcome;
 import com.mindora.user.application.port.TokenService;
 import com.mindora.user.domain.RoleName;
 import com.mindora.user.domain.UserAccount;
+import com.mindora.user.domain.UserRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -53,6 +54,9 @@ class PublicRagRateLimitTest {
 
     @Autowired
     private TokenService tokenService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @MockitoBean
     private RagAnswerService ragAnswerService;
@@ -143,10 +147,12 @@ class PublicRagRateLimitTest {
     }
 
     private String tokenFor(RoleName role) {
-        return tokenService.issue(new UserAccount(
+        UserAccount user = new UserAccount(
                 UUID.randomUUID(),
                 role.value() + "-ratelimit@example.com",
                 "hash",
-                Set.of(role.value())));
+                Set.of(role.value()));
+        userRepository.save(user);
+        return tokenService.issue(user);
     }
 }

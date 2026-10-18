@@ -1,6 +1,7 @@
 package com.mindora.app.config;
 
 import com.mindora.user.application.AuthService;
+import com.mindora.user.application.AccessTokenValidator;
 import com.mindora.user.application.AdminIdentityService;
 import com.mindora.user.application.RbacPermissionService;
 import com.mindora.user.application.RefreshTokenService;
@@ -83,6 +84,13 @@ public class UserModuleConfiguration {
             @Value("${mindora.auth.refresh-grace:PT60S}") Duration grace) {
         return new RefreshTokenService(
                 authRefreshTokenRepository, refreshTtl, absoluteTtl, grace, Clock.systemUTC());
+    }
+
+    @Bean
+    AccessTokenValidator accessTokenValidator(
+            TokenService tokenService,
+            UserRepository userRepository) {
+        return new AccessTokenValidator(tokenService, userRepository);
     }
 
     @Bean

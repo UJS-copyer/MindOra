@@ -1,5 +1,6 @@
 package com.mindora.app.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,15 +20,24 @@ public class SecurityConfiguration {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             BearerTokenAuthenticationFilter bearerTokenAuthenticationFilter,
+            RestAuthenticationEntryPoint authenticationEntryPoint,
+            RestAccessDeniedHandler accessDeniedHandler,
             CorsConfigurationSource corsConfigurationSource) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(handling -> handling
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(
                                 "/api/v1/public/**",
-                                "/api/v1/auth/**",
+                                // 认证端点只放行会「建立/修复会话」的四个；/auth/me 必须带 access token
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
@@ -68,8 +78,19 @@ public class SecurityConfiguration {
     }
 
     @Bean
+    RestAuthenticationEntryPoint restAuthenticationEntryPoint(ObjectMapper objectMapper) {
+        return new RestAuthenticationEntryPoint(objectMapper);
+    }
+
+    @Bean
+    RestAccessDeniedHandler restAccessDeniedHandler(ObjectMapper objectMapper) {
+        return new RestAccessDeniedHandler(objectMapper);
+    }
+
+    @Bean
     BearerTokenAuthenticationFilter bearerTokenAuthenticationFilter(
-            com.mindora.user.application.port.TokenService tokenService) {
-        return new BearerTokenAuthenticationFilter(tokenService);
+            com.mindora.user.application.AccessTokenValidator accessTokenValidator,
+            RestAuthenticationEntryPoint authenticationEntryPoint) {
+        return new BearerTokenAuthenticationFilter(accessTokenValidator, authenticationEntryPoint);
     }
 }

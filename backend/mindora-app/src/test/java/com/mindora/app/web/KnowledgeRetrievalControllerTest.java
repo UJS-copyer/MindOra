@@ -8,6 +8,7 @@ import com.mindora.app.MindOraApplication;
 import com.mindora.user.application.port.TokenService;
 import com.mindora.user.domain.RoleName;
 import com.mindora.user.domain.UserAccount;
+import com.mindora.user.domain.UserRepository;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,9 @@ class KnowledgeRetrievalControllerTest {
 
     @Autowired
     private TokenService tokenService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Test
     void rejectsMissingScope() throws Exception {
@@ -65,10 +69,12 @@ class KnowledgeRetrievalControllerTest {
     }
 
     private String tokenFor(RoleName role) {
-        return tokenService.issue(new UserAccount(
+        UserAccount user = new UserAccount(
                 UUID.randomUUID(),
                 role.value() + "@example.com",
                 "hash",
-                Set.of(role.value())));
+                Set.of(role.value()));
+        userRepository.save(user);
+        return tokenService.issue(user);
     }
 }

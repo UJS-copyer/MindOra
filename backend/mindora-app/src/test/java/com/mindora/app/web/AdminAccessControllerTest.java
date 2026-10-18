@@ -10,6 +10,7 @@ import com.mindora.app.MindOraApplication;
 import com.mindora.user.application.port.TokenService;
 import com.mindora.user.domain.RoleName;
 import com.mindora.user.domain.UserAccount;
+import com.mindora.user.domain.UserRepository;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,9 @@ class AdminAccessControllerTest {
     @Autowired
     private TokenService tokenService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @Test
     void adminMenusExposeKnowledgeBaseSection() throws Exception {
         mockMvc.perform(get("/api/v1/admin/menus")
@@ -42,10 +46,13 @@ class AdminAccessControllerTest {
     }
 
     private String tokenFor(RoleName role) {
-        return tokenService.issue(new UserAccount(
+        UserAccount user = new UserAccount(
                 UUID.randomUUID(),
                 role.value() + "@example.com",
                 "hash",
-                Set.of(role.value())));
+                Set.of(role.value()));
+        // 每请求校验会回查账户，测试用户必须先落库
+        userRepository.save(user);
+        return tokenService.issue(user);
     }
 }

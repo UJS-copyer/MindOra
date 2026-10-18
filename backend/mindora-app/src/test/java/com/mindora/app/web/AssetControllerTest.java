@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mindora.app.MindOraApplication;
 import com.mindora.user.domain.RoleName;
 import com.mindora.user.domain.UserAccount;
+import com.mindora.user.domain.UserRepository;
 import com.mindora.user.application.port.TokenService;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
@@ -44,6 +45,9 @@ class AssetControllerTest {
 
     @Autowired
     private TokenService tokenService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Test
     void superAdminUploadsListsAndServesAsset() throws Exception {
@@ -88,7 +92,7 @@ class AssetControllerTest {
                 PNG_BYTES);
 
         mockMvc.perform(multipart("/api/v1/admin/assets").file(file))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
 
         mockMvc.perform(multipart("/api/v1/admin/assets")
                         .file(file)
@@ -119,10 +123,12 @@ class AssetControllerTest {
     }
 
     private String tokenFor(RoleName role) {
-        return tokenService.issue(new UserAccount(
+        UserAccount user = new UserAccount(
                 UUID.randomUUID(),
                 role.value() + "@example.com",
                 "hash",
-                Set.of(role.value())));
+                Set.of(role.value()));
+        userRepository.save(user);
+        return tokenService.issue(user);
     }
 }
