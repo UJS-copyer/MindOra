@@ -106,7 +106,7 @@ public class JwtTokenService implements TokenService {
                     .filter(role -> !role.isBlank())
                     .sorted()
                     .forEach(roles::add);
-            return new TokenPrincipal(userId, email, Set.copyOf(roles));
+            return new TokenPrincipal(userId, email, Set.copyOf(roles), tokenVersion);
         } catch (IllegalArgumentException exception) {
             return null;
         }

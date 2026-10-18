@@ -13,6 +13,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 public class JdbcUserRepository implements UserRepository {
+    private static final String ACCOUNT_COLUMNS =
+            "u.id, u.email, u.password_hash, u.token_version, u.status, u.deleted, u.display_name";
+
     private final JdbcTemplate jdbcTemplate;
 
     public JdbcUserRepository(JdbcTemplate jdbcTemplate) {
@@ -22,13 +25,19 @@ public class JdbcUserRepository implements UserRepository {
     @Override
     public Optional<UserAccount> findByEmail(String email) {
         return jdbcTemplate.query(
-                        """
-                        SELECT u.id, u.email, u.password_hash, u.token_version
-                        FROM user_account u
-                        WHERE u.email = ? AND u.deleted = FALSE AND u.status = 'active'
-                        """,
+                        "SELECT " + ACCOUNT_COLUMNS + " FROM user_account u WHERE u.email = ?",
                         this::mapUser,
                         email)
+                .stream()
+                .findFirst();
+    }
+
+    @Override
+    public Optional<UserAccount> findById(UUID id) {
+        return jdbcTemplate.query(
+                        "SELECT " + ACCOUNT_COLUMNS + " FROM user_account u WHERE u.id = ?",
+                        this::mapUser,
+                        publicId(id))
                 .stream()
                 .findFirst();
     }
@@ -43,9 +52,7 @@ public class JdbcUserRepository implements UserRepository {
                 VALUES (?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     password_hash = VALUES(password_hash),
-                    updated_at = VALUES(updated_at),
-                    deleted = FALSE,
-                    status = 'active'
+                    updated_at = VALUES(updated_at)
                 """,
                 publicId(user.id()),
                 user.email(),
@@ -74,6 +81,18 @@ public class JdbcUserRepository implements UserRepository {
         return user;
     }
 
+    @Override
+    public int bumpTokenVersion(UUID id) {
+        return jdbcTemplate.update(
+                """
+                UPDATE user_account
+                SET token_version = token_version + 1, updated_at = ?
+                WHERE id = ? AND deleted = FALSE
+                """,
+                Instant.now(),
+                publicId(id));
+    }
+
     private UserAccount mapUser(ResultSet rs, int rowNum) throws SQLException {
         String userId = rs.getString("id");
         Set<String> roles = new LinkedHashSet<>();
@@ -94,7 +113,10 @@ public class JdbcUserRepository implements UserRepository {
                 rs.getString("email"),
                 rs.getString("password_hash"),
                 roles,
-                rs.getInt("token_version"));
+                rs.getInt("token_version"),
+                rs.getString("status"),
+                rs.getBoolean("deleted"),
+                rs.getString("display_name"));
     }
 
     private String normalizeRoleName(String role) {
