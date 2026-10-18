@@ -21,7 +21,7 @@ import HomeView from './views/HomeView.vue';
 const ANCHOR_HASH_PREFIX = 'h=';
 
 const api = createApiClient({
-  baseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+  baseUrl: import.meta.env.VITE_API_BASE_URL ?? ''
 });
 
 const path = ref(window.location.pathname);

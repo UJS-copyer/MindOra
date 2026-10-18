@@ -3,6 +3,7 @@ import {
   RagApiError,
   parseSseFrame,
   ragErrorCopy,
+  resolveRagBaseUrl,
   splitSseFrames,
   streamPublicRagAnswer,
   toStreamEvent
@@ -172,7 +173,30 @@ describe('parseSseFrame', () => {
   });
 });
 
+describe('resolveRagBaseUrl', () => {
+  it('returns empty string when env is not configured', () => {
+    expect(resolveRagBaseUrl()).toBe('');
+  });
+});
+
 describe('streamPublicRagAnswer', () => {
+  it('defaults baseUrl to empty string when not provided', async () => {
+    const fetchMock = vi.fn(async () =>
+      streamResponse(['data: {"type":"done","refused":false}\n\n'])
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await collect(streamPublicRagAnswer({ query: 'q' }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/public/rag/answer/stream',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ query: 'q' })
+      })
+    );
+  });
+
   it('yields delta, citation and done in order across chunk boundaries', async () => {
     vi.stubGlobal(
       'fetch',

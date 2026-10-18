@@ -74,9 +74,10 @@ export class RagApiError extends Error {
   }
 }
 
-export const DEFAULT_RAG_BASE_URL = 'http://localhost:8080';
+/** 同源相对路径；绝对地址会让登录态 Cookie 变第三方，正常不要配置。 */
+export const DEFAULT_RAG_BASE_URL = '';
 
-/** 与 `App.vue` 一致的基地址解析（`VITE_API_BASE_URL`，缺省本机后端）。 */
+/** 与 `App.vue` 一致的基地址解析（`VITE_API_BASE_URL`，缺省同源相对路径；绝对地址会让登录态 Cookie 变第三方，正常不要配置）。 */
 export function resolveRagBaseUrl(): string {
   const configured = import.meta.env?.VITE_API_BASE_URL;
   return typeof configured === 'string' && configured.trim().length > 0
