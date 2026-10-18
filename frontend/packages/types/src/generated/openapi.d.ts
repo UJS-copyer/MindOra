@@ -193,6 +193,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["refresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -545,6 +577,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/rag/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["conversations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/rag/conversations/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["conversationMessages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/health": {
         parameters: {
             query?: never;
@@ -625,6 +689,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/permissions": {
         parameters: {
             query?: never;
@@ -664,7 +744,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["me"];
+        get: operations["me_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -748,6 +828,22 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/rag/conversations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteConversation"];
         options?: never;
         head?: never;
         patch?: never;
@@ -999,6 +1095,7 @@ export interface components {
         };
         PublicRagRequestView: {
             query?: string;
+            conversationId?: string;
         };
         ApiResponseRagAnswerView: {
             code?: string;
@@ -1032,6 +1129,7 @@ export interface components {
             degraded?: boolean;
             degradedReason?: string;
             chatModel?: string;
+            conversationId?: string;
         };
         RetrievalView: {
             /** Format: int64 */
@@ -1066,7 +1164,18 @@ export interface components {
         AuthView: {
             userId?: string;
             email?: string;
+            roles?: string[];
             accessToken?: string;
+            /** Format: int64 */
+            expiresIn?: number;
+        };
+        ApiResponseVoid: {
+            code?: string;
+            message?: string;
+            data?: unknown;
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
         };
         RagAnswerRequestView: {
             query?: string;
@@ -1212,14 +1321,6 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
         };
-        ApiResponseVoid: {
-            code?: string;
-            message?: string;
-            data?: unknown;
-            traceId?: string;
-            /** Format: date-time */
-            createdAt?: string;
-        };
         BatchReindexRequest: {
             documentIds?: string[];
         };
@@ -1253,6 +1354,43 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
         };
+        ApiResponseListConversationView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["ConversationView"][];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ConversationView: {
+            id?: string;
+            title?: string;
+            /** Format: int32 */
+            messageCount?: number;
+            /** Format: int64 */
+            lastMessageAt?: number;
+            /** Format: int64 */
+            createdAt?: number;
+        };
+        ApiResponseConversationDetailView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["ConversationDetailView"];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ConversationDetailView: {
+            id?: string;
+            title?: string;
+            messages?: components["schemas"]["StoredMessageView"][];
+        };
+        StoredMessageView: {
+            role?: string;
+            content?: string;
+            /** Format: int64 */
+            createdAt?: number;
+        };
         ApiResponseMapStringString: {
             code?: string;
             message?: string;
@@ -1278,6 +1416,20 @@ export interface components {
             traceId?: string;
             /** Format: date-time */
             createdAt?: string;
+        };
+        ApiResponseAuthMeView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["AuthMeView"];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        AuthMeView: {
+            userId?: string;
+            email?: string;
+            displayName?: string;
+            roles?: string[];
         };
         ApiResponsePageResultUserRow: {
             code?: string;
@@ -1915,7 +2067,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["SseEmitter"];
+                    "text/event-stream": components["schemas"]["SseEmitter"];
                 };
             };
         };
@@ -1942,6 +2094,54 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseAuthView"];
+                };
+            };
+        };
+    };
+    refresh: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: {
+                mindora_rt?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAuthView"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: {
+                mindora_rt?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
         };
@@ -2678,6 +2878,48 @@ export interface operations {
             };
         };
     };
+    conversations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListConversationView"];
+                };
+            };
+        };
+    };
+    conversationMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseConversationDetailView"];
+                };
+            };
+        };
+    };
     health: {
         parameters: {
             query?: never;
@@ -2793,6 +3035,28 @@ export interface operations {
             };
         };
     };
+    me: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAuthMeView"];
+                };
+            };
+        };
+    };
     permissions: {
         parameters: {
             query?: never;
@@ -2837,7 +3101,7 @@ export interface operations {
             };
         };
     };
-    me: {
+    me_1: {
         parameters: {
             query?: never;
             header?: {
@@ -2969,6 +3233,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseRuntimeConfigView"];
+                };
+            };
+        };
+    };
+    deleteConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
         };
