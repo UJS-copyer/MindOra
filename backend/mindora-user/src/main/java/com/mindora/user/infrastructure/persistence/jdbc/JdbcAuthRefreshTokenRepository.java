@@ -62,7 +62,7 @@ public class JdbcAuthRefreshTokenRepository implements AuthRefreshTokenRepositor
                 """
                 UPDATE auth_refresh_token
                 SET rotated_at = ?, replaced_by = ?
-                WHERE id = ? AND rotated_at IS NULL
+                WHERE id = ? AND rotated_at IS NULL AND revoked_at IS NULL
                 """,
                 timestamp(rotatedAt),
                 replacedBy,

@@ -14,18 +14,18 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Optional;
 
 /**
  * 刷新令牌生命周期（design-12 §3，落库表见 V9）。
  *
- * <p>四条规则：
- * 1. 滑动有限度：每次刷新把过期时间推到 {@code now + refreshTtl}，但家族出生时间不变，
- *    家族总年龄超过 {@code absoluteTtl} 即要求重新登录；
- * 2. 宽限期：旧令牌轮换后 {@code grace} 内再次使用视为多标签页并发，直接再发一枚同族令牌；
- * 3. 重用检测：超过宽限使用已轮换令牌，撤销整个家族并返回 {@code refresh_reused}；
- * 4. 登出/禁用：按族或按用户撤销全部记录（{@code access token} 侧由 token_version 负责）。
+ * <p>职责拆成两步，便于端点先校验账户状态再轮换：
+ * <ol>
+ *   <li>{@link #requireActive(String)}：缺失/查不到/已撤销/家族超龄/已过期；</li>
+ *   <li>{@link #rotate(AuthRefreshToken)}：真正轮换（含宽限与重用检测）。</li>
+ * </ol>
  *
- * <p>本轮不接 HTTP：Cookie 写入、401 语义与端点编排归 a3。
+ * <p>本轮不接 HTTP：Cookie 写入与 401 语义在 AuthSessionService / AuthController。
  */
 public class RefreshTokenService {
     private static final int TOKEN_BYTES = 32;
@@ -57,21 +57,27 @@ public class RefreshTokenService {
         return insert(userId, tokenVersion, familyId, now, now, PublicIds.newId());
     }
 
+    /** 按原始串查记录（登出等场景只需要知道是谁），不做有效性判定。 */
+    public Optional<AuthRefreshToken> find(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            return Optional.empty();
+        }
+        return repository.findByTokenHash(hash(rawToken));
+    }
+
     /**
-     * 用旧刷新令牌换新令牌。
+     * 校验一枚刷新令牌仍可用于换新。
      *
-     * @throws BusinessException {@code refresh_missing / refresh_invalid / refresh_expired /
-     *     refresh_absolute_expired / refresh_reused}
+     * @throws BusinessException {@code refresh_missing / refresh_invalid / refresh_reused /
+     *     refresh_absolute_expired / refresh_expired}
      */
-    public IssuedRefreshToken rotate(String rawToken) {
+    public AuthRefreshToken requireActive(String rawToken) {
         if (rawToken == null || rawToken.isBlank()) {
             throw new BusinessException("refresh_missing", "Refresh token is missing");
         }
-        String tokenHash = hash(rawToken);
-        AuthRefreshToken current = repository.findByTokenHash(tokenHash)
+        AuthRefreshToken current = repository.findByTokenHash(hash(rawToken))
                 .orElseThrow(() -> new BusinessException("refresh_invalid", "Refresh token is invalid"));
         Instant now = Instant.now(clock);
-
         if (current.revokedAt() != null) {
             throw new BusinessException("refresh_reused", "Refresh token has been revoked");
         }
@@ -83,7 +89,20 @@ public class RefreshTokenService {
         if (now.isAfter(current.expiresAt())) {
             throw new BusinessException("refresh_expired", "Refresh token has expired");
         }
+        return current;
+    }
 
+    /**
+     * 轮换一枚已通过 {@link #requireActive(String)} 的令牌。
+     *
+     * @throws BusinessException {@code refresh_reused}（宽限外重用，撤销整族）或
+     *     {@code refresh_invalid}（并发期间记录被删）
+     */
+    public IssuedRefreshToken rotate(AuthRefreshToken current) {
+        Instant now = Instant.now(clock);
+        if (current.revokedAt() != null) {
+            throw new BusinessException("refresh_reused", "Refresh token has been revoked");
+        }
         if (current.rotatedAt() == null) {
             String newId = PublicIds.newId();
             if (repository.markRotated(current.id(), newId, now) > 0) {
@@ -95,11 +114,13 @@ public class RefreshTokenService {
                         now,
                         newId);
             }
-            // 并发轮换：另一请求先改了 rotated_at，按「已轮换」分支继续判定。
-            current = repository.findByTokenHash(tokenHash)
+            // 并发轮换：另一请求先改了 rotated_at（或已撤销），重读后按已轮换分支判定。
+            current = repository.findByTokenHash(current.tokenHash())
                     .orElseThrow(() -> new BusinessException("refresh_invalid", "Refresh token is invalid"));
+            if (current.revokedAt() != null) {
+                throw new BusinessException("refresh_reused", "Refresh token has been revoked");
+            }
         }
-
         Instant rotatedAt = current.rotatedAt();
         if (rotatedAt != null && !now.isAfter(rotatedAt.plus(grace))) {
             return insert(

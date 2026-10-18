@@ -210,7 +210,7 @@ class JdbcAuthRefreshTokenRepositoryTest {
         String sql = normalizeSql(capturedUpdate.sql);
         assertTrue(sql.contains("UPDATE auth_refresh_token"));
         assertTrue(sql.contains("SET rotated_at = ?, replaced_by = ?"));
-        assertTrue(sql.contains("WHERE id = ? AND rotated_at IS NULL"));
+        assertTrue(sql.contains("WHERE id = ? AND rotated_at IS NULL AND revoked_at IS NULL"));
 
         assertEquals(3, capturedUpdate.args.length);
         assertEquals(Timestamp.from(rotatedAt), capturedUpdate.args[0]);

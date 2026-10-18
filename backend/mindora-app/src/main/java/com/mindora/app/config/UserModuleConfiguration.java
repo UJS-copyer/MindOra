@@ -1,6 +1,7 @@
 package com.mindora.app.config;
 
 import com.mindora.user.application.AuthService;
+import com.mindora.user.application.AuthSessionService;
 import com.mindora.user.application.AccessTokenValidator;
 import com.mindora.user.application.AdminIdentityService;
 import com.mindora.user.application.RbacPermissionService;
@@ -12,6 +13,7 @@ import com.mindora.user.application.port.PasswordHasher;
 import com.mindora.user.application.port.RbacPermissionGateway;
 import com.mindora.user.application.port.TokenService;
 import com.mindora.user.domain.UserRepository;
+import com.mindora.user.infrastructure.persistence.memory.InMemoryAuthRefreshTokenRepository;
 import com.mindora.user.infrastructure.persistence.memory.InMemoryUserRepository;
 import com.mindora.user.infrastructure.persistence.jdbc.JdbcAdminIdentityGateway;
 import com.mindora.user.infrastructure.persistence.jdbc.JdbcAuthRefreshTokenRepository;
@@ -57,6 +59,12 @@ public class UserModuleConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(name = "mindora.persistence.user", havingValue = "memory")
+    AuthRefreshTokenRepository inMemoryAuthRefreshTokenRepository() {
+        return new InMemoryAuthRefreshTokenRepository();
+    }
+
+    @Bean
     PasswordHasher passwordHasher() {
         return new Sha256PasswordHasher();
     }
@@ -76,7 +84,6 @@ public class UserModuleConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(name = "mindora.persistence.user", havingValue = "jdbc", matchIfMissing = true)
     RefreshTokenService refreshTokenService(
             AuthRefreshTokenRepository authRefreshTokenRepository,
             @Value("${mindora.auth.refresh-ttl:P14D}") Duration refreshTtl,
@@ -97,8 +104,17 @@ public class UserModuleConfiguration {
     AuthService authService(
             UserRepository userRepository,
             PasswordHasher passwordHasher,
-            TokenService tokenService) {
-        return new AuthService(userRepository, passwordHasher, tokenService);
+            TokenService tokenService,
+            RefreshTokenService refreshTokenService) {
+        return new AuthService(userRepository, passwordHasher, tokenService, refreshTokenService);
+    }
+
+    @Bean
+    AuthSessionService authSessionService(
+            UserRepository userRepository,
+            TokenService tokenService,
+            RefreshTokenService refreshTokenService) {
+        return new AuthSessionService(userRepository, tokenService, refreshTokenService);
     }
 
     @Bean

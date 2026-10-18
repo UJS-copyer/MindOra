@@ -14,4 +14,7 @@ public interface TokenService {
      * 「客户端把登录返回值原样当请求头」的旧前端（Stage 3.6a 过渡期）。
      */
     TokenVerification verify(String authorizationHeader);
+
+    /** Access token 有效期（秒），供 `AuthView.expiresIn` 与前端续期计时使用。 */
+    long accessTtlSeconds();
 }

@@ -65,7 +65,7 @@ class RefreshTokenServiceTest {
         IssuedRefreshToken first = service.issue(USER, 0);
         clock.advance(Duration.ofMinutes(5));
 
-        IssuedRefreshToken second = service.rotate(first.rawToken());
+        IssuedRefreshToken second = service.rotate(service.requireActive(first.rawToken()));
 
         AuthRefreshToken old = stored(first);
         AuthRefreshToken renewed = stored(second);
@@ -81,10 +81,10 @@ class RefreshTokenServiceTest {
     void rotateWithinGraceIssuesAnotherTokenWithoutRevokingFamily() {
         IssuedRefreshToken first = service.issue(USER, 0);
         clock.advance(Duration.ofMinutes(1));
-        service.rotate(first.rawToken());
+        service.rotate(service.requireActive(first.rawToken()));
         clock.advance(Duration.ofSeconds(30));
 
-        IssuedRefreshToken third = service.rotate(first.rawToken());
+        IssuedRefreshToken third = service.rotate(service.requireActive(first.rawToken()));
 
         assertEquals(3, repository.all().size());
         assertEquals(first.familyId(), third.familyId());
@@ -95,11 +95,11 @@ class RefreshTokenServiceTest {
     void rotateAfterGraceReportsReuseAndRevokesWholeFamily() {
         IssuedRefreshToken first = service.issue(USER, 0);
         clock.advance(Duration.ofMinutes(1));
-        service.rotate(first.rawToken());
+        service.rotate(service.requireActive(first.rawToken()));
         clock.advance(Duration.ofSeconds(61));
 
         BusinessException exception =
-                assertThrows(BusinessException.class, () -> service.rotate(first.rawToken()));
+                assertThrows(BusinessException.class, () -> service.rotate(service.requireActive(first.rawToken())));
 
         assertEquals("refresh_reused", exception.code());
         assertTrue(repository.all().stream().allMatch(token -> token.revokedAt() != null));
@@ -111,7 +111,7 @@ class RefreshTokenServiceTest {
         clock.advance(Duration.ofDays(15));
 
         BusinessException exception =
-                assertThrows(BusinessException.class, () -> service.rotate(first.rawToken()));
+                assertThrows(BusinessException.class, () -> service.rotate(service.requireActive(first.rawToken())));
 
         assertEquals("refresh_expired", exception.code());
     }
@@ -122,7 +122,7 @@ class RefreshTokenServiceTest {
         clock.advance(Duration.ofDays(31));
 
         BusinessException exception =
-                assertThrows(BusinessException.class, () -> service.rotate(first.rawToken()));
+                assertThrows(BusinessException.class, () -> service.rotate(service.requireActive(first.rawToken())));
 
         assertEquals("refresh_absolute_expired", exception.code());
         assertTrue(repository.all().stream().allMatch(token -> token.revokedAt() != null));
@@ -134,7 +134,7 @@ class RefreshTokenServiceTest {
         service.revokeAllForUser(USER, "logout");
 
         BusinessException exception =
-                assertThrows(BusinessException.class, () -> service.rotate(first.rawToken()));
+                assertThrows(BusinessException.class, () -> service.rotate(service.requireActive(first.rawToken())));
 
         assertEquals("refresh_reused", exception.code());
     }
@@ -142,11 +142,11 @@ class RefreshTokenServiceTest {
     @Test
     void rotateRejectsMissingAndUnknownTokens() {
         assertEquals("refresh_missing",
-                assertThrows(BusinessException.class, () -> service.rotate(null)).code());
+                assertThrows(BusinessException.class, () -> service.requireActive(null)).code());
         assertEquals("refresh_missing",
-                assertThrows(BusinessException.class, () -> service.rotate("  ")).code());
+                assertThrows(BusinessException.class, () -> service.requireActive("  ")).code());
         assertEquals("refresh_invalid",
-                assertThrows(BusinessException.class, () -> service.rotate("unknown-token")).code());
+                assertThrows(BusinessException.class, () -> service.requireActive("unknown-token")).code());
     }
 
     @Test

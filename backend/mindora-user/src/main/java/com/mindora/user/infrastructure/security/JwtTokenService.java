@@ -60,6 +60,11 @@ public class JwtTokenService implements TokenService {
     }
 
     @Override
+    public long accessTtlSeconds() {
+        return accessTtl.toSeconds();
+    }
+
+    @Override
     public TokenVerification verify(String authorizationHeader) {
         String token = extractToken(authorizationHeader);
         if (token == null) {
