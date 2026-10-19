@@ -1186,6 +1186,7 @@ export interface components {
             keywordEnabled?: boolean;
             expansion?: boolean;
             conversationId?: string;
+            persist?: boolean;
         };
         ApiResponseSyncTaskView: {
             code?: string;
