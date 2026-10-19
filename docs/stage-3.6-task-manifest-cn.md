@@ -1,7 +1,7 @@
 # Stage 3.6 阶段文档：身份地基与会话域统一
 
 > 一句话用途：记录本阶段的**设计目标（Spec）**与**实现进展**，作为实施与验收的唯一台账。
-> 维护日期：2026-10-19　状态：**3.6a 批次①–④（a0–a5）已实施；3.6b 未开始**
+> 维护日期：2026-10-19　状态：**3.6a 批次①–④已实施；3.6b 批次⑤（b1 + b2）已实施，b3–b4 未开始**
 
 > **范围重定说明**：本阶段原定「管理端流式问答工作台」。2026-10-18 产品评审后重定：
 > 站长与访客视为**同一类用户**，差别只在「能查多大范围」；管理端**不做聊天 UI**；会话历史归**账号**。
@@ -101,7 +101,7 @@
 | ⑤ | b1 + b2 | `ConversationTurns` 抽取（公开端点测试原样全绿）+ 管理端问答落库并回传 id | 1–1.5 天 |
 | ⑥ | b3 + b4 | 会话 CRUD 走新路径、他人 404、`persist=false` 不写、范围按入口校验 | 1 天 |
 
-> 进度（2026-10-19）：对话 ①–④ 已完成，⑤、⑥ 未开始。
+> 进度（2026-10-19）：对话 ①–⑤ 已完成，⑥ 未开始。
 
 为什么这样切：
 
@@ -232,8 +232,39 @@ npm run api:sync && npm run api:check
 - 多标签页仍依赖后端 60 秒宽限，不做跨标签协调（design-12 §10）。
 - 运行 admin-art 单测/构建会重写 `src/types/import` 与 `.eslintrc-auto-import.json`（上游 AutoImport 行为），提交前需还原这些生成物。
 
-### 7.5 尚未开始
+### 7.5 批次⑤（3.6b b1 + b2）已完成（2026-10-19）
+
+**b1 共享会话组件**
+
+- 新增 `ConversationTurns`：`resolve`（取记忆窗口；匿名、非法/非本人 id 一律按无会话）、`record` / `recordQuietly`（终态落库，异常 WARN 不阻断响应）、`effectiveId`（只回显真正属于当前用户的 id）。
+- `ChatConversationService` 增加 `resolveHistoryIfOwned`，把「非法 id」与「合法但暂无历史」分开；原 `resolveHistory` 行为不变。
+- 公开控制器删掉四处私有会话实现，改用共享组件。两处行为修正：非法 id 在流式路径不再变成 `error`（按新会话处理）；落库失败不再中断 `done`。
+
+**b2 管理端接入**
+
+- `RagAdminController` 请求体新增 `persist`（缺省 `true`）：合法 `conversationId` 注入历史；`persist=true` 落库并回传 id；`false` 只读历史、不写库，合法续聊仍回显同一 id。
+- OpenAPI `RagAnswerRequestView` 与生成类型同步增加 `persist`。
+
+**验证（真实执行）**
+
+- 单测 6 项（`ConversationTurnsTest`）+ 集成测试 5 项（`RagAdminConversationTest`）；`PublicRagControllerTest` 8 项原样全绿。
+- 全量后端 `mvn test`：**BUILD SUCCESS**（app 模块 62 项、rag 模块 106 项，0 失败）；`npm run api:check` 通过。
+- 实机 curl（dev MySQL）：
+  1. 管理端首问返回 `conversationId=c055…`，会话详情 2 条消息；
+  2. 带该 id 追问：同 id 返回，详情变 4 条（历史被注入）；
+  3. `persist=false` 带合法 id：同 id 返回，消息数保持 4（未写库）；
+  4. `conversationId=not-a-uuid`：200，返回新 id，列表新增 1 个会话（不报错）；
+  5. `persist=false` 不带 id：`conversationId` 为空，会话列表不增加；验收产生的会话已软删清理。
+
+**已知限制**
+
+- 会话 CRUD 仍在 `/api/v1/public/rag/conversations*`，迁移与旧路径删除归 b3。
+- 管理端 `scope` 仍只做缺省值填充，未限制取值（b4）。
+- 本批不产出管理端界面（界面归 4.3 复测台）。
+
+### 7.6 尚未开始
 
 | 项 | 状态 |
 | --- | --- |
-| 3.6b（b1–b4：会话组件抽取、管理端问答接入、CRUD 收归用户域、scope 按入口） | ⬜ 未开始 |
+| b3 会话 CRUD 迁移到 `/api/v1/rag/conversations*`（登录态、他人 404、旧路径删除） | ⬜ 未开始 |
+| b4 `scope` 上限按入口（公开固定 public；管理端仅 all/public 且要求 SUPER_ADMIN） | ⬜ 未开始 |
