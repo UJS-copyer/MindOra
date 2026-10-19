@@ -40,10 +40,12 @@ public class GlobalExceptionHandler {
             // 访问/刷新令牌的失败语义（design-12 §4.1）：都由前端决定续期还是回登录页
             case "token_expired", "token_invalid", "token_revoked", "account_disabled",
                  "refresh_missing", "refresh_invalid", "refresh_expired",
-                 "refresh_absolute_expired", "refresh_reused" -> HttpStatus.UNAUTHORIZED;
+                 "refresh_absolute_expired", "refresh_reused", "chat_user_required" -> HttpStatus.UNAUTHORIZED;
             case "validation_error" -> HttpStatus.BAD_REQUEST;
             // 公开问答关闭时端点等同于不存在（不暴露「曾经开放过」的信息）
             case "rag_public_disabled" -> HttpStatus.NOT_FOUND;
+            // 会话不存在/非本人：统一 404（防枚举，design-11 §10）
+            case "chat_conversation_not_found" -> HttpStatus.NOT_FOUND;
             // 限流：429 而非 400，便于调用方区分「参数错」与「太频繁」
             case "rag_rate_limited", "auth_rate_limited" -> HttpStatus.TOO_MANY_REQUESTS;
             default -> HttpStatus.BAD_REQUEST;

@@ -4,7 +4,6 @@ import com.mindora.common.api.ApiResponse;
 import com.mindora.common.exception.BusinessException;
 import com.mindora.rag.api.web.RagAnswerViews.CitationView;
 import com.mindora.rag.api.web.RagAnswerViews.RagAnswerView;
-import com.mindora.rag.application.ChatConversationService;
 import com.mindora.rag.application.ConversationTurns;
 import com.mindora.rag.application.RagAnswerService;
 import com.mindora.rag.application.port.RagAdapters.CallerIdentityPort;
@@ -53,7 +52,6 @@ public class PublicRagController {
     private static final long STREAM_TIMEOUT_BUFFER_MILLIS = 30_000L;
 
     private final RagAnswerService service;
-    private final ChatConversationService conversations;
     private final ConversationTurns conversationTurns;
     private final RateLimitPort rateLimiter;
     private final CallerIdentityPort callerIdentity;
@@ -65,7 +63,6 @@ public class PublicRagController {
 
     public PublicRagController(
             RagAnswerService service,
-            ChatConversationService conversations,
             ConversationTurns conversationTurns,
             RateLimitPort rateLimiter,
             CallerIdentityPort callerIdentity,
@@ -75,7 +72,6 @@ public class PublicRagController {
             @Value("${mindora.rag.public.rate-limit.logged-in-per-minute:20}") int loggedInPerMinute,
             @Value("${mindora.rag.chat.timeout-ms:15000}") long chatTimeoutMillis) {
         this.service = service;
-        this.conversations = conversations;
         this.conversationTurns = conversationTurns;
         this.rateLimiter = rateLimiter;
         this.callerIdentity = callerIdentity;
@@ -301,68 +297,6 @@ public class PublicRagController {
 
     /** 公开问答请求体：query + 可选 conversationId（登录用户续聊用），没有 scope/topK 等调试旋钮。 */
     public record PublicRagRequestView(String query, String conversationId) {
-    }
-
-    // ---------------------------------------------------------------------
-    // 会话历史（登录用户；匿名得到空列表/404 语义，不新增安全配置——见方案 §2.2）
-    // ---------------------------------------------------------------------
-
-    /** 会话列表（登录用户的未删会话，按最近消息倒序；匿名返回空列表，不 401）。 */
-    @org.springframework.web.bind.annotation.GetMapping("/conversations")
-    public ApiResponse<List<ConversationView>> conversations() {
-        String userId = callerIdentity.currentUserId().orElse(null);
-        if (userId == null || userId.isBlank()) {
-            return ApiResponse.success(List.of(), UUID.randomUUID().toString());
-        }
-        List<ConversationView> views = conversations.listConversations(userId).stream()
-                .map(item -> new ConversationView(
-                        item.id(), item.title(), item.messageCount(),
-                        item.lastMessageAt() == null ? null : item.lastMessageAt().toEpochMilli(),
-                        item.createdAt() == null ? null : item.createdAt().toEpochMilli()))
-                .toList();
-        return ApiResponse.success(views, UUID.randomUUID().toString());
-    }
-
-    /** 会话完整消息（恢复对话）。匿名或非本人统一 404 语义（chat_conversation_not_found）。 */
-    @org.springframework.web.bind.annotation.GetMapping("/conversations/{id}/messages")
-    public ApiResponse<ConversationDetailView> conversationMessages(
-            @org.springframework.web.bind.annotation.PathVariable("id") String id) {
-        ChatConversationService.ConversationDetail detail =
-                conversations.detail(id, requireUser("chat_conversation_not_found"));
-        return ApiResponse.success(new ConversationDetailView(
-                detail.id(),
-                detail.title(),
-                detail.messages().stream()
-                        .map(message -> new StoredMessageView(message.role(), message.content(), message.createdAtMillis()))
-                        .toList()),
-                UUID.randomUUID().toString());
-    }
-
-    /** 软删会话（消息保留、不可见）。 */
-    @org.springframework.web.bind.annotation.DeleteMapping("/conversations/{id}")
-    public ApiResponse<Void> deleteConversation(
-            @org.springframework.web.bind.annotation.PathVariable("id") String id) {
-        conversations.deleteConversation(id, requireUser("chat_conversation_not_found"));
-        return ApiResponse.success(null, UUID.randomUUID().toString());
-    }
-
-    /** 会话端点要求登录：匿名抛业务错误（HTTP 401 语义由全局异常映射承担）。 */
-    private String requireUser(String code) {
-        String userId = callerIdentity.currentUserId().orElse(null);
-        if (userId == null || userId.isBlank()) {
-            throw new BusinessException(code, "Conversation requires a logged-in user");
-        }
-        return userId;
-    }
-
-    public record ConversationView(
-            String id, String title, int messageCount, Long lastMessageAt, Long createdAt) {
-    }
-
-    public record StoredMessageView(String role, String content, long createdAt) {
-    }
-
-    public record ConversationDetailView(String id, String title, List<StoredMessageView> messages) {
     }
 
     /** 增量文本事件（0..n 次）。 */

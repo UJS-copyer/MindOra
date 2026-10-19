@@ -46,6 +46,8 @@ public class SecurityConfiguration {
                                 "/error")
                         .permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")
+                        // 会话属于账号：/api/v1/rag/** 只要求登录（不要求管理员）
+                        .requestMatchers("/api/v1/rag/**").authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(bearerTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

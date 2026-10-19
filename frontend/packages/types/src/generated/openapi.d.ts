@@ -561,23 +561,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/tags": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["tags"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/rag/conversations": {
+    "/api/v1/rag/conversations": {
         parameters: {
             query?: never;
             header?: never;
@@ -593,7 +577,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/rag/conversations/{id}/messages": {
+    "/api/v1/rag/conversations/{id}/messages": {
         parameters: {
             query?: never;
             header?: never;
@@ -601,6 +585,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["conversationMessages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["tags"];
         put?: never;
         post?: never;
         delete?: never;
@@ -833,7 +833,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/rag/conversations/{id}": {
+    "/api/v1/rag/conversations/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1347,14 +1347,6 @@ export interface components {
         ArticleKnowledgeRequest: {
             enabled?: boolean;
         };
-        ApiResponseListTagView: {
-            code?: string;
-            message?: string;
-            data?: components["schemas"]["TagView"][];
-            traceId?: string;
-            /** Format: date-time */
-            createdAt?: string;
-        };
         ApiResponseListConversationView: {
             code?: string;
             message?: string;
@@ -1391,6 +1383,14 @@ export interface components {
             content?: string;
             /** Format: int64 */
             createdAt?: number;
+        };
+        ApiResponseListTagView: {
+            code?: string;
+            message?: string;
+            data?: components["schemas"]["TagView"][];
+            traceId?: string;
+            /** Format: date-time */
+            createdAt?: string;
         };
         ApiResponseMapStringString: {
             code?: string;
@@ -2857,28 +2857,6 @@ export interface operations {
             };
         };
     };
-    tags: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-Trace-Id"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListTagView"];
-                };
-            };
-        };
-    };
     conversations: {
         parameters: {
             query?: never;
@@ -2917,6 +2895,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseConversationDetailView"];
+                };
+            };
+        };
+    };
+    tags: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Trace-Id"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListTagView"];
                 };
             };
         };
