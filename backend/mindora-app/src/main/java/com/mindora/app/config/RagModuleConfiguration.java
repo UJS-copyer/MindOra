@@ -6,6 +6,7 @@ import com.mindora.rag.application.AnswerCitationValidator;
 import com.mindora.rag.application.ChatConversationService;
 import com.mindora.rag.application.ContextAssembler;
 import com.mindora.rag.application.ConversationMemoryAssembler;
+import com.mindora.rag.application.ConversationTurns;
 import com.mindora.rag.application.RagAnswerService;
 import com.mindora.rag.api.web.RagStreamTaskExecutor;
 import com.mindora.rag.application.port.RagAdapters.CallerIdentityPort;
@@ -138,6 +139,15 @@ public class RagModuleConfiguration {
             ChatConversationRepository chatConversationRepository,
             ConversationMemoryAssembler memoryAssembler) {
         return new ChatConversationService(chatConversationRepository, memoryAssembler, Clock.systemUTC());
+    }
+
+    /** 公开 / 管理端共用的会话组件（3.6b b1）：解析记忆窗口 + 终态落库。 */
+    @Bean
+    @ConditionalOnMissingBean
+    ConversationTurns conversationTurns(
+            ChatConversationService chatConversationService,
+            CallerIdentityPort callerIdentityPort) {
+        return new ConversationTurns(chatConversationService, callerIdentityPort);
     }
 
     /**

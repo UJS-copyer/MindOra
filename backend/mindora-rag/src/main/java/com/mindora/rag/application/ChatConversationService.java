@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 会话历史应用服务（Stage 3.5 T6）：记忆解析、终态落库、会话 CRUD，三职责一类。
@@ -56,17 +57,32 @@ public class ChatConversationService {
     /**
      * 解析请求会话的记忆窗口。
      *
+     * <p>与 {@link #resolveHistoryIfOwned} 的区别：这里把「不存在/非本人」压成空列表，
+     * 供只关心历史的调用方使用；需要区分「非法 id」与「合法但暂无历史」时用 Optional 版本。
+     *
      * @return 历史消息（可能为空）；会话不存在/非本人返回空（不抛错——调用方按无会话继续，
      *         沿用 design-11「非法 conversationId 按无会话处理」的契约）
      */
     public List<ChatMessage> resolveHistory(String conversationId, String userId) {
+        return resolveHistoryIfOwned(conversationId, userId).orElse(List.of());
+    }
+
+    /**
+     * 解析会话记忆窗口，并保留「是否归属当前用户」的信息。
+     *
+     * @return 合法会话返回历史（可能为空）；不存在/非本人/入参为空返回 {@code Optional.empty()}
+     */
+    public Optional<List<ChatMessage>> resolveHistoryIfOwned(
+            String conversationId, String userId) {
         if (isBlank(conversationId) || isBlank(userId)) {
-            return List.of();
+            return Optional.empty();
         }
         if (!repository.existsForUser(conversationId, userId)) {
-            return List.of();
+            return Optional.empty();
         }
-        return memoryAssembler.assemble(repository.recentMessages(conversationId, userId, maxWindowMessages()));
+        return Optional.of(
+                memoryAssembler.assemble(
+                        repository.recentMessages(conversationId, userId, maxWindowMessages())));
     }
 
     /**

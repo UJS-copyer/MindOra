@@ -5,6 +5,7 @@ import com.mindora.common.exception.BusinessException;
 import com.mindora.rag.api.web.RagAnswerViews.CitationView;
 import com.mindora.rag.api.web.RagAnswerViews.RagAnswerView;
 import com.mindora.rag.application.ChatConversationService;
+import com.mindora.rag.application.ConversationTurns;
 import com.mindora.rag.application.RagAnswerService;
 import com.mindora.rag.application.port.RagAdapters.CallerIdentityPort;
 import com.mindora.rag.application.port.RagAdapters.ChatMessage;
@@ -53,6 +54,7 @@ public class PublicRagController {
 
     private final RagAnswerService service;
     private final ChatConversationService conversations;
+    private final ConversationTurns conversationTurns;
     private final RateLimitPort rateLimiter;
     private final CallerIdentityPort callerIdentity;
     private final RagStreamTaskExecutor streamExecutor;
@@ -64,6 +66,7 @@ public class PublicRagController {
     public PublicRagController(
             RagAnswerService service,
             ChatConversationService conversations,
+            ConversationTurns conversationTurns,
             RateLimitPort rateLimiter,
             CallerIdentityPort callerIdentity,
             RagStreamTaskExecutor streamExecutor,
@@ -73,6 +76,7 @@ public class PublicRagController {
             @Value("${mindora.rag.chat.timeout-ms:15000}") long chatTimeoutMillis) {
         this.service = service;
         this.conversations = conversations;
+        this.conversationTurns = conversationTurns;
         this.rateLimiter = rateLimiter;
         this.callerIdentity = callerIdentity;
         this.streamExecutor = streamExecutor;
@@ -90,11 +94,11 @@ public class PublicRagController {
             @RequestHeader(value = "X-Trace-Id", required = false) String traceId) {
         String query = validatedQuery(request);
         applyRateLimit(httpRequest);
-        ConversationContext conversation = resolveConversation(request);
+        ConversationTurns.Resolved conversation = resolveConversation(request);
         long startedAt = System.currentTimeMillis();
         RagAnswerOutcome outcome = service.answer(answerRequest(query, conversation.history()));
         // 落库并取回会话 id：新会话（请求未带 id）在此诞生，随响应透出给前端续聊
-        String effectiveConversationId = recordTurnQuietly(conversation.requestedId(), query, outcome);
+        String effectiveConversationId = conversationTurns.recordQuietly(conversation, query, outcome);
         RagAccessLog.log(
                 "public",
                 "public",
@@ -128,7 +132,7 @@ public class PublicRagController {
             HttpServletRequest httpRequest) {
         String query = validatedQuery(request);
         applyRateLimit(httpRequest);
-        ConversationContext conversation = resolveConversation(request);
+        ConversationTurns.Resolved conversation = resolveConversation(request);
         SseEmitter emitter = new SseEmitter(chatTimeoutMillis + STREAM_TIMEOUT_BUFFER_MILLIS);
         long startedAt = System.currentTimeMillis();
         long[] firstDeltaAt = {0L};
@@ -145,7 +149,7 @@ public class PublicRagController {
     private void runStream(
             SseEmitter emitter,
             String query,
-            ConversationContext conversation,
+            ConversationTurns.Resolved conversation,
             HttpServletRequest httpRequest,
             long startedAt,
             long[] firstDeltaAt) {
@@ -153,7 +157,7 @@ public class PublicRagController {
         String refusalReason = null;
         String chatModel = null;
         int citationCount = 0;
-        String effectiveConversationId = conversation.effectiveId();
+        String effectiveConversationId = conversationTurns.effectiveId(conversation);
         try {
             Consumer<String> userDelta = text -> {
                 if (firstDeltaAt[0] == 0L) {
@@ -167,7 +171,7 @@ public class PublicRagController {
             refusalReason = reasonOf(outcome);
             status = statusOf(outcome);
             // 终态落库（登录用户）：在 done 事件之前完成，保证新会话 id 能随 done 透出
-            effectiveConversationId = recordTurn(conversation.requestedId(), query, outcome);
+            effectiveConversationId = conversationTurns.recordQuietly(conversation, query, outcome);
             for (Citation citation : outcome.citations()) {
                 send(emitter, new CitationEvent("citation", RagAnswerViews.ofCitation(citation)));
             }
@@ -219,45 +223,8 @@ public class PublicRagController {
      * 会话上下文解析：登录用户带合法 conversationId 时取记忆窗口；匿名/非法一律按无会话
      * （design-11 契约：非法 conversationId 不报错）。解析失败不阻断问答。
      */
-    private ConversationContext resolveConversation(PublicRagRequestView request) {
-        String userId = callerIdentity.currentUserId().orElse(null);
-        String requestedId = request == null ? null : request.conversationId();
-        if (userId == null || userId.isBlank()) {
-            return ConversationContext.anonymous();
-        }
-        try {
-            List<ChatMessage> history = conversations.resolveHistory(requestedId, userId);
-            return new ConversationContext(requestedId, history, requestedId);
-        } catch (RuntimeException exception) {
-            // 会话解析失败不阻断问答：按无会话继续（与「非法值按无会话处理」同一豁免语义）
-            return new ConversationContext(requestedId, List.of(), null);
-        }
-    }
-
-    /** 同步路径落库；失败不影响响应（记录靠 warn——单实例下落库失败是环境问题，不该吞掉可见性）。 */
-    private String recordTurnQuietly(String requestedId, String query, RagAnswerOutcome outcome) {
-        try {
-            return recordTurn(requestedId, query, outcome);
-        } catch (RuntimeException exception) {
-            org.slf4j.LoggerFactory.getLogger(PublicRagController.class)
-                    .warn("会话落库失败（不影响问答响应）：{}", exception.getMessage());
-            return null;
-        }
-    }
-
-    private String recordTurn(String requestedId, String query, RagAnswerOutcome outcome) {
-        String userId = callerIdentity.currentUserId().orElse(null);
-        if (userId == null || userId.isBlank()) {
-            return null;
-        }
-        return conversations.recordTurn(requestedId, userId, query, outcome);
-    }
-
-    /** 会话解析结果：requestedId=请求带来的 id；history=记忆窗口；anonymous 时三者皆空。 */
-    private record ConversationContext(String requestedId, List<ChatMessage> history, String effectiveId) {
-        static ConversationContext anonymous() {
-            return new ConversationContext(null, List.of(), null);
-        }
+    private ConversationTurns.Resolved resolveConversation(PublicRagRequestView request) {
+        return conversationTurns.resolve(request == null ? null : request.conversationId());
     }
 
     private static String statusOf(RagAnswerOutcome outcome) {
