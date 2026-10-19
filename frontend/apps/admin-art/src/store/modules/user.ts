@@ -27,6 +27,7 @@
  * - 使用 localStorage 存储
  * - 存储键：sys-v{version}-user
  * - 登出时自动清理
+ * - **不持久化任何令牌**：Access Token 只在内存（见 utils/auth/session.ts）
  *
  * @module store/modules/user
  * @author Art Design Pro Team
@@ -42,6 +43,7 @@ import { setPageTitle } from '@/utils/router'
 import { resetRouterState } from '@/router/guards/beforeEach'
 import { useMenuStore } from './menu'
 import { StorageConfig } from '@/utils/storage/storage-config'
+import { clearSession, logoutSession } from '@/utils/auth/http-transport'
 import type { components } from '@mindora/types'
 
 type AdminUserInfo = components['schemas']['AdminUserView']
@@ -65,10 +67,6 @@ export const useUserStore = defineStore(
     const info = ref<Partial<AdminUserInfo>>({})
     // 搜索历史记录
     const searchHistory = ref<AppRouteRecord[]>([])
-    // 访问令牌
-    const accessToken = ref('')
-    // 刷新令牌
-    const refreshToken = ref('')
 
     // 计算属性：获取用户信息
     const getUserInfo = computed(() => info.value)
@@ -131,23 +129,15 @@ export const useUserStore = defineStore(
     }
 
     /**
-     * 设置令牌
-     * @param newAccessToken 访问令牌
-     * @param newRefreshToken 刷新令牌（可选）
-     */
-    const setToken = (newAccessToken: string, newRefreshToken?: string) => {
-      accessToken.value = newAccessToken
-      if (newRefreshToken) {
-        refreshToken.value = newRefreshToken
-      }
-    }
-
-    /**
      * 退出登录
-     * 清空所有用户相关状态并跳转到登录页
+     * 通知后端撤销刷新令牌（幂等），清空内存令牌与用户相关状态，并跳转到登录页
      * 如果是同一账号重新登录，保留工作台标签页
      */
     const logOut = () => {
+      // 通知后端结束会话；失败也不阻塞本地清理
+      void logoutSession()
+      clearSession()
+
       // 保存当前用户 ID，用于下次登录时判断是否为同一用户
       const currentUserId = info.value.userId
       if (currentUserId) {
@@ -162,10 +152,6 @@ export const useUserStore = defineStore(
       isLock.value = false
       // 清空锁屏密码
       lockPassword.value = ''
-      // 清空访问令牌
-      accessToken.value = ''
-      // 清空刷新令牌
-      refreshToken.value = ''
       // 注意：不清空工作台标签页，等下次登录时根据用户判断
       // 移除iframe路由缓存
       sessionStorage.removeItem('iframeRoutes')
@@ -217,8 +203,6 @@ export const useUserStore = defineStore(
       lockPassword,
       info,
       searchHistory,
-      accessToken,
-      refreshToken,
       getUserInfo,
       getSettingState,
       getWorktabState,
@@ -229,7 +213,6 @@ export const useUserStore = defineStore(
       setSearchHistory,
       setLockStatus,
       setLockPassword,
-      setToken,
       logOut,
       checkAndClearWorktabs
     }

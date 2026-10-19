@@ -12,7 +12,12 @@
     "requestCancelled": "请求已取消",
     "networkError": "网络连接异常，请检查网络连接",
     "requestFailed": "请求失败",
-    "requestConfigError": "请求配置错误"
+    "requestConfigError": "请求配置错误",
+    "accountDisabled": "账号已被禁用，请联系管理员",
+    "sessionExpired": "登录已失效，请重新登录",
+    "noAdminPermission": "该账号无后台权限",
+    "invalidCredentials": "邮箱或密码错误",
+    "tooManyAttempts": "操作过于频繁，请稍后再试"
   },
   "topBar": {
     "search": {

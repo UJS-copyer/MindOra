@@ -27,8 +27,8 @@ import { $t } from '@/locales'
 
 // 错误响应接口
 export interface ErrorResponse {
-  /** 错误状态码 */
-  code: number
+  /** 错误状态码：后端成功码是字符串，HTTP 错误码是数字，这里两者都允许 */
+  code: number | string
   /** 错误消息 */
   msg: string
   message?: string
@@ -57,6 +57,8 @@ export interface ErrorLogData {
 // 自定义 HttpError 类
 export class HttpError extends Error {
   public readonly code: number
+  /** 后端响应体里的业务错误码（如 token_expired / account_disabled） */
+  public readonly businessCode?: string
   public readonly data?: unknown
   public readonly timestamp: string
   public readonly url?: string
@@ -67,6 +69,7 @@ export class HttpError extends Error {
     code: number,
     options?: {
       data?: unknown
+      businessCode?: string
       url?: string
       method?: string
     }
@@ -74,6 +77,7 @@ export class HttpError extends Error {
     super(message)
     this.name = 'HttpError'
     this.code = code
+    this.businessCode = options?.businessCode
     this.data = options?.data
     this.timestamp = new Date().toISOString()
     this.url = options?.url
@@ -94,11 +98,21 @@ export class HttpError extends Error {
 }
 
 /**
- * 获取错误消息
+ * 获取错误消息：业务码优先（后端 401/403/429 都带 code，比 HTTP 状态更具体）。
  * @param status 错误状态码
- * @returns 错误消息
+ * @param businessCode 后端响应体里的 code
  */
-const getErrorMessage = (status: number): string => {
+const getErrorMessage = (status: number, businessCode?: string): string => {
+  const businessMap: Record<string, string> = {
+    account_disabled: 'httpMsg.accountDisabled',
+    invalid_credentials: 'httpMsg.invalidCredentials',
+    access_denied: 'httpMsg.noAdminPermission',
+    auth_rate_limited: 'httpMsg.tooManyAttempts'
+  }
+  if (businessCode && businessMap[businessCode]) {
+    return $t(businessMap[businessCode])
+  }
+
   const errorMap: Record<number, string> = {
     [ApiStatus.unauthorized]: 'httpMsg.unauthorized',
     [ApiStatus.forbidden]: 'httpMsg.forbidden',
@@ -127,6 +141,8 @@ export function handleError(error: AxiosError<ErrorResponse>): never {
   }
 
   const statusCode = error.response?.status
+  const rawCode = error.response?.data?.code
+  const businessCode = typeof rawCode === 'string' ? rawCode : undefined
   const errorMessage = error.response?.data?.msg || error.response?.data?.message || error.message
   const requestConfig = error.config
 
@@ -138,12 +154,13 @@ export function handleError(error: AxiosError<ErrorResponse>): never {
     })
   }
 
-  // 处理 HTTP 状态码错误
+  // 处理 HTTP 状态码错误（业务码优先，见 getErrorMessage）
   const message = statusCode
-    ? getErrorMessage(statusCode)
+    ? getErrorMessage(statusCode, businessCode)
     : errorMessage || $t('httpMsg.requestFailed')
   throw new HttpError(message, statusCode || ApiStatus.error, {
     data: error.response.data,
+    businessCode,
     url: requestConfig?.url,
     method: requestConfig?.method?.toUpperCase()
   })

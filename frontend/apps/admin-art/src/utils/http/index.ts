@@ -4,33 +4,41 @@
  *
  * ## 主要功能
  *
- * - 请求/响应拦截器（自动添加 Token、统一错误处理）
- * - 401 未授权自动登出（带防抖机制）
+ * - 请求/响应拦截器（Bearer 令牌注入、401 单飞续期与重放、统一错误处理）
+ * - 会话失效时清理内存令牌并回到登录页（带防抖，避免并发请求重复提示）
  * - 请求失败自动重试（可配置）
  * - 统一的成功/错误消息提示
  * - 支持 GET/POST/PUT/DELETE 等常用方法
  *
+ * 登录态细节见 `docs/design-12-identity-and-token-lifecycle.md` §8：
+ * Access Token 只存内存，刷新页面靠 `/auth/refresh` 静默恢复。
+ *
  * @module utils/http
- * @author Art Design Pro Team
  */
 
 import axios, { AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { useUserStore } from '@/store/modules/user'
 import { ApiStatus } from './status'
 import { HttpError, handleError, showError, showSuccess } from './error'
+import { authRequestInterceptor, handleAuthError } from './auth-interceptors'
+import {
+  clearSession,
+  getAccessToken,
+  refreshAccessToken
+} from '@/utils/auth/http-transport'
 import { $t } from '@/locales'
 import { BaseResponse } from '@/types'
 
 /** 请求配置常量 */
 const REQUEST_TIMEOUT = 15000
-const LOGOUT_DELAY = 500
+const LOGOUT_DELAY = 300
 const MAX_RETRIES = 0
 const RETRY_DELAY = 1000
 const UNAUTHORIZED_DEBOUNCE_TIME = 3000
 
-/** 401防抖状态 */
-let isUnauthorizedErrorShown = false
-let unauthorizedTimer: NodeJS.Timeout | null = null
+/** 401 提示防抖状态：并发请求同时失效时只提示/跳转一次 */
+let isSessionLostHandled = false
+let sessionLostTimer: NodeJS.Timeout | null = null
 
 /** 扩展 AxiosRequestConfig */
 interface ExtendedAxiosRequestConfig extends AxiosRequestConfig {
@@ -61,19 +69,10 @@ const axiosInstance = axios.create({
   ]
 })
 
-/** 请求拦截器 */
+/** 请求拦截器：注入当前内存令牌（续期后的新令牌立即生效） */
 axiosInstance.interceptors.request.use(
-  (request: InternalAxiosRequestConfig) => {
-    const { accessToken } = useUserStore()
-    if (accessToken) request.headers.set('Authorization', accessToken)
-
-    if (request.data && !(request.data instanceof FormData) && !request.headers['Content-Type']) {
-      request.headers.set('Content-Type', 'application/json')
-      request.data = JSON.stringify(request.data)
-    }
-
-    return request
-  },
+  (request: InternalAxiosRequestConfig) =>
+    authRequestInterceptor(request, { getToken: getAccessToken }),
   (error) => {
     showError(createHttpError($t('httpMsg.requestConfigError'), ApiStatus.error))
     return Promise.reject(error)
@@ -86,12 +85,20 @@ axiosInstance.interceptors.response.use(
     const { code, msg, message } = response.data
     const responseMessage = msg || message || $t('httpMsg.requestFailed')
     if (code === 'success' || code === ApiStatus.success) return response
-    if (code === ApiStatus.unauthorized || code === 'unauthorized') handleUnauthorizedError(responseMessage)
     throw createHttpError(responseMessage, response.status || ApiStatus.error)
   },
-  (error) => {
-    if (error.response?.status === ApiStatus.unauthorized) handleUnauthorizedError()
-    return Promise.reject(handleError(error))
+  async (error) => {
+    try {
+      // 401 token_expired：单飞刷新并重放一次；其余 401 触发会话失效
+      return await handleAuthError(error, {
+        getToken: getAccessToken,
+        refreshToken: refreshAccessToken,
+        replay: (config) => axiosInstance.request(config),
+        onSessionLost: handleSessionLost
+      })
+    } catch {
+      return Promise.reject(handleError(error))
+    }
   }
 )
 
@@ -100,33 +107,29 @@ function createHttpError(message: string, code: number) {
   return new HttpError(message, code)
 }
 
-/** 处理401错误（带防抖） */
-function handleUnauthorizedError(message?: string): never {
-  const error = createHttpError(message || $t('httpMsg.unauthorized'), ApiStatus.unauthorized)
+/**
+ * 会话失效：清空内存令牌 + 提示一次 + 回登录页。
+ * 并发请求同时 401 时用 3 秒防抖避免重复弹窗与重复跳转。
+ */
+function handleSessionLost(code: string): void {
+  if (isSessionLostHandled) return
+  isSessionLostHandled = true
 
-  if (!isUnauthorizedErrorShown) {
-    isUnauthorizedErrorShown = true
-    logOut()
+  clearSession()
+  const message =
+    code === 'account_disabled'
+      ? $t('httpMsg.accountDisabled')
+      : $t('httpMsg.sessionExpired')
+  showError(createHttpError(message, ApiStatus.unauthorized), true)
 
-    unauthorizedTimer = setTimeout(resetUnauthorizedError, UNAUTHORIZED_DEBOUNCE_TIME)
+  sessionLostTimer = setTimeout(() => {
+    isSessionLostHandled = false
+    if (sessionLostTimer) clearTimeout(sessionLostTimer)
+    sessionLostTimer = null
+  }, UNAUTHORIZED_DEBOUNCE_TIME)
 
-    showError(error, true)
-    throw error
-  }
-
-  throw error
-}
-
-/** 重置401防抖状态 */
-function resetUnauthorizedError() {
-  isUnauthorizedErrorShown = false
-  if (unauthorizedTimer) clearTimeout(unauthorizedTimer)
-  unauthorizedTimer = null
-}
-
-/** 退出登录函数 */
-function logOut() {
   setTimeout(() => {
+    // 清理本地状态并回登录页（logOut 内部会 best-effort 通知后端撤销刷新令牌）
     useUserStore().logOut()
   }, LOGOUT_DELAY)
 }
@@ -185,6 +188,7 @@ async function request<T = any>(config: ExtendedAxiosRequestConfig): Promise<T> 
 
     return res.data.data as T
   } catch (error) {
+    // 401 已由会话失效逻辑统一提示；其余错误按配置提示
     if (error instanceof HttpError && error.code !== ApiStatus.unauthorized) {
       const showMsg = config.showErrorMessage !== false
       showError(error, showMsg)

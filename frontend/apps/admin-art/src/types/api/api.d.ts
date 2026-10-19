@@ -41,7 +41,7 @@ declare global {
 
     namespace Auth {
       type LoginParams = AuthRequest
-      type LoginResponse = AuthView & { refreshToken?: string }
+      type LoginResponse = AuthView
       type UserInfo = AdminUserView
     }
 

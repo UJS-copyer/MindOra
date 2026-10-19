@@ -12,7 +12,12 @@
     "requestCancelled": "Request cancelled",
     "networkError": "Network connection error, please check your connection",
     "requestFailed": "Request failed",
-    "requestConfigError": "Request configuration error"
+    "requestConfigError": "Request configuration error",
+    "accountDisabled": "This account has been disabled. Contact the administrator.",
+    "sessionExpired": "Your session has expired. Please sign in again.",
+    "noAdminPermission": "This account has no admin access.",
+    "invalidCredentials": "Incorrect email or password.",
+    "tooManyAttempts": "Too many attempts. Please try again later."
   },
   "topBar": {
     "search": {

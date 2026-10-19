@@ -101,8 +101,9 @@
   import { useI18n } from 'vue-i18n'
   import { HttpError } from '@/utils/http/error'
   import { fetchLogin } from '@/api/auth'
-  import { ElNotification, type FormInstance, type FormRules } from 'element-plus'
+  import { ElMessage, ElNotification, type FormInstance, type FormRules } from 'element-plus'
   import { useSettingStore } from '@/store/modules/setting'
+  import { setAccessToken } from '@/utils/auth/http-transport'
 
   defineOptions({ name: 'Login' })
 
@@ -140,8 +141,22 @@
 
   const loading = ref(false)
 
+  /** 登录失败的中文提示：按后端业务码区分「凭据错 / 账号禁用 / 太频繁」。 */
+  const loginErrorMessage = (error: HttpError): string => {
+    switch (error.businessCode) {
+      case 'invalid_credentials':
+        return t('httpMsg.invalidCredentials')
+      case 'account_disabled':
+        return t('httpMsg.accountDisabled')
+      case 'auth_rate_limited':
+        return t('httpMsg.tooManyAttempts')
+      default:
+        return error.message
+    }
+  }
+
   onMounted(() => {
-    formData.password = 'Admin123!'
+    // 不在源码里硬编码任何账号密码
     isPassing.value = true
   })
 
@@ -175,9 +190,9 @@
         throw new Error('Login failed - no token received')
       }
 
-      // 只保存认证结果，用户角色、按钮权限和菜单由路由守卫从后端加载。
+      // 只保存认证结果（内存令牌），用户角色、按钮权限和菜单由路由守卫从后端加载。
       userStore.clearUserInfo()
-      userStore.setToken(accessToken)
+      setAccessToken(accessToken)
       userStore.setLoginStatus(true)
 
       // 登录成功处理
@@ -191,12 +206,10 @@
           : '/content/articles'
       await router.push(targetPath)
     } catch (error) {
-      // 处理 HttpError
       if (error instanceof HttpError) {
-        // console.log(error.code)
+        // 登录接口的 401/429 不触发全局登出，在这里给出具体原因
+        ElMessage.error(loginErrorMessage(error))
       } else {
-        // 处理非 HttpError
-        // ElMessage.error('登录失败，请稍后重试')
         console.error('[Login] Unexpected error:', error)
       }
     } finally {

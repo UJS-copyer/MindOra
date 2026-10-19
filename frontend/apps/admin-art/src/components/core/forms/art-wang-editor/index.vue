@@ -21,7 +21,7 @@
   import '@wangeditor/editor/dist/css/style.css'
   import { onBeforeUnmount, onMounted, shallowRef, computed } from 'vue'
   import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
-  import { useUserStore } from '@/store/modules/user'
+  import { getAccessToken } from '@/utils/auth/http-transport'
   import EmojiText from '@/utils/ui/emojo'
   import { IDomEditor, IToolbarConfig, IEditorConfig } from '@wangeditor/editor'
   import request from '@/utils/http'
@@ -68,7 +68,8 @@
 
   // 编辑器实例
   const editorRef = shallowRef<IDomEditor>()
-  const userStore = useUserStore()
+  // 上传头在每次上传前重建：Access Token 只在内存且会续期，不能存快照
+  const uploadHeaders: Record<string, string> = { Authorization: '' }
 
   // 常量配置
   const DEFAULT_UPLOAD_CONFIG = {
@@ -121,8 +122,10 @@
         maxNumberOfFiles: mergedUploadConfig.value.maxNumberOfFiles,
         allowedFileTypes: mergedUploadConfig.value.allowedFileTypes,
         server: uploadServer.value,
-        headers: {
-          Authorization: userStore.accessToken
+        headers: uploadHeaders,
+        onBeforeUpload: () => {
+          uploadHeaders.Authorization = `Bearer ${getAccessToken()}`
+          return true
         },
         onSuccess() {
           ElMessage.success(`图片上传成功 ${EmojiText[200]}`)
@@ -146,8 +149,7 @@
           url: props.uploadConfig?.server,
           data: formData,
           headers: {
-            'Content-Type':'multipart/form-data',
-            Authorization: userStore.accessToken
+            'Content-Type':'multipart/form-data'
           }
         })
 

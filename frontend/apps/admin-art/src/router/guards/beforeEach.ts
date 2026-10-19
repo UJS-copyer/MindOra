@@ -52,6 +52,11 @@ import { fetchGetUserInfo } from '@/api/auth'
 import { ApiStatus } from '@/utils/http/status'
 import { isHttpError } from '@/utils/http/error'
 import { RouteRegistry, MenuProcessor, IframeRouteManager, RoutePermissionValidator } from '../core'
+import {
+  clearSession,
+  ensureSessionBootstrapped,
+  isAuthenticated
+} from '@/utils/auth/http-transport'
 
 // 路由注册器实例
 let routeRegistry: RouteRegistry | null = null
@@ -145,6 +150,11 @@ async function handleRouteGuard(
 ): Promise<void> {
   const settingStore = useSettingStore()
   const userStore = useUserStore()
+
+  // 0. 静默续期：刷新页面后用 HttpOnly 刷新令牌 Cookie 换新的 Access Token。
+  //    必须早于「是否登录」的判断，否则一刷新就会被误踢回登录页。
+  await ensureSessionBootstrapped()
+  userStore.setLoginStatus(isAuthenticated())
 
   // 启动进度条
   if (settingStore.showNprogress) {
@@ -348,7 +358,7 @@ async function handleDynamicRoutes(
       const userStore = useUserStore()
       userStore.clearUserInfo()
       userStore.setLoginStatus(false)
-      userStore.setToken('')
+      clearSession()
       resetRouterState(0)
       next({
         name: 'Login',
