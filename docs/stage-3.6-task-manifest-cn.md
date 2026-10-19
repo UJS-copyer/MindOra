@@ -1,7 +1,7 @@
 # Stage 3.6 阶段文档：身份地基与会话域统一
 
 > 一句话用途：记录本阶段的**设计目标（Spec）**与**实现进展**，作为实施与验收的唯一台账。
-> 维护日期：2026-10-19　状态：**3.6a 批次①–④已实施；3.6b 批次⑤（b1 + b2）已实施，b3–b4 未开始**
+> 维护日期：2026-10-19　状态：**已完成**（3.6a 批次①–④、3.6b 批次⑤–⑥ 全部实施并验收）
 
 > **范围重定说明**：本阶段原定「管理端流式问答工作台」。2026-10-18 产品评审后重定：
 > 站长与访客视为**同一类用户**，差别只在「能查多大范围」；管理端**不做聊天 UI**；会话历史归**账号**。
@@ -101,7 +101,7 @@
 | ⑤ | b1 + b2 | `ConversationTurns` 抽取（公开端点测试原样全绿）+ 管理端问答落库并回传 id | 1–1.5 天 |
 | ⑥ | b3 + b4 | 会话 CRUD 走新路径、他人 404、`persist=false` 不写、范围按入口校验 | 1 天 |
 
-> 进度（2026-10-19）：对话 ①–⑤ 已完成，⑥ 未开始。
+> 进度（2026-10-19）：对话 ①–⑥ 全部完成，Stage 3.6 收口。
 
 为什么这样切：
 
@@ -262,9 +262,41 @@ npm run api:sync && npm run api:check
 - 管理端 `scope` 仍只做缺省值填充，未限制取值（b4）。
 - 本批不产出管理端界面（界面归 4.3 复测台）。
 
-### 7.6 尚未开始
+### 7.6 批次⑥（3.6b b3 + b4）已完成（2026-10-19）
 
-| 项 | 状态 |
-| --- | --- |
-| b3 会话 CRUD 迁移到 `/api/v1/rag/conversations*`（登录态、他人 404、旧路径删除） | ⬜ 未开始 |
-| b4 `scope` 上限按入口（公开固定 public；管理端仅 all/public 且要求 SUPER_ADMIN） | ⬜ 未开始 |
+**b3 会话 CRUD 迁移**
+
+- 新增 `RagConversationController`：`GET /api/v1/rag/conversations`、`GET /api/v1/rag/conversations/{id}/messages`、`DELETE /api/v1/rag/conversations/{id}`；登录态、按 `userId` 行级隔离，他人/不存在统一 404。
+- 公开控制器删除三端点、三个视图与 `ChatConversationService` 依赖；`/api/v1/rag/**` 在安全链显式要求登录。
+- 语义修正：列表匿名由「返回空」改为 401 `token_missing`；`chat_conversation_not_found` 映射 404、`chat_user_required` 映射 401。
+
+**b4 scope 白名单**
+
+- 管理端 `scope` 仅接受 `all`/`public`（trim 后严格匹配），非法值在触达领域服务前返回 400 `rag_scope_invalid`；公开入口仍无 scope 字段（客户端传入被忽略）。
+
+**验证（真实执行）**
+
+- 新增 `RagConversationControllerTest` 5 项、`RagAdminScopeTest` 5 项；全量后端 `mvn test` **BUILD SUCCESS**（app 模块 72 项、rag 模块 106 项，0 失败）。
+- `npm run api:sync` + `api:check` 通过；OpenAPI 旧会话路径已消失、新路径 3 个。
+- 实机 curl：新路径列表/详情正常；匿名 401 `token_missing`；旧路径 404；USER 访问他人会话详情/删除均 404；USER 调管理端 403 `access_denied`；`scope=secret` 400；`scope=public` 200；`persist=false` 不写库；验收会话已清理。
+
+### 7.7 Stage 3.6 最终收口（2026-10-19）
+
+**全量门禁**
+
+- 后端：`mvn test` BUILD SUCCESS（app 72、rag 106，其余模块全过）。
+- 前端：admin-art 11 项、site 40 项单测全过；`typecheck`、`lint`、admin-art `build` 全绿。
+- 契约：`api:sync` 后 `api:check` 通过。
+
+**§5 五条实机路径（Chromium + curl）**
+
+1. **登录 → 静默续期**：后端 `access-ttl=15s`；登录后 F5 仍停留原页；等过期后访问 `/#/system/user` 成功（401 → 单飞刷新 → 重放）。
+2. **登出 = 全端失效**：标签 A 调用登出后，标签 B 下一次数据导航被拦回 `/#/auth/login?redirect=...`。
+3. **禁用即时生效**：测试账号置 disabled 后，同一 Access Token 的下一请求返回 401 `account_disabled`；恢复后 200。
+4. **多标签不互踢**：两个标签页在令牌过期后分别导航，均保持登录（60 秒宽限 + 前端单飞）。
+5. **会话归属**：管理端问答产生会话；新路径列表/详情正常；他人 token 404；`persist=false` 不写；旧公开路径 404。
+
+**收口状态**
+
+- Stage 3.6 标记完成；`stage/3.6` 标签随收口提交打上。
+- 已知限制：开发库残留批次④/⑥验收用的普通账号与测试数据；4.7 公开站登录与会话 UI 尚未开始。

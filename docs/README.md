@@ -2,7 +2,7 @@
 
 > **这是 MindOra 项目文档的唯一主入口。**  
 > 本文档负责记录项目的整体架构定位、当前开发进度总览，并通过链接分阶段直达各阶段详细文档。  
-> 最近维护日期：2026-10-17
+> 最近维护日期：2026-10-19
 
 ---
 
@@ -46,7 +46,7 @@
 | **Stage 3.3** | **切片修复、评测基线与生成层** | ✅ 已完成 | 修复切片器逐字塌缩 Bug，建立 323 条黄金问答自动化评测基线（Hit@8 90%+），通义千问 30B 问答生成与严格引用溯源。 | [stage-3.3-task-manifest-cn.md](stage-3.3-task-manifest-cn.md) |
 | **Stage 3.4** | **公开问答闭环与流式交互** | ✅ 已完成 | 前台免登录公开问答（`/chat`），Redis 访问限流与敏感信息过滤，SSE 打字机增量流式出字，章节级引用点击跳回原文。 | [stage-3.4-task-manifest-cn.md](stage-3.4-task-manifest-cn.md) |
 | **Stage 3.5** | **会话历史与多轮对话记忆** | ✅ 后端完成 | 滑动窗口多轮记忆（4轮/3000 Token），MySQL 会话持久化；前台保持极简。会话历史归**账号**（公开站登录后可见，暂记 4.7），管理端不做聊天界面。 | [stage-3.5-task-manifest-cn.md](stage-3.5-task-manifest-cn.md) |
-| **Stage 3.6** | **身份地基与会话域统一** | 🚧 **3.6a 完成；3.6b 批次⑤完成** | 批次①–④：同源化、V9 令牌表、JJWT 双令牌（`exp`/`tv`）、启动期密钥强校验、refresh/logout/me 与统一 401/403、禁用即时生效与认证限流、管理端内存令牌/静默续期/登出。批次⑤：`ConversationTurns` 共享组件、管理端问答接入记忆与落库（`persist`）。下一步 b3–b4（CRUD 收归用户域、scope 按入口）。 | [stage-3.6-task-manifest-cn.md](stage-3.6-task-manifest-cn.md) |
+| **Stage 3.6** | **身份地基与会话域统一** | ✅ **已完成（2026-10-19）** | 3.6a：同源化、V9 令牌表、JJWT 双令牌（`exp`/`tv`）、启动期密钥强校验、refresh/logout/me 与统一 401/403、禁用即时生效与认证限流、管理端内存令牌/静默续期/登出。3.6b：`ConversationTurns` 共享组件、管理端问答记忆与落库（`persist`）、会话 CRUD 收归 `/api/v1/rag/conversations*`、管理端 scope 白名单。 | [stage-3.6-task-manifest-cn.md](stage-3.6-task-manifest-cn.md) |
 | **Stage 3.7** | **条件化查询改写** | 📋 规划中 | 针对多轮追问中的代词与省略，仅在有历史上下文时由轻量模型改写检索 Query，增强连续对话下的召回准确率。 | [设计契约与规划](design-07-implementation-roadmap.md) |
 | **Stage 4** | **体验升级与质量闭环** | 📋 规划中 | 公开域收紧为已发布（4.1）→ 三态回答与后台提示词版本化（4.2）→ 问答记录与踩赞反馈（4.3）→ 容灾成本护栏（4.4）→ 运维监控（4.5）→ 关联文章提问（4.6）。 | [实施路线图](design-07-implementation-roadmap.md) |
 | **Stage 5** | **生产化上线门禁** | 📋 规划中 | 独立域名与 HTTPS、反代真实 IP 穿透限流、备份演练、隐私与免责声明、单实例维护窗口约束。 | [上线标准与就绪差距](design-07-implementation-roadmap.md) |

@@ -29,9 +29,9 @@ Stage 3.4 实现了单轮问答的流式交互，但用户无法基于上一轮�
 ## 3. 核心功能与接口一览
 
 - **公开问答会话透传**：`POST /api/v1/public/rag/answer` 及 `/stream`，请求体支持传入可选的 `conversationId`；首次创建会话时由服务端在终态事件中回传生成的会话 ID。
-- **获取我的会话列表**：`GET /api/v1/public/rag/conversations`，查询当前登录用户的所有未删除会话。
-- **获取会话完整消息**：`GET /api/v1/public/rag/conversations/{id}/messages`，加载指定会话的历史问答。
-- **删除指定会话**：`DELETE /api/v1/public/rag/conversations/{id}`，软删除指定的对话历史。
+- **获取我的会话列表**：`GET /api/v1/rag/conversations`（3.6b 起；原公开路径已删除），查询当前登录用户的所有未删除会话。
+- **获取会话完整消息**：`GET /api/v1/rag/conversations/{id}/messages`，加载指定会话的历史问答。
+- **删除指定会话**：`DELETE /api/v1/rag/conversations/{id}`，软删除指定的对话历史。
 
 ---
 

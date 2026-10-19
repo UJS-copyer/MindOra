@@ -254,17 +254,17 @@ REPEAT=3 node logs/rag-integration-check.mjs
 
 ---
 
-## 10. 公开问答端点（Stage 3.4 交付；Stage 3.5 扩展会话历史）
+## 10. 公开问答端点（Stage 3.4 交付；Stage 3.5 扩展会话历史；3.6b 会话 CRUD 迁移到用户域）
 
 | 端点 | 鉴权 | 请求体 | 说明 |
 | --- | --- | --- | --- |
 | `POST /api/v1/public/rag/answer` | 匿名/登录 | `query`（2~500 字）+ 可选 `conversationId` | 一次性返回 `answer` + `citations[]` + `refused/degraded` + `conversationId` |
 | `POST /api/v1/public/rag/answer/stream` | 匿名/登录 | 同上 | SSE，事件契约见 §12（done 事件含 `conversationId`） |
-| `GET /api/v1/public/rag/conversations` | 登录（匿名返回空列表） | — | 会话列表（未软删，按最近消息倒序） |
-| `GET /api/v1/public/rag/conversations/{id}/messages` | 登录 | — | 会话完整消息（恢复对话）；匿名/非本人 404 语义 |
-| `DELETE /api/v1/public/rag/conversations/{id}` | 登录 | — | 软删会话 |
+| `GET /api/v1/rag/conversations` | 登录（匿名 401） | — | 会话列表（未软删，按最近消息倒序） |
+| `GET /api/v1/rag/conversations/{id}/messages` | 登录 | — | 会话完整消息（恢复对话）；他人/不存在 404 |
+| `DELETE /api/v1/rag/conversations/{id}` | 登录 | — | 软删会话 |
 
-**Stage 3.5 会话语义**：登录用户带合法 `conversationId` 时注入记忆窗口（滑动窗口 + token 双约束，历史消息剥离 `[n]` 编号，不进本轮引用核验域）；终态（done/refused/degraded）落库 `chat_conversation`/`chat_message`（V8 迁移），新会话 id 随响应/done 事件**首次下发**，前端续聊携带；**匿名或非法 `conversationId` 按无会话处理**（不报错、响应字段为 null）——归属不匹配与不存在同为 404 语义，防枚举。详见 `docs/stage-3.5-task-manifest-cn.md`。
+**Stage 3.5 会话语义**：登录用户带合法 `conversationId` 时注入记忆窗口（滑动窗口 + token 双约束，历史消息剥离 `[n]` 编号，不进本轮引用核验域）；终态（done/refused/degraded）落库 `chat_conversation`/`chat_message`（V8 迁移），新会话 id 随响应/done 事件**首次下发**，前端续聊携带；**匿名或非法 `conversationId` 按无会话处理**（不报错、响应字段为 null）——归属不匹配与不存在同为 404 语义，防枚举。详见 `docs/stage-3.5-task-manifest-cn.md`。3.6b 起会话 CRUD 位于 `/api/v1/rag/conversations*`（登录态、按账号隔离），旧公开路径已删除。
 
 **三条硬性约束**：
 
@@ -438,7 +438,7 @@ refusal=… model=… latencyMs=… firstDeltaMs=… citations=… query=…（�
 三条配套规则：
 
 1. **管理端必须能按公开域复测**：`scope` 可选 `public`，用于「线上答不好的问题，在管理端用公开域重跑」。4.3 的同问题复测靠它，否则复测结论不可迁移（与 5.3 里 RAGNote 自己强调的坑同源）。
-2. **3.6 只做后端接入，不做聊天界面**（2026-10-18 决策）：管理端问答接入会话域（记忆 + 落库 + `persist` + 回传 `conversationId`），会话 CRUD 收归用户域 `/api/v1/rag/conversations*`；界面归 4.3 的复测台。会话历史的真正归宿是**账号**（4.7 公开站登录后复用同一套），管理端只是「私有域工具」。**已实施（3.6b b1/b2）**：`persist` 缺省 `true`，为 `false` 时只读历史不写库、合法续聊仍回显同一 id；非法/非本人 `conversationId` 归一为「无会话并创建新会话」，不再报错。
+2. **3.6 只做后端接入，不做聊天界面**（2026-10-18 决策）：管理端问答接入会话域（记忆 + 落库 + `persist` + 回传 `conversationId`），会话 CRUD 收归用户域 `/api/v1/rag/conversations*`；界面归 4.3 的复测台。会话历史的真正归宿是**账号**（4.7 公开站登录后复用同一套），管理端只是「私有域工具」。**已实施（3.6b b1–b4）**：`persist` 缺省 `true`，为 `false` 时只读历史不写库、合法续聊仍回显同一 id；非法/非本人 `conversationId` 归一为「无会话并创建新会话」，不再报错；管理端 `scope` 仅接受 `all`/`public`，非法值 400。
 3. **SecretGuard 管理端不开**（§11）：作者要能看见自己的库；但页面上要标注「私有内容，勿外传」，因为那里可能出现密钥类文本。
 
 ### 15.6 对既有基线与验收的影响
