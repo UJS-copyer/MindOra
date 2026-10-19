@@ -1,6 +1,7 @@
 package com.mindora.rag.api.web;
 
 import com.mindora.common.api.ApiResponse;
+import com.mindora.common.exception.BusinessException;
 import com.mindora.common.id.PublicIds;
 import com.mindora.rag.api.web.RagAnswerViews.RagAnswerView;
 import com.mindora.rag.application.ConversationTurns;
@@ -8,6 +9,7 @@ import com.mindora.rag.application.RagAnswerService;
 import com.mindora.rag.domain.RagDomain.RagAnswerOutcome;
 import com.mindora.rag.domain.RagDomain.RagAnswerRequest;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,6 +31,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/admin/rag")
 @SecurityRequirement(name = "bearerAuth")
 public class RagAdminController {
+    /** 管理端允许的检索范围：all=全库（私有域工具），public=按公开域复测（design-11 §15.5）。 */
+    private static final Set<String> ALLOWED_SCOPES = Set.of("all", "public");
+
     private final RagAnswerService service;
     private final ConversationTurns conversationTurns;
     private final com.mindora.rag.application.port.RagAdapters.CallerIdentityPort callerIdentity;
@@ -50,7 +55,10 @@ public class RagAdminController {
         RagAnswerRequestView safe = request == null
                 ? new RagAnswerRequestView(null, null, null, null, null, null, null, null)
                 : request;
-        String scope = safe.scope() == null || safe.scope().isBlank() ? "all" : safe.scope();
+        String scope = safe.scope() == null || safe.scope().isBlank() ? "all" : safe.scope().trim();
+        if (!ALLOWED_SCOPES.contains(scope)) {
+            throw new BusinessException("rag_scope_invalid", "scope must be all or public");
+        }
         ConversationTurns.Resolved conversation = conversationTurns.resolve(safe.conversationId());
         long startedAt = System.currentTimeMillis();
         RagAnswerOutcome outcome = service.answer(new RagAnswerRequest(
